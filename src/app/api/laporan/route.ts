@@ -69,11 +69,9 @@ export async function POST(req: Request) {
       accuracyM: parsed.data.accuracyM ?? null,
       clientCreatedAt: parsed.data.clientCreatedAt ? new Date(parsed.data.clientCreatedAt) : null,
       syncedOffline: parsed.data.syncedOffline,
+      clientId: parsed.data.clientId ?? null,
       photos,
     });
-    if (parsed.data.clientId) {
-      await db.reportEvent.updateMany({ where: { reportId: report.id, type: "DIBUAT" }, data: { meta: parsed.data.clientId } });
-    }
     return NextResponse.json({ ok: true, id: report.id, number: report.number });
   } catch (e) {
     if (e instanceof WorkflowError) return NextResponse.json({ error: e.message }, { status: 400 });

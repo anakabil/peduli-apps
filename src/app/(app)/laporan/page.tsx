@@ -22,7 +22,7 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   if (sp.category) and.push({ category: sp.category });
   if (sp.risk) and.push({ riskLevel: sp.risk });
   if (sp.area) and.push({ areaId: sp.area });
-  if (sp.q) and.push({ OR: [{ number: { contains: sp.q } }, { description: { contains: sp.q } }, { areaLabel: { contains: sp.q } }] });
+  if (sp.q) and.push({ OR: [{ number: { contains: sp.q, mode: "insensitive" as const } }, { description: { contains: sp.q, mode: "insensitive" as const } }, { areaLabel: { contains: sp.q, mode: "insensitive" as const } }] });
 
   const [reports, total, areas] = await Promise.all([
     db.report.findMany({

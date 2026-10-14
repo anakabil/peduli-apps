@@ -29,7 +29,12 @@ async function main() {
     areaMap[a.code] = row.id;
   }
 
-  // Akun demo
+  // Akun demo dan laporan contoh hanya bila SEED_DEMO tidak "false"
+  const withDemo = process.env.SEED_DEMO !== "false";
+  if (!withDemo) {
+    console.log("Seed master selesai (pengaturan, area, katalog reward). Akun demo dilewati.");
+    return;
+  }
   const mk = async (email: string, name: string, role: string, extra: Record<string, unknown> = {}) =>
     db.user.upsert({
       where: { email },
@@ -193,6 +198,14 @@ async function main() {
       if (highRisk) await db.pointLedger.create({ data: { userId: reporter.id, reportId: report.id, type: "BONUS_RISIKO", points: 3, note: number, createdAt: verifiedAt ?? decidedAt ?? created } });
     }
   }
+
+  // Sinkronkan pencacah nomor laporan dengan data contoh
+  const maxPerMonth = new Map<string, number>();
+  for (const r of await db.report.findMany({ select: { number: true } })) {
+    const m = r.number.match(/^PDL-(\d{6})-(\d+)$/);
+    if (m) maxPerMonth.set(m[1], Math.max(maxPerMonth.get(m[1]) ?? 0, Number(m[2])));
+  }
+  for (const [ym, value] of maxPerMonth) await db.counter.upsert({ where: { key: `report:${ym}` }, create: { key: `report:${ym}`, value }, update: { value } });
 
   await db.auditLog.create({ data: { actorId: admin.id, action: "SEED", detail: JSON.stringify({ users: 9, reports: 48 }) } });
   console.log("Seed selesai.");

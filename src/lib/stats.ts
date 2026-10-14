@@ -1,11 +1,17 @@
 import { db } from "./db";
 import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, type Category, type Risk, type Status } from "./constants";
-import { daysBetween, hoursBetween } from "./format";
+import { daysBetween, hoursBetween, jktDate, jktParts } from "./format";
 
 export type Period = { from: Date; to: Date };
 
 export function monthPeriod(year: number, month0: number): Period {
-  return { from: new Date(year, month0, 1), to: new Date(year, month0 + 1, 1) };
+  return { from: jktDate(year, month0, 1), to: jktDate(year, month0 + 1, 1) };
+}
+
+/** Periode bulan berjalan menurut WIB */
+export function currentMonthPeriod(now = new Date()): Period {
+  const { y, m0 } = jktParts(now);
+  return monthPeriod(y, m0);
 }
 
 export function previousPeriod(p: Period): Period {
@@ -24,6 +30,7 @@ type Row = {
   path: string;
   createdAt: Date;
   verifiedAt: Date | null;
+  verificationResult: string | null;
   decidedAt: Date | null;
   decisionResult: string | null;
   targetDate: Date | null;
@@ -41,7 +48,7 @@ type Row = {
 
 const select = {
   id: true, number: true, reporterId: true, areaId: true, category: true, riskLevel: true, status: true, path: true, createdAt: true,
-  verifiedAt: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, controlHierarchy: true,
+  verifiedAt: true, verificationResult: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, controlHierarchy: true,
   pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true,
   area: { select: { id: true, name: true } },
   reporter: { select: { id: true, name: true, role: true, departemen: true } },
@@ -56,7 +63,8 @@ function avg(xs: number[]) {
 
 export async function computeStats(period: Period, opts: { areaId?: string | null } = {}) {
   const now = new Date();
-  const trendStart = new Date(period.to.getFullYear(), period.to.getMonth() - 12, 1);
+  const endParts = jktParts(new Date(period.to.getTime() - 1));
+  const trendStart = jktDate(endParts.y, endParts.m0 - 11, 1);
   const prev = previousPeriod(period);
   const earliest = new Date(Math.min(trendStart.getTime(), prev.from.getTime()));
 
@@ -72,7 +80,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
   const inP = (d: Date | null | undefined, p: Period) => !!d && d >= p.from && d < p.to;
   const cur = rows.filter((r) => inP(r.createdAt, period));
   const prevRows = rows.filter((r) => inP(r.createdAt, prev));
-  const valid = (r: Row) => r.pointsAwarded > 0 || r.verifiedAt != null || r.decisionResult === "SETUJU";
+  const valid = (r: Row) => r.verificationResult === "VALID" || r.decisionResult === "SETUJU" || r.pointsAwarded > 0;
 
   // Partisipasi: pengguna yang melapor dalam periode / pengguna aktif
   const eligible = opts.areaId ? activeUsers.filter((u) => u.areaId === opts.areaId) : activeUsers;
@@ -114,11 +122,11 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
   // Tren 12 bulan
   const trend: Array<{ label: string; key: string; masuk: number; ditutup: number; valid: number }> = [];
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(period.to.getFullYear(), period.to.getMonth() - 1 - i, 1);
-    const p = monthPeriod(d.getFullYear(), d.getMonth());
+    const p = monthPeriod(endParts.y, endParts.m0 - i);
+    const mp = jktParts(p.from);
     trend.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: new Intl.DateTimeFormat("id-ID", { month: "short", year: "2-digit" }).format(d),
+      key: `${mp.y}-${String(mp.m0 + 1).padStart(2, "0")}`,
+      label: new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", month: "short", year: "2-digit" }).format(p.from),
       masuk: rows.filter((r) => inP(r.createdAt, p)).length,
       ditutup: rows.filter((r) => inP(r.closedAt, p)).length,
       valid: rows.filter((r) => inP(r.createdAt, p) && valid(r)).length,

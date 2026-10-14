@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (secret && auth !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!secret || auth !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized. Atur CRON_SECRET dan kirim header Authorization: Bearer <secret>." }, { status: 401 });
   const settings = await getSettings();
   if (!settings.reminders) return NextResponse.json({ ok: true, skipped: "pengingat nonaktif" });
 

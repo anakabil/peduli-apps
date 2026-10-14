@@ -92,15 +92,20 @@ export async function saveRewardAction(rewardId: string | null, fd: FormData): P
 
 export async function processRedemptionAction(id: string, status: "DIPROSES" | "SELESAI" | "DITOLAK", note: string): Promise<Result> {
   const admin = await requireUser(["ADMIN"]);
+  if (!["DIPROSES", "SELESAI", "DITOLAK"].includes(status)) return { ok: false, message: "Status tidak valid." };
   const r = await db.redemption.findUnique({ where: { id }, include: { reward: true } });
   if (!r) return { ok: false, message: "Penukaran tidak ditemukan." };
   if (r.status === "SELESAI" || r.status === "DITOLAK") return { ok: false, message: "Penukaran sudah final." };
-  const ops = [db.redemption.update({ where: { id }, data: { status, note: note || null, processedById: admin.id, processedAt: new Date() } })];
-  if (status === "DITOLAK") {
-    ops.push(db.pointLedger.create({ data: { userId: r.userId, type: "PENYESUAIAN", points: r.pointsCost, note: `Pengembalian poin: ${r.reward.name} ditolak` } }) as never);
-    ops.push(db.reward.update({ where: { id: r.rewardId }, data: { stock: { increment: 1 } } }) as never);
-  }
-  await db.$transaction(ops);
+  const changed = await db.$transaction(async (tx) => {
+    const upd = await tx.redemption.updateMany({ where: { id, status: { in: ["DIAJUKAN", "DIPROSES"] } }, data: { status, note: note || null, processedById: admin.id, processedAt: new Date() } });
+    if (upd.count !== 1) return false;
+    if (status === "DITOLAK") {
+      await tx.pointLedger.create({ data: { userId: r.userId, type: "PENYESUAIAN", points: r.pointsCost, note: `Pengembalian poin: ${r.reward.name} ditolak` } });
+      await tx.reward.update({ where: { id: r.rewardId }, data: { stock: { increment: 1 } } });
+    }
+    return true;
+  });
+  if (!changed) return { ok: false, message: "Penukaran sudah diproses oleh admin lain." };
   await notify([r.userId], `Penukaran ${r.reward.name}: ${status === "SELESAI" ? "selesai" : status === "DIPROSES" ? "sedang diproses" : "ditolak"}`, note || undefined, "/poin");
   await audit(admin.id, "PENUKARAN_DIPROSES", "Redemption", id, { status, note });
   revalidatePath("/admin/penukaran");

@@ -2,12 +2,12 @@
 // Pelaporan Bahaya dan Upaya Pengendalian - PT. Garuda Yamato Steel
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  // Runtime memakai URL yang dipilih di src/lib/db.ts; CLI memakai DATABASE_URL (lihat scripts/migrate.mjs)
   url      = env("DATABASE_URL")
 }
 
@@ -122,8 +122,8 @@ model Report {
 
   category  String // KONDISI_TIDAK_AMAN | TINDAKAN_TIDAK_AMAN | NYARIS_CELAKA | ERGONOMI | LINGKUNGAN
   riskLevel String // RENDAH | SEDANG | TINGGI | EKSTREM
-  description String
-  suggestion  String?
+  description String  @db.Text
+  suggestion  String? @db.Text
 
   lat         Float?
   lng         Float?
@@ -216,8 +216,8 @@ model ReportEvent {
   type       String   // DIBUAT | DIVERIFIKASI | DIREVISI | DITOLAK | DIPUTUSKAN | PROGRES | SELESAI_PERBAIKAN | DITUTUP | DIESKALASI | PENGINGAT | REVISI_DIKIRIM
   fromStatus String?
   toStatus   String?
-  note       String?
-  meta       String?  // JSON
+  note       String?  @db.Text
+  meta       String?  @db.Text // JSON
   createdAt  DateTime @default(now())
 
   @@index([reportId])
@@ -271,9 +271,15 @@ model Redemption {
 
 model Setting {
   key       String   @id
-  value     String   // JSON
+  value     String   @db.Text // JSON
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+/// Pencacah atomik untuk nomor laporan per bulan (kunci: report:YYYYMM)
+model Counter {
+  key   String @id
+  value Int    @default(0)
 }
 
 model AuditLog {
@@ -283,7 +289,7 @@ model AuditLog {
   action    String
   entity    String?
   entityId  String?
-  detail    String?  // JSON
+  detail    String?  @db.Text // JSON
   ip        String?
   createdAt DateTime @default(now())
 

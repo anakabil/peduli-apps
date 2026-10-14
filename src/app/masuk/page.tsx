@@ -7,6 +7,8 @@ import { GoogleOneTap } from "./one-tap";
 import { DemoLogin } from "./demo-login";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { APP_TAGLINE, COMPANY_NAME } from "@/lib/constants";
+import { envBlocking, envIssues } from "@/lib/env-check";
+import { SetupChecklist } from "./setup-checklist";
 
 export const metadata = { title: "Masuk" };
 
@@ -20,7 +22,9 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string }> }) {
-  const session = await auth();
+  const blocking = envBlocking();
+  if (blocking.length) return <SetupChecklist issues={envIssues()} />;
+  const session = await auth().catch(() => null);
   if (session?.user) redirect("/beranda");
   const sp = await searchParams;
   const error = sp.error ? ERRORS[sp.error] ?? "Terjadi kendala saat masuk. Coba lagi." : null;

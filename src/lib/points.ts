@@ -63,31 +63,33 @@ export async function awardValidationPoints(reportId: string, settings: AppSetti
   }
 
   const total = entries.reduce((s, e) => s + e.points, 0);
-  await db.$transaction([
-    db.pointLedger.createMany({ data: entries.map((e) => ({ ...e, userId: report.reporterId, reportId: report.id })) }),
-    db.report.update({ where: { id: report.id }, data: { pointsAwarded: total } }),
-  ]);
-  return total;
+  return db.$transaction(async (tx) => {
+    // Klaim atomik: hanya satu proses yang berhasil mengubah pointsAwarded dari 0
+    const claim = await tx.report.updateMany({ where: { id: report.id, pointsAwarded: 0 }, data: { pointsAwarded: total } });
+    if (claim.count !== 1) return 0;
+    await tx.pointLedger.createMany({ data: entries.map((e) => ({ ...e, userId: report.reporterId, reportId: report.id })) });
+    return total;
+  });
 }
 
 export async function awardSuggestionBonus(reportId: string, settings: AppSettings) {
   const report = await db.report.findUnique({ where: { id: reportId } });
   if (!report || !report.suggestion) return 0;
-  const exists = await db.pointLedger.findFirst({ where: { reportId, type: "BONUS_USULAN" } });
-  if (exists) return 0;
-  await db.$transaction([
-    db.pointLedger.create({ data: { userId: report.reporterId, reportId, type: "BONUS_USULAN", points: settings.points.suggestionBonus, note: report.number } }),
-    db.report.update({ where: { id: reportId }, data: { pointsAwarded: { increment: settings.points.suggestionBonus }, suggestionApplied: true } }),
-  ]);
-  return settings.points.suggestionBonus;
+  return db.$transaction(async (tx) => {
+    const claim = await tx.report.updateMany({ where: { id: reportId, suggestionApplied: false }, data: { pointsAwarded: { increment: settings.points.suggestionBonus }, suggestionApplied: true } });
+    if (claim.count !== 1) return 0;
+    await tx.pointLedger.create({ data: { userId: report.reporterId, reportId, type: "BONUS_USULAN", points: settings.points.suggestionBonus, note: report.number } });
+    return settings.points.suggestionBonus;
+  });
 }
 
 /** Membatalkan poin bila laporan ternyata ganda atau tidak benar */
 export async function revokePoints(reportId: string, reason: string) {
   const report = await db.report.findUnique({ where: { id: reportId } });
   if (!report || report.pointsAwarded <= 0) return;
-  await db.$transaction([
-    db.pointLedger.create({ data: { userId: report.reporterId, reportId, type: "PEMBATALAN", points: -report.pointsAwarded, note: `${report.number}: ${reason}` } }),
-    db.report.update({ where: { id: reportId }, data: { pointsAwarded: 0 } }),
-  ]);
+  await db.$transaction(async (tx) => {
+    const claim = await tx.report.updateMany({ where: { id: reportId, pointsAwarded: report.pointsAwarded }, data: { pointsAwarded: 0 } });
+    if (claim.count !== 1) return;
+    await tx.pointLedger.create({ data: { userId: report.reporterId, reportId, type: "PEMBATALAN", points: -report.pointsAwarded, note: `${report.number}: ${reason}` } });
+  });
 }

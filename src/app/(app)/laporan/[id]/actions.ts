@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { verifyReport, decideReport, updateProgress, closeReport, resubmitReport, WorkflowError } from "@/lib/workflow";
-import { CATEGORIES, RISKS, type Category, type Risk } from "@/lib/constants";
+import { CATEGORIES, RISKS, CONTROLS, type Category, type Risk } from "@/lib/constants";
+
+const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 import { db } from "@/lib/db";
 import { audit } from "@/lib/notify";
 
@@ -22,9 +24,10 @@ async function run(fn: () => Promise<string | void>): Promise<ActionResult> {
 
 export async function verifyAction(reportId: string, fd: FormData): Promise<ActionResult> {
   const user = await requireUser();
-  const result = String(fd.get("result")) as "VALID" | "REVISI" | "TOLAK";
+  const result = String(fd.get("result"));
+  if (!["VALID", "REVISI", "TOLAK"].includes(result)) return { ok: false, error: "Hasil verifikasi tidak valid." };
   const note = String(fd.get("note") ?? "");
-  const r = await run(() => verifyReport(user.id, reportId, result, note));
+  const r = await run(() => verifyReport(user.id, reportId, result as "VALID" | "REVISI" | "TOLAK", note));
   revalidatePath(`/laporan/${reportId}`);
   revalidatePath("/verifikasi");
   return r;
@@ -32,11 +35,17 @@ export async function verifyAction(reportId: string, fd: FormData): Promise<Acti
 
 export async function decideAction(reportId: string, fd: FormData): Promise<ActionResult> {
   const user = await requireUser();
-  const result = String(fd.get("result")) as "SETUJU" | "TOLAK";
+  const result = String(fd.get("result"));
+  if (!["SETUJU", "TOLAK"].includes(result)) return { ok: false, error: "Hasil keputusan tidak valid." };
+  const control = String(fd.get("controlHierarchy") ?? "");
+  if (control && !(CONTROLS as readonly string[]).includes(control)) return { ok: false, error: "Hierarki pengendalian tidak valid." };
+  const rejectRaw = String(fd.get("rejectReason") ?? "");
+  if (rejectRaw && !["GANDA", "TIDAK_BENAR", "TIDAK_PERLU_TINDAKAN"].includes(rejectRaw)) return { ok: false, error: "Alasan penolakan tidak valid." };
   const targetRaw = String(fd.get("targetDate") ?? "");
+  if (targetRaw && !/^\d{4}-\d{2}-\d{2}$/.test(targetRaw)) return { ok: false, error: "Format tanggal target tidak valid." };
   const r = await run(() =>
     decideReport(user.id, reportId, {
-      result,
+      result: result as "SETUJU" | "TOLAK",
       note: String(fd.get("note") ?? ""),
       picId: String(fd.get("picId") ?? "") || null,
       picName: String(fd.get("picName") ?? "") || null,
@@ -44,8 +53,8 @@ export async function decideAction(reportId: string, fd: FormData): Promise<Acti
       resourceBiaya: String(fd.get("resourceBiaya") ?? "") || null,
       resourceMaterial: String(fd.get("resourceMaterial") ?? "") || null,
       targetDate: targetRaw ? new Date(targetRaw + "T17:00:00+07:00") : null,
-      controlHierarchy: String(fd.get("controlHierarchy") ?? "") || null,
-      rejectReason: (String(fd.get("rejectReason") ?? "") || undefined) as "GANDA" | "TIDAK_BENAR" | "TIDAK_PERLU_TINDAKAN" | undefined,
+      controlHierarchy: control || null,
+      rejectReason: (rejectRaw || undefined) as "GANDA" | "TIDAK_BENAR" | "TIDAK_PERLU_TINDAKAN" | undefined,
     })
   );
   revalidatePath(`/laporan/${reportId}`);
@@ -61,8 +70,9 @@ export async function progressAction(reportId: string, fd: FormData): Promise<Ac
   let photo: { mime: string; data: Uint8Array<ArrayBuffer> } | undefined;
   const f = fd.get("photo");
   if (f instanceof File && f.size > 0) {
+    if (!ALLOWED_MIME.includes(f.type)) return { ok: false, error: "Format foto harus JPEG, PNG, atau WebP." };
     if (f.size > 2 * 1024 * 1024) return { ok: false, error: "Ukuran foto maksimal 2 MB." };
-    photo = { mime: f.type || "image/jpeg", data: new Uint8Array(await f.arrayBuffer()) };
+    photo = { mime: f.type, data: new Uint8Array(await f.arrayBuffer()) };
   }
   if (!note) return { ok: false, error: "Catatan progres wajib diisi." };
   const r = await run(() => updateProgress(user.id, reportId, pct, note, done, photo));

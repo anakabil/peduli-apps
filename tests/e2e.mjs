@@ -138,8 +138,28 @@ for (const p of ["/admin/pengguna", "/admin/area", "/admin/reward", "/admin/peng
   await page.screenshot({ path: `${S}/e2e-admin${p.replace(/\//g, "_")}.png`, fullPage: true });
 }
 ok(true, "Halaman admin dapat dibuka");
-await page.goto(`${BASE}/api/cron/pengingat`);
-ok((await page.textContent("body")).includes('"ok":true'), "Endpoint cron pengingat berjalan");
+const cronNoAuth = await page.request.get(`${BASE}/api/cron/pengingat`);
+ok(cronNoAuth.status() === 401, "Endpoint cron menolak permintaan tanpa rahasia");
+const cron = await page.request.get(`${BASE}/api/cron/pengingat`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET || "uji-cron-lokal"}` } });
+ok(cron.ok() && (await cron.json()).ok === true, "Endpoint cron pengingat berjalan dengan rahasia");
+await logout();
+
+// 8. Pengiriman bersamaan: nomor laporan harus unik (uji kondisi balapan)
+await login("Pengawas");
+const photoBuf = fs.readFileSync(photo);
+const submit = (i) => page.request.post(`${BASE}/api/laporan`, { multipart: { category: "KONDISI_TIDAK_AMAN", riskLevel: "RENDAH", description: `Uji pengiriman bersamaan nomor ${i}, lantai licin.`, lat: "-5.9955", lng: "106.0152", accuracyM: "5", clientId: `race-${Date.now()}-${i}`, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } });
+const results = await Promise.all([0, 1, 2, 3, 4].map(submit));
+const bodies = await Promise.all(results.map((r) => r.json()));
+const numbers = bodies.map((b) => b.number);
+ok(results.every((r) => r.ok()) && new Set(numbers).size === 5, `Lima pengiriman bersamaan memperoleh nomor unik: ${numbers.join(", ")}`);
+// Idempoten: clientId sama tidak membuat laporan baru
+const cid = `idem-${Date.now()}`;
+const first = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
+const second = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
+ok(first.id === second.id && second.duplicate === true, "Pengiriman ulang dengan clientId sama tidak menggandakan laporan");
+// Berkas non-gambar ditolak
+const bad = await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji berkas berbahaya ditolak.", photos: { name: "x.html", mimeType: "text/html", buffer: Buffer.from("<script>1</script>") } } });
+ok(bad.status() === 400, "Unggahan berkas non-gambar ditolak");
 
 await browser.close();
 if (errors.length) { console.log("Kesalahan konsol/HTTP:"); errors.forEach((e) => console.log(" -", e)); }

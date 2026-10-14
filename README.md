@@ -24,14 +24,16 @@ Peran: Admin, Direksi, Manager, Superintendent, Pengawas. Menu tampil otomatis s
 
 ## Teknologi
 
-Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, Prisma 6 (SQLite lokal, Turso/libSQL untuk produksi), Auth.js 5 (Google), Chart.js, jsPDF, pptxgenjs, Playwright untuk uji ujung ke ujung.
+Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, Prisma 6 dengan PostgreSQL (Prisma Postgres di Vercel), Auth.js 5 (Google), Chart.js, jsPDF, pptxgenjs, Playwright untuk uji ujung ke ujung.
 
 ## Menjalankan secara lokal
 
+Memerlukan PostgreSQL (lokal atau layanan apa pun yang memberi URL `postgresql://`).
+
 ```bash
 npm install
-cp .env.example .env         # isi AUTH_SECRET, ADMIN_EMAILS, dan kredensial Google
-npm run db:deploy            # membuat basis data SQLite dari migrasi
+cp .env.example .env         # isi DATABASE_URL, AUTH_SECRET, ADMIN_EMAILS, kredensial Google
+npm run db:deploy            # menerapkan migrasi (prisma migrate deploy)
 npm run db:seed              # data contoh: akun demo, area, katalog reward, laporan
 npm run dev                  # http://localhost:3000
 ```
@@ -43,26 +45,40 @@ Dengan `DEMO_MODE="true"` halaman masuk menyediakan tombol masuk cepat sebagai a
 1. Buka Google Cloud Console, buat OAuth client ID jenis Web application.
 2. Authorized JavaScript origins: `https://DOMAIN` (dan `http://localhost:3000` untuk pengembangan).
 3. Authorized redirect URIs: `https://DOMAIN/api/auth/callback/google`.
-4. Isi `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, dan `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (nilai yang sama dengan client ID) pada `.env`.
+4. Isi `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, dan `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (nilai yang sama dengan client ID).
 5. Isi `ADMIN_EMAILS` dengan email Google admin program. Opsional, batasi domain dengan `ALLOWED_EMAIL_DOMAINS`.
 
 Google One Tap menggunakan client ID yang sama. Di smartphone, One Tap otomatis menampilkan akun Google yang ada di perangkat dan masuk setelah ID token diverifikasi di server.
 
-## Produksi
+## Produksi di Vercel dengan Prisma Postgres
 
-Basis data SQLite berbentuk berkas, sehingga cocok untuk server sendiri (VPS). Untuk Vercel atau platform tanpa penyimpanan berkas, gunakan Turso:
+1. Impor repository ke Vercel sebagai proyek Next.js (preset bawaan sudah benar, perintah build `npm run build`).
+2. Di tab Storage, pasang integrasi Prisma Postgres dan hubungkan ke proyek. Integrasi menyuntikkan `DATABASE_URL` (kode juga mengenali `PRISMA_DATABASE_URL`, `POSTGRES_URL`, dan `POSTGRES_PRISMA_URL`). Migrasi dijalankan otomatis saat build oleh `scripts/migrate.mjs`, yang memilih URL koneksi langsung bila tersedia (`DIRECT_URL`, `POSTGRES_URL_NON_POOLING`).
+3. Tambahkan variabel lingkungan berikut di Settings, Environment Variables, lalu deploy ulang:
+
+| Variabel | Wajib | Keterangan |
+| --- | --- | --- |
+| `AUTH_SECRET` | ya | `openssl rand -base64 32` |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | ya (kecuali demo) | Google OAuth, redirect URI `https://DOMAIN/api/auth/callback/google` |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | disarankan | sama dengan `AUTH_GOOGLE_ID`, untuk One Tap di smartphone |
+| `ADMIN_EMAILS` | ya | email Google yang otomatis menjadi Admin |
+| `ALLOWED_EMAIL_DOMAINS` | opsional | misal `gys.co.id` |
+| `DEMO_MODE` | opsional | `true` hanya saat uji coba, lalu `false` |
+| `CRON_SECRET` | ya | rahasia acak; Vercel Cron mengirimnya otomatis pada jadwal di `vercel.json` |
+| `SKIP_MIGRATE` | opsional | `true` bila migrasi ingin dijalankan manual |
+
+Bila variabel wajib belum lengkap, halaman masuk menampilkan daftar periksa konfigurasi, bukan galat 500.
+
+4. Data awal produksi (pengaturan alur, lima area contoh, katalog reward) tanpa akun demo:
 
 ```bash
-turso db create peduli
-turso db show peduli --url      # TURSO_DATABASE_URL
-turso db tokens create peduli   # TURSO_AUTH_TOKEN
-# terapkan migrasi
-for f in prisma/migrations/*/migration.sql; do turso db shell peduli < "$f"; done
+vercel env pull .env.production.local
+SEED_DEMO=false DATABASE_URL="<nilai DATABASE_URL produksi>" npm run db:seed
 ```
 
-Variabel lingkungan produksi: `DATABASE_URL="file:./dev.db"` (tetap diisi untuk Prisma), `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `AUTH_SECRET`, `AUTH_URL`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `ADMIN_EMAILS`, `DEMO_MODE="false"`, `CRON_SECRET`.
+Area dan katalog dapat diubah kapan saja lewat menu Admin, sehingga langkah ini opsional. Admin pertama cukup masuk dengan email yang tercantum di `ADMIN_EMAILS`.
 
-Skrip `build` menjalankan `prisma generate` lalu `next build`. Foto disimpan di basis data (dikompresi di perangkat, maksimal 2 MB per foto) sehingga tidak memerlukan penyimpanan objek terpisah pada tahap uji coba.
+Foto disimpan di basis data (dikompresi di perangkat, maksimal 2 MB per foto, hanya JPEG, PNG, WebP). Untuk skala penuh, foto dapat dipindahkan ke penyimpanan objek tanpa mengubah alur.
 
 ## Uji ujung ke ujung
 
@@ -72,12 +88,13 @@ Dengan server berjalan di `http://localhost:3000` dan `DEMO_MODE="true"`:
 npm run test:e2e
 ```
 
-Skenario: Pengawas melapor dengan foto dan GPS, Superintendent memverifikasi, Manager memutuskan, perbaikan dan penutupan, poin dan penukaran, pemrosesan admin, ekspor PDF, PPTX, CSV, dan endpoint pengingat.
+Skenario: Pengawas melapor dengan foto dan GPS, Superintendent memverifikasi, Manager memutuskan, perbaikan dan penutupan, poin dan penukaran, pemrosesan admin, ekspor PDF, PPTX, CSV, endpoint pengingat dengan rahasia, lima pengiriman bersamaan memperoleh nomor unik, pengiriman ulang antrean luring tidak menggandakan laporan, dan berkas non-gambar ditolak.
 
 ## Struktur
 
 ```
-prisma/              skema, migrasi, seed
+prisma/              skema, migrasi PostgreSQL, seed
+scripts/migrate.mjs  memilih URL koneksi dan menjalankan prisma migrate deploy saat build
 src/app/masuk        halaman masuk (Google, One Tap, demo)
 src/app/(app)        halaman beraut: beranda, lapor, laporan, verifikasi, keputusan,
                      tindak-lanjut, poin, statistik, admin, notifikasi, profil, panduan

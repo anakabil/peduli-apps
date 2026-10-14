@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeStats, monthPeriod } from "@/lib/stats";
+import { jktDate, jktParts } from "@/lib/format";
 import { PageHeader } from "@/components/ui";
 import { StatsDashboard, type SerializedStats } from "./dashboard";
 import { PeriodPicker } from "./period-picker";
@@ -8,22 +9,29 @@ import { COMPANY_NAME } from "@/lib/constants";
 
 export const metadata = { title: "Statistik" };
 
+function parseYmd(v: string) {
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? jktDate(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
 function parsePeriod(sp: Record<string, string | undefined>) {
-  const now = new Date();
+  const now = jktParts();
   if (sp.dari && sp.sampai) {
-    const from = new Date(sp.dari);
-    const to = new Date(sp.sampai);
-    to.setDate(to.getDate() + 1);
-    if (!isNaN(from.getTime()) && !isNaN(to.getTime()) && from < to) return { period: { from, to }, label: `${sp.dari} s.d. ${sp.sampai}`, mode: "rentang" as const };
+    const from = parseYmd(sp.dari);
+    const toDay = parseYmd(sp.sampai);
+    if (from && toDay && from <= toDay) {
+      const to = new Date(toDay.getTime() + 86400000);
+      return { period: { from, to }, label: `${sp.dari} s.d. ${sp.sampai}`, mode: "rentang" as const };
+    }
   }
   if (sp.tahun && !sp.bulan) {
     const y = parseInt(sp.tahun, 10);
-    if (y > 2000) return { period: { from: new Date(y, 0, 1), to: new Date(y + 1, 0, 1) }, label: `Tahun ${y}`, mode: "tahun" as const };
+    if (y > 2000 && y < 2200) return { period: { from: jktDate(y, 0, 1), to: jktDate(y + 1, 0, 1) }, label: `Tahun ${y}`, mode: "tahun" as const };
   }
-  const m = sp.bulan ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const m = /^\d{4}-\d{2}$/.test(sp.bulan ?? "") ? sp.bulan! : `${now.y}-${String(now.m0 + 1).padStart(2, "0")}`;
   const [y, mo] = m.split("-").map(Number);
   const period = monthPeriod(y, mo - 1);
-  return { period, label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(period.from), mode: "bulan" as const };
+  return { period, label: new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", month: "long", year: "numeric" }).format(period.from), mode: "bulan" as const };
 }
 
 export default async function StatistikPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

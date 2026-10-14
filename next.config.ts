@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql", "@libsql/client", "libsql", "google-auth-library"],
+  serverExternalPackages: ["@prisma/client", "google-auth-library"],
   images: { remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }] },
   webpack(config, { isServer, webpack }) {
     if (!isServer) {

@@ -3,7 +3,7 @@ import { PlusCircle, ShieldCheck, Gavel, Wrench, Award, BarChart3, Users, Star, 
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { computeStats, monthPeriod } from "@/lib/stats";
+import { computeStats, currentMonthPeriod } from "@/lib/stats";
 import { pointBalance, pointEarned, levelFor } from "@/lib/points";
 import { reportScope } from "@/lib/workflow";
 import { Stat, Card, CardHeader, CardBody } from "@/components/ui";
@@ -26,7 +26,7 @@ export default async function BerandaPage() {
   const user = await requireUser();
   const role = user.role as Role;
   const now = new Date();
-  const period = monthPeriod(now.getFullYear(), now.getMonth());
+  const period = currentMonthPeriod(now);
   const settings = await getSettings();
 
   const [recent, myOpen, notifs] = await Promise.all([

@@ -57,13 +57,26 @@ export function hoursBetween(a: Date, b: Date) {
   return (b.getTime() - a.getTime()) / 3600000;
 }
 
-/** Tambah n hari kerja (Senin-Jumat) */
+const JKT_OFFSET_MS = 7 * 3600000;
+
+/** Komponen tanggal menurut zona Asia/Jakarta (WIB, UTC+7, tanpa DST) */
+export function jktParts(d: Date = new Date()) {
+  const s = new Date(d.getTime() + JKT_OFFSET_MS);
+  return { y: s.getUTCFullYear(), m0: s.getUTCMonth(), d: s.getUTCDate(), dow: s.getUTCDay(), h: s.getUTCHours() };
+}
+
+/** Date yang mewakili tengah malam WIB pada tanggal yang diberikan (bulan 0-11, boleh di luar rentang) */
+export function jktDate(y: number, m0: number, d = 1) {
+  return new Date(Date.UTC(y, m0, d) - JKT_OFFSET_MS);
+}
+
+/** Tambah n hari kerja (Senin-Jumat) menurut kalender WIB */
 export function addBusinessDays(from: Date, days: number) {
   const d = new Date(from);
   let added = 0;
   while (added < days) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
+    d.setTime(d.getTime() + 86400000);
+    const dow = jktParts(d).dow;
     if (dow !== 0 && dow !== 6) added++;
   }
   return d;

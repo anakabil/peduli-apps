@@ -12,7 +12,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   await requireUser(["ADMIN"]);
   const sp = await searchParams;
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
-  const where = sp.q ? { OR: [{ action: { contains: sp.q.toUpperCase() } }, { actor: { name: { contains: sp.q } } }, { entityId: { contains: sp.q } }] } : {};
+  const where = sp.q ? { OR: [{ action: { contains: sp.q, mode: "insensitive" as const } }, { actor: { name: { contains: sp.q, mode: "insensitive" as const } } }, { entityId: { contains: sp.q, mode: "insensitive" as const } }] } : {};
   const [logs, total] = await Promise.all([
     db.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE, take: PAGE, include: { actor: { select: { name: true, role: true } } } }),
     db.auditLog.count({ where }),

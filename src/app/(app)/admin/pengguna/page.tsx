@@ -13,7 +13,7 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const [users, areas, balances] = await Promise.all([
     db.user.findMany({
-      where: { ...(sp.status ? { status: sp.status } : {}), ...(sp.q ? { OR: [{ name: { contains: sp.q } }, { email: { contains: sp.q } }, { nik: { contains: sp.q } }] } : {}) },
+      where: { ...(sp.status ? { status: sp.status } : {}), ...(sp.q ? { OR: [{ name: { contains: sp.q, mode: "insensitive" as const } }, { email: { contains: sp.q, mode: "insensitive" as const } }, { nik: { contains: sp.q, mode: "insensitive" as const } }] } : {}) },
       orderBy: [{ status: "asc" }, { role: "asc" }, { name: "asc" }],
       include: { area: { select: { name: true } }, atasan: { select: { name: true } }, _count: { select: { reports: true } } },
     }),

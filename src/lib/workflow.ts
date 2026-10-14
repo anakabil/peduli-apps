@@ -2,17 +2,36 @@ import { db } from "./db";
 import { getSettings } from "./settings";
 import { notify, audit } from "./notify";
 import { awardValidationPoints, awardSuggestionBonus, revokePoints } from "./points";
-import { addBusinessDays, distanceM } from "./format";
+import { addBusinessDays, distanceM, jktParts } from "./format";
+import { Prisma } from "@prisma/client";
 import { CATEGORY_LABEL, RISK_LABEL, type Category, type Risk } from "./constants";
 
 export class WorkflowError extends Error {}
 
+/** Nomor laporan unik per bulan (WIB) dari pencacah atomik di basis data */
 export async function nextReportNumber(date = new Date()) {
-  const ym = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
-  const prefix = `PDL-${ym}-`;
-  const last = await db.report.findFirst({ where: { number: { startsWith: prefix } }, orderBy: { number: "desc" }, select: { number: true } });
-  const seq = last ? parseInt(last.number.slice(prefix.length), 10) + 1 : 1;
-  return `${prefix}${String(seq).padStart(4, "0")}`;
+  const { y, m0 } = jktParts(date);
+  const ym = `${y}${String(m0 + 1).padStart(2, "0")}`;
+  const key = `report:${ym}`;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const c = await db.counter.upsert({ where: { key }, create: { key, value: 1 }, update: { value: { increment: 1 } } });
+      return `PDL-${ym}-${String(c.value).padStart(4, "0")}`;
+    } catch (e) {
+      if (!isUniqueError(e)) throw e; // tabrakan pembuatan baris pertama, ulangi
+    }
+  }
+  throw new WorkflowError("Gagal menetapkan nomor laporan. Coba lagi.");
+}
+
+/** Memastikan transisi status atomik: gagal bila status sudah berubah oleh proses lain */
+async function transition(reportId: string, fromStatus: string | string[], data: Prisma.ReportUncheckedUpdateManyInput) {
+  const res = await db.report.updateMany({ where: { id: reportId, status: Array.isArray(fromStatus) ? { in: fromStatus } : fromStatus }, data });
+  if (res.count !== 1) throw new WorkflowError("Status laporan sudah berubah. Muat ulang halaman.");
+}
+
+function isUniqueError(e: unknown) {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 }
 
 /** Menentukan area kerja dari koordinat; mengembalikan area terdekat dan apakah di luar radius */
@@ -66,6 +85,7 @@ export type NewReportInput = {
   accuracyM?: number | null;
   clientCreatedAt?: Date | null;
   syncedOffline?: boolean;
+  clientId?: string | null;
   photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer>; width?: number; height?: number }>;
 };
 
@@ -76,11 +96,16 @@ export async function createReport(input: NewReportInput) {
   const now = new Date();
   const path = reporter.role === "PENGAWAS" ? "A" : "B";
   const { areaId, outsideArea, flag } = await resolveArea(input.lat ?? null, input.lng ?? null, reporter.areaId);
-  const number = await nextReportNumber(now);
   const highRisk = input.riskLevel === "TINGGI" || input.riskLevel === "EKSTREM";
   const status = path === "A" ? "MENUNGGU_VERIFIKASI" : "MENUNGGU_KEPUTUSAN";
 
-  const report = await db.report.create({
+  // Nomor laporan dari pencacah atomik; ulangi bila ternyata sudah terpakai (data lama tanpa pencacah)
+  let report: Awaited<ReturnType<typeof db.report.create>> | null = null;
+  let number = "";
+  for (let attempt = 0; attempt < 50 && !report; attempt++) {
+    number = await nextReportNumber(now);
+    try {
+      report = await db.report.create({
     data: {
       number,
       reporterId: reporter.id,
@@ -103,9 +128,14 @@ export async function createReport(input: NewReportInput) {
       dueVerifyAt: path === "A" ? addBusinessDays(now, settings.verifyDeadlineDays) : null,
       dueDecideAt: path === "B" ? addBusinessDays(now, settings.decideDeadlineDays) : null,
       photos: { create: input.photos.map((p) => ({ mime: p.mime, data: p.data, width: p.width, height: p.height, size: p.data.length, kind: "LAPORAN" })) },
-      events: { create: { type: "DIBUAT", actorId: reporter.id, toStatus: status, note: input.syncedOffline ? "Dikirim dari antrean luring" : null } },
+      events: { create: { type: "DIBUAT", actorId: reporter.id, toStatus: status, note: input.syncedOffline ? "Dikirim dari antrean luring" : null, meta: input.clientId ?? null } },
     },
   });
+    } catch (e) {
+      if (!isUniqueError(e)) throw e;
+    }
+  }
+  if (!report) throw new WorkflowError("Gagal menetapkan nomor laporan. Coba lagi.");
 
   const summary = `${CATEGORY_LABEL[input.category]} - risiko ${RISK_LABEL[input.riskLevel]}`;
   if (path === "A") {
@@ -145,20 +175,17 @@ export async function verifyReport(actorId: string, reportId: string, result: "V
   const settings = await getSettings();
   const now = new Date();
   const toStatus = result === "VALID" ? "MENUNGGU_KEPUTUSAN" : result === "REVISI" ? "PERLU_REVISI" : "DITOLAK";
-  await db.report.update({
-    where: { id: reportId },
-    data: {
-      status: toStatus,
-      verifierId: actorId,
-      verifiedAt: now,
-      verificationResult: result,
-      verificationNote: note || null,
-      revisionCount: result === "REVISI" ? { increment: 1 } : undefined,
-      dueDecideAt: result === "VALID" ? addBusinessDays(now, settings.decideDeadlineDays) : undefined,
-      isDuplicate: result === "TOLAK" && /ganda|duplikat/i.test(note) ? true : undefined,
-      events: { create: { type: result === "VALID" ? "DIVERIFIKASI" : result === "REVISI" ? "DIREVISI" : "DITOLAK", actorId, fromStatus: "MENUNGGU_VERIFIKASI", toStatus, note } },
-    },
+  await transition(reportId, "MENUNGGU_VERIFIKASI", {
+    status: toStatus,
+    verifierId: actorId,
+    verifiedAt: now,
+    verificationResult: result,
+    verificationNote: note || null,
+    revisionCount: result === "REVISI" ? { increment: 1 } : undefined,
+    dueDecideAt: result === "VALID" ? addBusinessDays(now, settings.decideDeadlineDays) : undefined,
+    isDuplicate: result === "TOLAK" && /ganda|duplikat/i.test(note) ? true : undefined,
   });
+  await db.reportEvent.create({ data: { reportId, type: result === "VALID" ? "DIVERIFIKASI" : result === "REVISI" ? "DIREVISI" : "DITOLAK", actorId, fromStatus: "MENUNGGU_VERIFIKASI", toStatus, note } });
   let points = 0;
   if (result === "VALID") {
     points = await awardValidationPoints(reportId, settings);
@@ -179,15 +206,8 @@ export async function resubmitReport(actorId: string, reportId: string, data: { 
   if (report.status !== "PERLU_REVISI") throw new WorkflowError("Laporan tidak dalam status perlu revisi.");
   const settings = await getSettings();
   const { note, ...fields } = data;
-  await db.report.update({
-    where: { id: reportId },
-    data: {
-      ...fields,
-      status: "MENUNGGU_VERIFIKASI",
-      dueVerifyAt: addBusinessDays(new Date(), settings.verifyDeadlineDays),
-      events: { create: { type: "REVISI_DIKIRIM", actorId, fromStatus: "PERLU_REVISI", toStatus: "MENUNGGU_VERIFIKASI", note } },
-    },
-  });
+  await transition(reportId, "PERLU_REVISI", { ...fields, status: "MENUNGGU_VERIFIKASI", dueVerifyAt: addBusinessDays(new Date(), settings.verifyDeadlineDays) });
+  await db.reportEvent.create({ data: { reportId, type: "REVISI_DIKIRIM", actorId, fromStatus: "PERLU_REVISI", toStatus: "MENUNGGU_VERIFIKASI", note } });
   const verifiers = report.verifierId ? [report.verifierId] : await verifiersFor(report.reporter);
   await notify(verifiers, `Revisi laporan ${report.number} dikirim`, note, `/laporan/${reportId}`);
   await audit(actorId, "LAPORAN_DIREVISI", "Report", reportId);
@@ -225,24 +245,22 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
     if (!input.targetDate) throw new WorkflowError("Target selesai wajib diisi.");
     if (!input.controlHierarchy) throw new WorkflowError("Pilih hierarki pengendalian.");
     const pic = input.picId ? await db.user.findUnique({ where: { id: input.picId } }) : null;
-    await db.report.update({
-      where: { id: reportId },
-      data: {
-        status: "DALAM_PERBAIKAN",
-        deciderId: actorId,
-        decidedAt: now,
-        decisionResult: "SETUJU",
-        decisionNote: input.note || null,
-        picId: pic?.id ?? null,
-        picName: input.picName?.trim() || pic?.name || null,
-        resourceTenaga: input.resourceTenaga || null,
-        resourceBiaya: input.resourceBiaya || null,
-        resourceMaterial: input.resourceMaterial || null,
-        targetDate: input.targetDate,
-        controlHierarchy: input.controlHierarchy,
-        events: { create: { type: "DIPUTUSKAN", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DALAM_PERBAIKAN", note: `Setujui. PIC: ${input.picName?.trim() || pic?.name}. ${input.note ?? ""}`.trim() } },
-      },
+    if (input.picId && (!pic || pic.status !== "ACTIVE")) throw new WorkflowError("Penanggung jawab tidak ditemukan atau tidak aktif.");
+    await transition(reportId, "MENUNGGU_KEPUTUSAN", {
+      status: "DALAM_PERBAIKAN",
+      deciderId: actorId,
+      decidedAt: now,
+      decisionResult: "SETUJU",
+      decisionNote: input.note || null,
+      picId: pic?.id ?? null,
+      picName: input.picName?.trim() || pic?.name || null,
+      resourceTenaga: input.resourceTenaga || null,
+      resourceBiaya: input.resourceBiaya || null,
+      resourceMaterial: input.resourceMaterial || null,
+      targetDate: input.targetDate,
+      controlHierarchy: input.controlHierarchy,
     });
+    await db.reportEvent.create({ data: { reportId, type: "DIPUTUSKAN", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DALAM_PERBAIKAN", note: `Setujui. PIC: ${input.picName?.trim() || pic?.name}. ${input.note ?? ""}`.trim() } });
     let points = 0;
     if (report.path === "B") points = await awardValidationPoints(reportId, settings);
     await notify([report.reporterId], `Laporan ${report.number} disetujui Manager`, `${points > 0 ? `Anda memperoleh ${points} poin. ` : ""}Perbaikan ditargetkan selesai ${input.targetDate.toLocaleDateString("id-ID")}.`, `/laporan/${reportId}`);
@@ -250,19 +268,9 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
     await audit(actorId, "LAPORAN_DISETUJUI", "Report", reportId, { pic: pic?.id ?? input.picName, target: input.targetDate, points });
   } else {
     if (!input.note?.trim()) throw new WorkflowError("Alasan penolakan wajib diisi.");
-    const reason = input.rejectReason ?? "TIDAK_BENAR";
-    await db.report.update({
-      where: { id: reportId },
-      data: {
-        status: "DITOLAK",
-        deciderId: actorId,
-        decidedAt: now,
-        decisionResult: "TOLAK",
-        decisionNote: input.note,
-        isDuplicate: reason === "GANDA",
-        events: { create: { type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note: input.note } },
-      },
-    });
+    const reason = input.rejectReason ?? "TIDAK_PERLU_TINDAKAN";
+    await transition(reportId, "MENUNGGU_KEPUTUSAN", { status: "DITOLAK", deciderId: actorId, decidedAt: now, decisionResult: "TOLAK", decisionNote: input.note, isDuplicate: reason === "GANDA" });
+    await db.reportEvent.create({ data: { reportId, type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note: input.note } });
     if (reason === "GANDA" || reason === "TIDAK_BENAR") await revokePoints(reportId, reason === "GANDA" ? "laporan ganda" : "laporan tidak benar");
     await notify([report.reporterId], `Laporan ${report.number} ditolak Manager`, input.note, `/laporan/${reportId}`);
     await audit(actorId, "LAPORAN_DITOLAK", "Report", reportId, { reason });
@@ -280,17 +288,9 @@ export async function updateProgress(actorId: string, reportId: string, pct: num
   if (!actor || !canProgress(actor, report)) throw new WorkflowError("Anda tidak berwenang memperbarui progres laporan ini.");
   const now = new Date();
   const pctFinal = done ? 100 : Math.max(0, Math.min(99, pct));
-  await db.report.update({
-    where: { id: reportId },
-    data: {
-      progressPct: pctFinal,
-      status: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN",
-      completedAt: done ? now : undefined,
-      completionNote: done ? note : undefined,
-      photos: photo ? { create: { mime: photo.mime, data: photo.data, size: photo.data.length, kind: "PERBAIKAN" } } : undefined,
-      events: { create: { type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } },
-    },
-  });
+  await transition(reportId, "DALAM_PERBAIKAN", { progressPct: pctFinal, status: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", completedAt: done ? now : undefined, completionNote: done ? note : undefined });
+  if (photo) await db.photo.create({ data: { reportId, mime: photo.mime, data: photo.data, size: photo.data.length, kind: "PERBAIKAN" } });
+  await db.reportEvent.create({ data: { reportId, type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } });
   if (done) {
     await notify([report.deciderId, report.verifierId].filter((x) => x !== actorId), `Perbaikan ${report.number} dilaporkan selesai`, note, `/laporan/${reportId}`);
   }
@@ -310,26 +310,15 @@ export async function closeReport(actorId: string, reportId: string, accepted: b
   const now = new Date();
   if (!accepted) {
     if (!note.trim()) throw new WorkflowError("Catatan wajib diisi bila hasil perbaikan belum diterima.");
-    await db.report.update({
-      where: { id: reportId },
-      data: { status: "DALAM_PERBAIKAN", progressPct: 80, completedAt: null, events: { create: { type: "PROGRES", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "DALAM_PERBAIKAN", note: `Hasil belum diterima: ${note}` } } },
-    });
+    await transition(reportId, "MENUNGGU_PENUTUPAN", { status: "DALAM_PERBAIKAN", progressPct: 80, completedAt: null });
+    await db.reportEvent.create({ data: { reportId, type: "PROGRES", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "DALAM_PERBAIKAN", note: `Hasil belum diterima: ${note}` } });
     await notify([report.picId, report.reporterId], `Perbaikan ${report.number} perlu disempurnakan`, note, `/laporan/${reportId}`);
     await audit(actorId, "PENUTUPAN_DITOLAK", "Report", reportId);
     return;
   }
   const onTime = report.targetDate ? (report.completedAt ?? now) <= report.targetDate : null;
-  await db.report.update({
-    where: { id: reportId },
-    data: {
-      status: "SELESAI",
-      closerId: actorId,
-      closedAt: now,
-      closureNote: note || null,
-      closedOnTime: onTime,
-      events: { create: { type: "DITUTUP", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI", note } },
-    },
-  });
+  await transition(reportId, "MENUNGGU_PENUTUPAN", { status: "SELESAI", closerId: actorId, closedAt: now, closureNote: note || null, closedOnTime: onTime });
+  await db.reportEvent.create({ data: { reportId, type: "DITUTUP", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI", note } });
   let bonus = 0;
   if (suggestionApplied) bonus = await awardSuggestionBonus(reportId, settings);
   await notify([report.reporterId, report.picId].filter((x) => x !== actorId), `Laporan ${report.number} ditutup`, bonus > 0 ? `Usulan perbaikan Anda diterapkan, bonus ${bonus} poin.` : "Hasil perbaikan telah diverifikasi.", `/laporan/${reportId}`);
@@ -344,7 +333,7 @@ export function reportScope(user: { id: string; role: string; areaId: string | n
     case "MANAGER":
       return {};
     case "SUPERINTENDENT":
-      return { OR: [{ reporterId: user.id }, { picId: user.id }, { verifierId: user.id }, { reporter: { atasanId: user.id } }, ...(user.areaId ? [{ areaId: user.areaId }] : [])] };
+      return { OR: [{ reporterId: user.id }, { picId: user.id }, { verifierId: user.id }, { reporter: { atasanId: user.id } }, { status: "MENUNGGU_VERIFIKASI", reporter: { atasanId: null } }, ...(user.areaId ? [{ areaId: user.areaId }] : [])] };
     default:
       return { OR: [{ reporterId: user.id }, { picId: user.id }] };
   }

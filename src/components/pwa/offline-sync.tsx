@@ -5,6 +5,8 @@ import { CloudUpload } from "lucide-react";
 import { flushQueue, listQueue } from "@/lib/client/offline-queue";
 import { useRouter } from "next/navigation";
 
+let inFlight = false;
+
 /** Mengirim antrean laporan luring saat sinyal kembali */
 export function OfflineSync() {
   const [pending, setPending] = useState(0);
@@ -14,16 +16,22 @@ export function OfflineSync() {
   useEffect(() => {
     let active = true;
     const run = async () => {
-      const q = await listQueue();
-      if (!active) return;
-      setPending(q.length);
-      if (q.length && navigator.onLine) {
-        const sent = await flushQueue((r) => setToast(`Laporan ${r.number} terkirim dari antrean luring.`));
-        if (sent) {
-          const left = await listQueue();
-          setPending(left.length);
-          router.refresh();
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const q = await listQueue();
+        if (!active) return;
+        setPending(q.length);
+        if (q.length && navigator.onLine) {
+          const sent = await flushQueue((r) => setToast(`Laporan ${r.number} terkirim dari antrean luring.`));
+          if (sent) {
+            const left = await listQueue();
+            setPending(left.length);
+            router.refresh();
+          }
         }
+      } finally {
+        inFlight = false;
       }
     };
     run();

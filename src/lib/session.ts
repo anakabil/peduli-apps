@@ -7,7 +7,7 @@ import type { Role } from "./constants";
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof loadUser>>>;
 
 const loadUser = cache(async () => {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const id = session?.user?.id;
   if (!id) return null;
   const user = await db.user.findUnique({

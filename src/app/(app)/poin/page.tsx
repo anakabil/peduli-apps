@@ -5,7 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { pointBalance, pointEarned, levelFor } from "@/lib/points";
 import { PageHeader, Card, CardBody, CardHeader, Badge } from "@/components/ui";
 import { LEDGER_LABEL, REDEMPTION_LABEL } from "@/lib/constants";
-import { fmtDateTime, fmtDate } from "@/lib/format";
+import { fmtDateTime, fmtDate, jktDate, jktParts } from "@/lib/format";
 import { RedeemButton } from "./redeem-button";
 
 export const metadata = { title: "Poin dan reward" };
@@ -21,7 +21,7 @@ export default async function PoinPage() {
     db.pointLedger.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 30, include: { report: { select: { id: true, number: true } } } }),
     db.reward.findMany({ where: { active: true }, orderBy: { pointsCost: "asc" } }),
     db.redemption.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 10, include: { reward: true } }),
-    db.pointLedger.groupBy({ by: ["userId"], where: { points: { gt: 0 }, createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) } }, _sum: { points: true }, orderBy: { _sum: { points: "desc" } }, take: 5 }),
+    db.pointLedger.groupBy({ by: ["userId"], where: { points: { gt: 0 }, createdAt: { gte: jktDate(jktParts().y, 0, 1) } }, _sum: { points: true }, orderBy: { _sum: { points: "desc" } }, take: 5 }),
   ]);
   const level = levelFor(earned, settings.levels);
   const progress = level.next ? Math.min(100, Math.round((earned / level.next) * 100)) : 100;
