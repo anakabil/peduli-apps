@@ -1,0 +1,314 @@
+@import "tailwindcss";
+
+/* ---------- Palet PEDULI Apps (selaras dengan logo GYS #0A785B dan logo Peduli #006042) ---------- */
+:root {
+  --brand-900: #003d2a;
+  --brand-800: #004d35;
+  --brand-700: #006042;
+  --brand-600: #0a785b;
+  --brand-500: #138d6b;
+  --brand-400: #35a885;
+  --brand-300: #7cc7ad;
+  --brand-200: #bfe3d4;
+  --brand-100: #e3f3ec;
+  --brand-50: #f2faf6;
+
+  --ink-900: #14211c;
+  --ink-800: #1f2d27;
+  --ink-700: #33423b;
+  --ink-600: #4a5a52;
+  --ink-500: #67766e;
+  --ink-400: #8d9a93;
+  --ink-300: #b9c3bd;
+  --ink-200: #dde4e0;
+  --ink-100: #eef2ef;
+  --ink-50: #f7f9f8;
+
+  --gold: #c9a227;
+  --amber: #d9a520;
+  --orange: #e07a1f;
+  --red: #c8373b;
+  --blue: #2b6cb0;
+
+  --bg: #f4f7f5;
+  --surface: #ffffff;
+  --surface-2: #fbfcfb;
+  --border: #e3e9e5;
+  --text: var(--ink-900);
+  --muted: var(--ink-500);
+
+  --shadow-sm: 0 1px 2px rgba(20, 33, 28, 0.05), 0 1px 1px rgba(20, 33, 28, 0.03);
+  --shadow-md: 0 6px 18px -8px rgba(20, 33, 28, 0.18), 0 2px 6px -2px rgba(20, 33, 28, 0.06);
+  --shadow-lg: 0 20px 40px -20px rgba(0, 61, 42, 0.35), 0 8px 20px -12px rgba(20, 33, 28, 0.12);
+  --radius: 14px;
+}
+
+@theme inline {
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-ink-50: var(--ink-50);
+  --color-ink-100: var(--ink-100);
+  --color-ink-200: var(--ink-200);
+  --color-ink-300: var(--ink-300);
+  --color-ink-400: var(--ink-400);
+  --color-ink-500: var(--ink-500);
+  --color-ink-600: var(--ink-600);
+  --color-ink-700: var(--ink-700);
+  --color-ink-800: var(--ink-800);
+  --color-ink-900: var(--ink-900);
+  --color-gold: var(--gold);
+  --color-amber: var(--amber);
+  --color-orange: var(--orange);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --shadow-soft: var(--shadow-md);
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: var(--shadow-lg);
+  --radius-card: var(--radius);
+}
+
+html {
+  color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--brand-200);
+}
+
+/* ---------- Komponen dasar ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-200);
+}
+
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger,
+.btn-warn,
+.btn-success {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 select-none disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300;
+}
+.btn-primary {
+  @apply text-white;
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 6px 14px -6px rgba(0, 96, 66, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-secondary {
+  @apply bg-white text-ink-800 border border-ink-200 hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50;
+}
+.btn-ghost {
+  @apply text-ink-600 hover:bg-ink-100 hover:text-ink-900;
+}
+.btn-danger {
+  @apply text-white;
+  background: linear-gradient(180deg, #d4494d, #b32b30);
+}
+.btn-warn {
+  @apply text-ink-900;
+  background: linear-gradient(180deg, #f2c44d, #d9a520);
+}
+.btn-success {
+  @apply text-white;
+  background: linear-gradient(180deg, #3aa876, #2a8a5e);
+}
+.btn-sm {
+  @apply px-3 py-1.5 text-xs rounded-lg;
+}
+.btn-lg {
+  @apply px-6 py-3 text-base rounded-2xl;
+}
+
+.input {
+  @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 disabled:bg-ink-50 disabled:text-ink-500;
+}
+.label {
+  @apply block text-xs font-semibold uppercase tracking-wide text-ink-500 mb-1.5;
+}
+.help {
+  @apply text-xs text-ink-500 mt-1.5;
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+}
+.badge-neutral { @apply bg-ink-100 text-ink-700; }
+.badge-info { @apply bg-blue/10 text-blue; }
+.badge-warn { @apply bg-amber/15 text-[#8a6a0a]; }
+.badge-success { @apply bg-brand-100 text-brand-700; }
+.badge-danger { @apply bg-red/10 text-red; }
+.badge-brand { @apply bg-brand-700 text-white; }
+
+.chip {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-sm text-ink-700 cursor-pointer transition-all hover:border-brand-300 hover:bg-brand-50;
+}
+.chip-active {
+  @apply border-brand-600 bg-brand-700 text-white hover:bg-brand-700 hover:border-brand-600;
+}
+
+.section-title {
+  @apply text-xs font-bold uppercase tracking-[0.14em] text-brand-600;
+}
+.page-title {
+  @apply text-2xl md:text-3xl font-bold tracking-tight text-ink-900;
+}
+
+.table {
+  @apply w-full text-sm;
+}
+.table th {
+  @apply text-left text-xs font-semibold uppercase tracking-wide text-ink-500 px-3 py-2.5 border-b border-ink-200 bg-ink-50/60;
+}
+.table td {
+  @apply px-3 py-2.5 border-b border-ink-100 align-top;
+}
+.table tr:last-child td {
+  @apply border-b-0;
+}
+
+.nav-item {
+  @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-600 transition-all hover:bg-brand-50 hover:text-brand-700;
+}
+.nav-item-active {
+  @apply bg-brand-700 text-white hover:bg-brand-700 hover:text-white shadow-[0_8px_18px_-10px_rgba(0,96,66,0.7)];
+}
+
+.progress {
+  @apply h-2 w-full overflow-hidden rounded-full bg-ink-100;
+}
+.progress > span {
+  @apply block h-full rounded-full;
+  background: linear-gradient(90deg, var(--brand-400), var(--brand-600));
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: saturate(160%) blur(12px);
+  -webkit-backdrop-filter: saturate(160%) blur(12px);
+}
+
+/* ---------- Animasi ---------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(19, 141, 107, 0.35); }
+  70% { box-shadow: 0 0 0 10px rgba(19, 141, 107, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(19, 141, 107, 0); }
+}
+.anim-fade-up { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-fade-in { animation: fade-in 0.4s ease both; }
+.anim-scale-in { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-slide-up { animation: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-float { animation: float-soft 5s ease-in-out infinite; }
+.anim-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+.stagger > * { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger > *:nth-child(3) { animation-delay: 0.13s; }
+.stagger > *:nth-child(4) { animation-delay: 0.18s; }
+.stagger > *:nth-child(5) { animation-delay: 0.23s; }
+.stagger > *:nth-child(6) { animation-delay: 0.28s; }
+.stagger > *:nth-child(7) { animation-delay: 0.33s; }
+.stagger > *:nth-child(8) { animation-delay: 0.38s; }
+.skeleton {
+  background: linear-gradient(90deg, var(--ink-100) 25%, var(--ink-50) 37%, var(--ink-100) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Latar hero bermotif halus */
+.hero-pattern {
+  background-color: var(--brand-800);
+  background-image:
+    radial-gradient(at 20% 10%, rgba(19, 141, 107, 0.55) 0, transparent 50%),
+    radial-gradient(at 85% 90%, rgba(0, 61, 42, 0.9) 0, transparent 55%),
+    linear-gradient(135deg, var(--brand-700), var(--brand-900));
+}
+.grid-lines {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Scrollbar halus */
+* { scrollbar-width: thin; scrollbar-color: var(--ink-300) transparent; }
+
+/* ---------- Cetak ---------- */
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+  main { padding: 0 !important; }
+  @page { size: A4; margin: 14mm; }
+}
+.print-only { display: none; }
+
+/* Safe area untuk perangkat bertakik */
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }

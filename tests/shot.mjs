@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const [,, url, out, mobile] = process.argv;
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36" } : { viewport: { width: 1366, height: 900 } });
+const page = await ctx.newPage();
+page.on("console", (m) => { if (m.type() === "error") console.log("console:", m.text().slice(0, 200)); });
+await page.goto(url, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+await page.screenshot({ path: out, fullPage: true });
+console.log("saved", out);
+await browser.close();
