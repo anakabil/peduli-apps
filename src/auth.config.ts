@@ -1,13 +1,17 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
+import { authSecret, googleClientId, googleClientSecret } from "@/lib/env";
 
 // Konfigurasi ringan yang aman untuk middleware (tanpa Prisma)
 export const authConfig = {
   pages: { signIn: "/masuk", error: "/masuk" },
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 14 },
   trustHost: true,
+  secret: authSecret() || undefined,
   providers: [
     Google({
+      clientId: googleClientId() || undefined,
+      clientSecret: googleClientSecret() || undefined,
       allowDangerousEmailAccountLinking: true,
       authorization: { params: { prompt: "select_account", access_type: "offline" } },
     }),

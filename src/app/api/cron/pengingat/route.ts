@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { notify } from "@/lib/notify";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ export const runtime = "nodejs";
  * GET /api/cron/pengingat dengan header Authorization: Bearer CRON_SECRET
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
+  const secret = env("CRON_SECRET");
   const auth = req.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized. Atur CRON_SECRET dan kirim header Authorization: Bearer <secret>." }, { status: 401 });
   const settings = await getSettings();

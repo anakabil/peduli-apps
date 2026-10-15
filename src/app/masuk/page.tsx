@@ -7,7 +7,8 @@ import { GoogleOneTap } from "./one-tap";
 import { DemoLogin } from "./demo-login";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { APP_TAGLINE, COMPANY_NAME } from "@/lib/constants";
-import { envBlocking, envIssues } from "@/lib/env-check";
+import { envBlocking, envIssues, envDiagnostics } from "@/lib/env-check";
+import { googleClientId, googleClientSecret, oneTapClientId } from "@/lib/env";
 import { SetupChecklist } from "./setup-checklist";
 
 export const metadata = { title: "Masuk" };
@@ -23,13 +24,13 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string }> }) {
   const blocking = envBlocking();
-  if (blocking.length) return <SetupChecklist issues={envIssues()} />;
+  if (blocking.length) return <SetupChecklist issues={envIssues()} diag={envDiagnostics()} />;
   const session = await auth().catch(() => null);
   if (session?.user) redirect("/beranda");
   const sp = await searchParams;
   const error = sp.error ? ERRORS[sp.error] ?? "Terjadi kendala saat masuk. Coba lagi." : null;
-  const googleReady = !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
-  const oneTapClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID || "";
+  const googleReady = !!googleClientId() && !!googleClientSecret();
+  const oneTap = googleReady ? oneTapClientId() : "";
   const demo = isDemoMode();
 
   return (
@@ -111,7 +112,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                   Isi AUTH_GOOGLE_ID dan AUTH_GOOGLE_SECRET pada berkas .env untuk mengaktifkan masuk dengan Google. Lihat README.
                 </div>
               )}
-              {oneTapClientId && <GoogleOneTap clientId={oneTapClientId} />}
+              {oneTap && <GoogleOneTap clientId={oneTap} />}
               {demo && <DemoLogin />}
             </div>
 

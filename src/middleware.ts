@@ -1,9 +1,10 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
+import { authSecret } from "@/lib/env";
 
 // Tanpa AUTH_SECRET, Auth.js akan gagal di setiap permintaan. Biarkan halaman /masuk menampilkan daftar periksa konfigurasi.
-const handler = process.env.AUTH_SECRET ? NextAuth(authConfig).auth : () => NextResponse.next();
+const handler = authSecret() ? NextAuth(authConfig).auth : () => NextResponse.next();
 
 export default handler;
 

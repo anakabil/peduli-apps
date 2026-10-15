@@ -67,7 +67,7 @@ Google One Tap menggunakan client ID yang sama. Di smartphone, One Tap otomatis 
 | `CRON_SECRET` | ya | rahasia acak; Vercel Cron mengirimnya otomatis pada jadwal di `vercel.json` |
 | `SKIP_MIGRATE` | opsional | `true` bila migrasi ingin dijalankan manual |
 
-Bila variabel wajib belum lengkap, halaman masuk menampilkan daftar periksa konfigurasi, bukan galat 500.
+Bila variabel wajib belum lengkap, halaman masuk menampilkan daftar periksa konfigurasi beserta panel diagnosis (lingkungan, commit, dan nama variabel yang terbaca, tanpa nilainya), bukan galat 500. Nilai sebaiknya diisi tanpa tanda kutip; bila tanda kutip ikut tersalin, aplikasi membersihkannya otomatis. Variabel baru hanya terbaca setelah Redeploy.
 
 4. Data awal produksi (pengaturan alur, lima area contoh, katalog reward) tanpa akun demo:
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { env } from "./env";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -8,8 +9,8 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
  * Urutan: URL pooler lebih dahulu karena paling aman untuk serverless.
  */
 export function resolveDatabaseUrl() {
-  const candidates = [process.env.PRISMA_DATABASE_URL, process.env.DATABASE_URL, process.env.POSTGRES_PRISMA_URL, process.env.POSTGRES_URL];
-  const url = candidates.find((u) => !!u && u.trim().length > 0);
+  const candidates = ["PRISMA_DATABASE_URL", "DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL"].map(env);
+  const url = candidates.find((u) => u.length > 0);
   if (!url) throw new Error("DATABASE_URL belum diatur. Lihat README bagian Produksi.");
   return url;
 }

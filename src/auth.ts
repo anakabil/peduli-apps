@@ -4,23 +4,18 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { OAuth2Client } from "google-auth-library";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
+import { envBool, envList, googleClientId, oneTapClientId } from "@/lib/env";
 
 function adminEmails() {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+  return envList("ADMIN_EMAILS");
 }
 
 function allowedDomains() {
-  return (process.env.ALLOWED_EMAIL_DOMAINS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+  return envList("ALLOWED_EMAIL_DOMAINS").map((d) => d.replace(/^@/, ""));
 }
 
 export function isDemoMode() {
-  return process.env.DEMO_MODE === "true";
+  return envBool("DEMO_MODE");
 }
 
 function emailAllowed(email?: string | null) {
@@ -68,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: { credential: { type: "text" } },
       async authorize(creds) {
         const credential = typeof creds?.credential === "string" ? creds.credential : "";
-        const clientId = process.env.AUTH_GOOGLE_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        const clientId = googleClientId() || oneTapClientId();
         if (!credential || !clientId) return null;
         const client = new OAuth2Client(clientId);
         const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
