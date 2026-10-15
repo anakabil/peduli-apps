@@ -2,15 +2,13 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { ReportList } from "@/components/report/report-list";
+import { verifiableWhere } from "@/lib/workflow";
 
 export const metadata = { title: "Verifikasi" };
 
 export default async function VerifikasiPage() {
   const user = await requireUser(["SUPERINTENDENT", "ADMIN"]);
-  const where =
-    user.role === "ADMIN"
-      ? { status: "MENUNGGU_VERIFIKASI" }
-      : { status: "MENUNGGU_VERIFIKASI", OR: [{ reporter: { atasanId: user.id } }, ...(user.areaId ? [{ reporter: { areaId: user.areaId } }] : []), { reporter: { atasanId: null } }] };
+  const where = user.role === "ADMIN" ? { status: "MENUNGGU_VERIFIKASI" } : verifiableWhere(user);
   const reports = await db.report.findMany({
     where,
     orderBy: [{ escalated: "desc" }, { createdAt: "asc" }],

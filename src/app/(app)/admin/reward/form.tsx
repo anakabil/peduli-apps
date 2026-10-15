@@ -14,6 +14,7 @@ export function RewardForm({ reward }: { reward?: { id: string; name: string; de
       <Field label="Nilai poin" required><input name="pointsCost" type="number" min={1} className="input" defaultValue={reward?.pointsCost ?? 10} required /></Field>
       <div className="col-span-2"><Field label="Deskripsi"><input name="description" className="input" defaultValue={reward?.description ?? ""} /></Field></div>
       <Field label="Stok"><input name="stock" type="number" min={0} className="input" defaultValue={reward?.stock ?? 0} /></Field>
+      {reward && <input type="hidden" name="stockOriginal" value={reward.stock} />}
       <Field label="Tingkat">
         <select name="tier" className="input" defaultValue={reward?.tier ?? "AWAL"}>
           <option value="AWAL">Awal</option><option value="MENENGAH">Menengah</option><option value="LANJUT">Lanjut</option>

@@ -2,7 +2,7 @@ import { Award, Gift, History, Trophy, Umbrella, CupSoda, Footprints, Ticket, Pa
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { pointBalance, pointEarned, levelFor } from "@/lib/points";
+import { pointBalance, pointEarned, levelFor, EARN_LEDGER_FILTER } from "@/lib/points";
 import { PageHeader, Card, CardBody, CardHeader, Badge } from "@/components/ui";
 import { LEDGER_LABEL, REDEMPTION_LABEL } from "@/lib/constants";
 import { fmtDateTime, fmtDate, jktDate, jktParts } from "@/lib/format";
@@ -21,12 +21,13 @@ export default async function PoinPage() {
     db.pointLedger.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 30, include: { report: { select: { id: true, number: true } } } }),
     db.reward.findMany({ where: { active: true }, orderBy: { pointsCost: "asc" } }),
     db.redemption.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 10, include: { reward: true } }),
-    db.pointLedger.groupBy({ by: ["userId"], where: { points: { gt: 0 }, createdAt: { gte: jktDate(jktParts().y, 0, 1) } }, _sum: { points: true }, orderBy: { _sum: { points: "desc" } }, take: 5 }),
+    db.pointLedger.groupBy({ by: ["userId"], where: { ...EARN_LEDGER_FILTER, createdAt: { gte: jktDate(jktParts().y, 0, 1) } }, _sum: { points: true }, orderBy: { _sum: { points: "desc" } }, take: 5 }),
   ]);
   const level = levelFor(earned, settings.levels);
   const progress = level.next ? Math.min(100, Math.round((earned / level.next) * 100)) : 100;
   const leaders = await db.user.findMany({ where: { id: { in: leaderboard.map((l) => l.userId) } }, select: { id: true, name: true, jabatan: true } });
   const eligible = settings.eligibleRoles.includes(user.role as (typeof settings.eligibleRoles)[number]);
+  const board = leaderboard.filter((l) => (l._sum.points ?? 0) > 0);
 
   return (
     <div className="space-y-5">
@@ -143,7 +144,7 @@ export default async function PoinPage() {
             <CardHeader title="Pelapor teratas tahun ini" action={<Trophy size={18} className="text-gold" />} />
             <CardBody className="pt-3">
               <ol className="space-y-2">
-                {leaderboard.map((l, i) => {
+                {board.map((l, i) => {
                   const u = leaders.find((x) => x.id === l.userId);
                   return (
                     <li key={l.userId} className="flex items-center gap-3 text-sm">

@@ -4,17 +4,23 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { notify, audit } from "@/lib/notify";
+import { getSettings } from "@/lib/settings";
+import { isEligible, lockUser } from "@/lib/points";
 
 export async function redeemAction(rewardId: string): Promise<{ ok: boolean; message: string }> {
   const user = await requireUser(["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"]);
+  const settings = await getSettings();
+  if (!isEligible(user.role, settings)) return { ok: false, message: "Peran Anda tidak termasuk penerima poin sesuai pengaturan program." };
   const reward = await db.reward.findUnique({ where: { id: rewardId } });
   if (!reward || !reward.active) return { ok: false, message: "Hadiah tidak tersedia." };
   if (reward.stock <= 0) return { ok: false, message: "Stok hadiah habis." };
-  const pending = await db.redemption.count({ where: { userId: user.id, status: { in: ["DIAJUKAN", "DIPROSES"] } } });
-  if (pending >= 3) return { ok: false, message: "Maksimal tiga penukaran yang sedang diproses." };
 
   try {
     await db.$transaction(async (tx) => {
+      // Kunci baris pengguna: penukaran bersamaan dari pengguna yang sama diproses berurutan
+      await lockUser(tx, user.id);
+      const pending = await tx.redemption.count({ where: { userId: user.id, status: { in: ["DIAJUKAN", "DIPROSES"] } } });
+      if (pending >= 3) throw new Error("Maksimal tiga penukaran yang sedang diproses.");
       const agg = await tx.pointLedger.aggregate({ where: { userId: user.id }, _sum: { points: true } });
       const balance = agg._sum.points ?? 0;
       if (balance < reward.pointsCost) throw new Error(`Poin belum cukup. Saldo ${balance}, dibutuhkan ${reward.pointsCost}.`);

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Users, UserPlus } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -8,21 +9,42 @@ import { UserEditor, NewUserForm } from "./editor";
 
 export const metadata = { title: "Pengguna" };
 
-export default async function PenggunaPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+const PAGE = 50;
+
+export default async function PenggunaPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; page?: string }> }) {
   await requireUser(["ADMIN"]);
   const sp = await searchParams;
-  const [users, areas, balances] = await Promise.all([
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const where = { ...(sp.status ? { status: sp.status } : {}), ...(sp.q ? { OR: [{ name: { contains: sp.q, mode: "insensitive" as const } }, { email: { contains: sp.q, mode: "insensitive" as const } }, { nik: { contains: sp.q, mode: "insensitive" as const } }] } : {}) };
+  const [users, total, allAreas, activeSupervisors, pendingCount] = await Promise.all([
     db.user.findMany({
-      where: { ...(sp.status ? { status: sp.status } : {}), ...(sp.q ? { OR: [{ name: { contains: sp.q, mode: "insensitive" as const } }, { email: { contains: sp.q, mode: "insensitive" as const } }, { nik: { contains: sp.q, mode: "insensitive" as const } }] } : {}) },
-      orderBy: [{ status: "asc" }, { role: "asc" }, { name: "asc" }],
-      include: { area: { select: { name: true } }, atasan: { select: { name: true } }, _count: { select: { reports: true } } },
+      where,
+      orderBy: [{ status: "asc" }, { role: "asc" }, { name: "asc" }, { id: "asc" }],
+      skip: (page - 1) * PAGE,
+      take: PAGE,
+      include: { area: { select: { name: true } }, atasan: { select: { id: true, name: true, role: true, status: true } }, _count: { select: { reports: true } } },
     }),
-    db.area.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    db.pointLedger.groupBy({ by: ["userId"], _sum: { points: true } }),
+    db.user.count({ where }),
+    db.area.findMany({ select: { id: true, name: true, active: true }, orderBy: { name: "asc" } }),
+    // Calon atasan diambil terpisah dari filter agar pilihan atasan tidak hilang saat daftar difilter
+    db.user.findMany({ where: { status: "ACTIVE", role: { in: ["SUPERINTENDENT", "MANAGER", "DIREKSI"] } }, select: { id: true, name: true, role: true }, orderBy: { name: "asc" } }),
+    db.user.count({ where: { status: "PENDING" } }),
   ]);
+  const balances = await db.pointLedger.groupBy({ by: ["userId"], where: { userId: { in: users.map((u) => u.id) } }, _sum: { points: true } });
   const balance = new Map(balances.map((b) => [b.userId, b._sum.points ?? 0]));
-  const supervisors = users.filter((u) => u.status === "ACTIVE" && (u.role === "SUPERINTENDENT" || u.role === "MANAGER")).map((u) => ({ id: u.id, name: u.name ?? "-", role: u.role }));
-  const pending = users.filter((u) => u.status === "PENDING");
+  const supervisors = activeSupervisors.map((u) => ({ id: u.id, name: u.name ?? "-", role: u.role }));
+  const activeAreas = allAreas.filter((a) => a.active).map((a) => ({ id: a.id, name: a.name }));
+  const areasFor = (areaId: string | null) => {
+    const cur = areaId ? allAreas.find((a) => a.id === areaId) : null;
+    return cur && !cur.active ? [...activeAreas, { id: cur.id, name: `${cur.name} (nonaktif)` }] : activeAreas;
+  };
+  const supervisorsFor = (u: (typeof users)[number]) => {
+    const list = supervisors.filter((s) => s.id !== u.id);
+    if (u.atasan && !list.some((s) => s.id === u.atasan!.id)) list.push({ id: u.atasan.id, name: `${u.atasan.name ?? "-"} (${u.atasan.status === "ACTIVE" ? "peran tidak sesuai" : "nonaktif"})`, role: u.atasan.role });
+    return list;
+  };
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  const qs = (p: number) => `?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.status ? { status: sp.status } : {}), page: String(p) })}`;
 
   return (
     <div>
@@ -41,14 +63,14 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
         <details className="ml-auto">
           <summary className="btn-primary cursor-pointer list-none"><UserPlus size={16} /> Tambah pengguna</summary>
           <div className="card mt-2 w-[min(92vw,560px)] p-4 absolute right-4 md:right-8 z-20 shadow-float anim-scale-in">
-            <NewUserForm areas={areas} supervisors={supervisors} />
+            <NewUserForm areas={activeAreas} supervisors={supervisors} />
           </div>
         </details>
       </div>
 
-      {pending.length > 0 && !sp.status && (
+      {pendingCount > 0 && sp.status !== "PENDING" && (
         <div className="mb-4 rounded-xl border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-ink-800">
-          <b>{pending.length} akun menunggu persetujuan.</b> Tetapkan peran dan area, lalu ubah status menjadi Aktif.
+          <b>{pendingCount} akun menunggu persetujuan.</b> Tetapkan peran dan area, lalu ubah status menjadi Aktif.
         </div>
       )}
 
@@ -72,7 +94,7 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
                   <td className="text-right">{u._count.reports}</td>
                   <td className="text-right font-semibold">{balance.get(u.id) ?? 0}</td>
                   <td className="text-xs text-ink-500 whitespace-nowrap">{fmtDateTime(u.lastLoginAt)}</td>
-                  <td><UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areas} supervisors={supervisors.filter((s) => s.id !== u.id)} /></td>
+                  <td><UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areasFor(u.areaId)} supervisors={supervisorsFor(u)} /></td>
                 </tr>
               ))}
               {users.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-ink-500"><Users className="mx-auto mb-2" /> Tidak ada pengguna.</td></tr>}
@@ -80,6 +102,13 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
           </table>
         </CardBody>
       </Card>
+      {pages > 1 && (
+        <div className="mt-3 flex items-center justify-center gap-2 text-sm text-ink-500">
+          {page > 1 && <Link className="btn-secondary btn-sm" href={qs(page - 1)}>Sebelumnya</Link>}
+          <span>Halaman {page} dari {pages} ({total} pengguna)</span>
+          {page < pages && <Link className="btn-secondary btn-sm" href={qs(page + 1)}>Berikutnya</Link>}
+        </div>
+      )}
     </div>
   );
 }

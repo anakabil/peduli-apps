@@ -25,8 +25,8 @@ export async function nextReportNumber(date = new Date()) {
 }
 
 /** Memastikan transisi status atomik: gagal bila status sudah berubah oleh proses lain */
-async function transition(reportId: string, fromStatus: string | string[], data: Prisma.ReportUncheckedUpdateManyInput) {
-  const res = await db.report.updateMany({ where: { id: reportId, status: Array.isArray(fromStatus) ? { in: fromStatus } : fromStatus }, data });
+async function transition(tx: Tx, reportId: string, fromStatus: string | string[], data: Prisma.ReportUncheckedUpdateManyInput) {
+  const res = await tx.report.updateMany({ where: { id: reportId, status: Array.isArray(fromStatus) ? { in: fromStatus } : fromStatus }, data });
   if (res.count !== 1) throw new WorkflowError("Status laporan sudah berubah. Muat ulang halaman.");
 }
 
@@ -55,22 +55,53 @@ export async function resolveArea(lat: number | null, lng: number | null, fallba
   };
 }
 
-async function managersForArea(areaId: string | null, excludeId?: string) {
-  const managers = await db.user.findMany({ where: { role: "MANAGER", status: "ACTIVE" }, include: { managedAreas: true } });
-  const inArea = managers.filter((m) => m.id !== excludeId && (m.managedAreas.some((a) => a.id === areaId) || m.areaId === areaId));
-  const list = inArea.length ? inArea : managers.filter((m) => m.id !== excludeId);
-  return list.map((m) => m.id);
+/** Manager aktif yang menangani area; cadangan: seluruh Manager aktif */
+export async function managersForArea(areaId: string | null, excludeId?: string) {
+  const managers = await db.user.findMany({ where: { role: "MANAGER", status: "ACTIVE" }, select: { id: true, areaId: true, managedAreas: { select: { id: true } } } });
+  const pool = managers.filter((m) => m.id !== excludeId);
+  const inArea = areaId ? pool.filter((m) => m.managedAreas.some((a) => a.id === areaId) || m.areaId === areaId) : [];
+  return (inArea.length ? inArea : pool).map((m) => m.id);
 }
 
-async function verifiersFor(reporter: { id: string; atasanId: string | null; areaId: string | null }) {
+const INVALID_ATASAN: Prisma.UserWhereInput = { OR: [{ atasanId: null }, { atasan: { is: { OR: [{ role: { not: "SUPERINTENDENT" } }, { status: { not: "ACTIVE" } }] } } }] };
+
+/**
+ * Satu-satunya aturan siapa yang boleh memverifikasi laporan Pengawas. Dipakai bersama oleh antrean
+ * verifikasi, hak lihat (reportScope), tombol verifikasi (canVerify), notifikasi, dan pengingat.
+ * Superintendent boleh memverifikasi bila: ia atasan pelapor, atau laporan/pelapor berada di areanya,
+ * atau pelapor tidak memiliki atasan Superintendent yang aktif.
+ */
+export function verifiableWhere(user: { id: string; areaId: string | null }): Prisma.ReportWhereInput {
+  return {
+    status: "MENUNGGU_VERIFIKASI",
+    OR: [
+      { reporter: { atasanId: user.id } },
+      ...(user.areaId ? [{ areaId: user.areaId }, { reporter: { areaId: user.areaId } }] : []),
+      { reporter: INVALID_ATASAN },
+    ],
+  };
+}
+
+/** Superintendent aktif yang menerima tugas verifikasi untuk laporan ini (selaras dengan verifiableWhere) */
+export async function verifiersFor(reporter: { atasanId: string | null; areaId: string | null }, reportAreaId: string | null) {
   if (reporter.atasanId) {
-    const atasan = await db.user.findUnique({ where: { id: reporter.atasanId } });
+    const atasan = await db.user.findUnique({ where: { id: reporter.atasanId }, select: { id: true, role: true, status: true } });
     if (atasan && atasan.role === "SUPERINTENDENT" && atasan.status === "ACTIVE") return [atasan.id];
   }
-  const same = await db.user.findMany({ where: { role: "SUPERINTENDENT", status: "ACTIVE", areaId: reporter.areaId ?? undefined } });
-  if (same.length) return same.map((s) => s.id);
-  const all = await db.user.findMany({ where: { role: "SUPERINTENDENT", status: "ACTIVE" } });
+  const areas = [reportAreaId, reporter.areaId].filter((x): x is string => !!x);
+  if (areas.length) {
+    const same = await db.user.findMany({ where: { role: "SUPERINTENDENT", status: "ACTIVE", areaId: { in: areas } }, select: { id: true } });
+    if (same.length) return same.map((s) => s.id);
+  }
+  const all = await db.user.findMany({ where: { role: "SUPERINTENDENT", status: "ACTIVE" }, select: { id: true } });
   return all.map((s) => s.id);
+}
+
+type Tx = Prisma.TransactionClient;
+
+/** Menjalankan perubahan status dan seluruh tulisan terkait secara atomik */
+function inTx<T>(fn: (tx: Tx) => Promise<T>) {
+  return db.$transaction(fn, { timeout: 15000, maxWait: 10000 });
 }
 
 export type NewReportInput = {
@@ -99,59 +130,76 @@ export async function createReport(input: NewReportInput) {
   const highRisk = input.riskLevel === "TINGGI" || input.riskLevel === "EKSTREM";
   const status = path === "A" ? "MENUNGGU_VERIFIKASI" : "MENUNGGU_KEPUTUSAN";
 
+  // Idempoten: pengiriman ulang dengan clientId yang sama mengembalikan laporan yang sudah ada
+  if (input.clientId) {
+    const existing = await db.report.findUnique({ where: { clientId: input.clientId } });
+    if (existing) return { report: existing, duplicate: true };
+  }
+
   // Nomor laporan dari pencacah atomik; ulangi bila ternyata sudah terpakai (data lama tanpa pencacah)
   let report: Awaited<ReturnType<typeof db.report.create>> | null = null;
   let number = "";
+  const escalated = path === "A" && highRisk && settings.escalateHighRisk;
   for (let attempt = 0; attempt < 50 && !report; attempt++) {
     number = await nextReportNumber(now);
     try {
       report = await db.report.create({
-    data: {
-      number,
-      reporterId: reporter.id,
-      path,
-      areaId,
-      areaLabel: input.areaLabel ?? null,
-      category: input.category,
-      riskLevel: input.riskLevel,
-      description: input.description,
-      suggestion: input.suggestion || null,
-      lat: input.lat ?? null,
-      lng: input.lng ?? null,
-      accuracyM: input.accuracyM ?? null,
-      outsideArea,
-      locationFlag: flag,
-      clientCreatedAt: input.clientCreatedAt ?? null,
-      syncedOffline: !!input.syncedOffline,
-      status,
-      escalated: path === "A" && highRisk && settings.escalateHighRisk,
-      dueVerifyAt: path === "A" ? addBusinessDays(now, settings.verifyDeadlineDays) : null,
-      dueDecideAt: path === "B" ? addBusinessDays(now, settings.decideDeadlineDays) : null,
-      photos: { create: input.photos.map((p) => ({ mime: p.mime, data: p.data, width: p.width, height: p.height, size: p.data.length, kind: "LAPORAN" })) },
-      events: { create: { type: "DIBUAT", actorId: reporter.id, toStatus: status, note: input.syncedOffline ? "Dikirim dari antrean luring" : null, meta: input.clientId ?? null } },
-    },
-  });
+        data: {
+          number,
+          clientId: input.clientId || null,
+          reporterId: reporter.id,
+          path,
+          areaId,
+          areaLabel: input.areaLabel ?? null,
+          category: input.category,
+          riskLevel: input.riskLevel,
+          description: input.description,
+          suggestion: input.suggestion || null,
+          lat: input.lat ?? null,
+          lng: input.lng ?? null,
+          accuracyM: input.accuracyM ?? null,
+          outsideArea,
+          locationFlag: flag,
+          clientCreatedAt: input.clientCreatedAt ?? null,
+          syncedOffline: !!input.syncedOffline,
+          status,
+          escalated,
+          dueVerifyAt: path === "A" ? addBusinessDays(now, settings.verifyDeadlineDays) : null,
+          dueDecideAt: path === "B" ? addBusinessDays(now, settings.decideDeadlineDays) : null,
+          photos: { create: input.photos.map((p) => ({ mime: p.mime, data: p.data, width: p.width, height: p.height, size: p.data.length, kind: "LAPORAN" })) },
+          events: {
+            create: [
+              { type: "DIBUAT", actorId: reporter.id, toStatus: status, note: input.syncedOffline ? "Dikirim dari antrean luring" : null, meta: input.clientId ?? null },
+              ...(escalated ? [{ type: "DIESKALASI", note: "Eskalasi otomatis risiko Tinggi/Ekstrem ke Manager" }] : []),
+            ],
+          },
+        },
+      });
     } catch (e) {
       if (!isUniqueError(e)) throw e;
+      const target = (e as Prisma.PrismaClientKnownRequestError).meta?.target;
+      if (input.clientId && String(target ?? "").includes("clientId")) {
+        const existing = await db.report.findUnique({ where: { clientId: input.clientId } });
+        if (existing) return { report: existing, duplicate: true };
+      }
     }
   }
   if (!report) throw new WorkflowError("Gagal menetapkan nomor laporan. Coba lagi.");
 
   const summary = `${CATEGORY_LABEL[input.category]} - risiko ${RISK_LABEL[input.riskLevel]}`;
   if (path === "A") {
-    const verifiers = await verifiersFor(reporter);
+    const verifiers = await verifiersFor(reporter, areaId);
     await notify(verifiers, `Laporan baru perlu verifikasi: ${number}`, summary, `/laporan/${report.id}`);
     if (report.escalated) {
       const managers = await managersForArea(areaId);
       await notify(managers, `Eskalasi risiko ${RISK_LABEL[input.riskLevel]}: ${number}`, `${summary}. Menunggu verifikasi Superintendent.`, `/laporan/${report.id}`);
-      await db.reportEvent.create({ data: { reportId: report.id, type: "DIESKALASI", note: "Eskalasi otomatis risiko Tinggi/Ekstrem ke Manager" } });
     }
   } else {
     const managers = await managersForArea(areaId, reporter.role === "MANAGER" && settings.managerPeerReview ? reporter.id : undefined);
     await notify(managers, `Laporan baru menunggu keputusan: ${number}`, summary, `/laporan/${report.id}`);
   }
   await audit(reporter.id, "LAPORAN_DIBUAT", "Report", report.id, { number, path, status });
-  return report;
+  return { report, duplicate: false };
 }
 
 async function loadReport(id: string) {
@@ -160,11 +208,13 @@ async function loadReport(id: string) {
   return r;
 }
 
-export async function canVerify(user: { id: string; role: string; areaId: string | null }, report: { status: string; reporter: { atasanId: string | null; areaId: string | null } }) {
+export async function canVerify(user: { id: string; role: string; areaId: string | null; status?: string }, report: { id: string; status: string }) {
   if (report.status !== "MENUNGGU_VERIFIKASI") return false;
+  if (user.status && user.status !== "ACTIVE") return false;
   if (user.role === "ADMIN") return true;
   if (user.role !== "SUPERINTENDENT") return false;
-  return report.reporter.atasanId === user.id || (!!user.areaId && report.reporter.areaId === user.areaId) || !report.reporter.atasanId;
+  const n = await db.report.count({ where: { AND: [{ id: report.id }, verifiableWhere(user)] } });
+  return n === 1;
 }
 
 export async function verifyReport(actorId: string, reportId: string, result: "VALID" | "REVISI" | "TOLAK", note: string) {
@@ -175,20 +225,21 @@ export async function verifyReport(actorId: string, reportId: string, result: "V
   const settings = await getSettings();
   const now = new Date();
   const toStatus = result === "VALID" ? "MENUNGGU_KEPUTUSAN" : result === "REVISI" ? "PERLU_REVISI" : "DITOLAK";
-  await transition(reportId, "MENUNGGU_VERIFIKASI", {
-    status: toStatus,
-    verifierId: actorId,
-    verifiedAt: now,
-    verificationResult: result,
-    verificationNote: note || null,
-    revisionCount: result === "REVISI" ? { increment: 1 } : undefined,
-    dueDecideAt: result === "VALID" ? addBusinessDays(now, settings.decideDeadlineDays) : undefined,
-    isDuplicate: result === "TOLAK" && /ganda|duplikat/i.test(note) ? true : undefined,
+  const points = await inTx(async (tx) => {
+    await transition(tx, reportId, "MENUNGGU_VERIFIKASI", {
+      status: toStatus,
+      verifierId: actorId,
+      verifiedAt: now,
+      verificationResult: result,
+      verificationNote: note || null,
+      revisionCount: result === "REVISI" ? { increment: 1 } : undefined,
+      dueDecideAt: result === "VALID" ? addBusinessDays(now, settings.decideDeadlineDays) : undefined,
+      isDuplicate: result === "TOLAK" && /ganda|duplikat/i.test(note) ? true : undefined,
+    });
+    await tx.reportEvent.create({ data: { reportId, type: result === "VALID" ? "DIVERIFIKASI" : result === "REVISI" ? "DIREVISI" : "DITOLAK", actorId, fromStatus: "MENUNGGU_VERIFIKASI", toStatus, note } });
+    return result === "VALID" ? awardValidationPoints(tx, reportId, settings) : 0;
   });
-  await db.reportEvent.create({ data: { reportId, type: result === "VALID" ? "DIVERIFIKASI" : result === "REVISI" ? "DIREVISI" : "DITOLAK", actorId, fromStatus: "MENUNGGU_VERIFIKASI", toStatus, note } });
-  let points = 0;
   if (result === "VALID") {
-    points = await awardValidationPoints(reportId, settings);
     const managers = await managersForArea(report.areaId);
     await notify(managers, `Laporan terverifikasi, menunggu keputusan: ${report.number}`, `${CATEGORY_LABEL[report.category as Category]} - risiko ${RISK_LABEL[report.riskLevel as Risk]}`, `/laporan/${reportId}`);
     await notify([report.reporterId], `Laporan ${report.number} dinyatakan valid`, points > 0 ? `Anda memperoleh ${points} poin.` : "Laporan diteruskan ke Manager.", `/laporan/${reportId}`);
@@ -206,9 +257,26 @@ export async function resubmitReport(actorId: string, reportId: string, data: { 
   if (report.status !== "PERLU_REVISI") throw new WorkflowError("Laporan tidak dalam status perlu revisi.");
   const settings = await getSettings();
   const { note, ...fields } = data;
-  await transition(reportId, "PERLU_REVISI", { ...fields, status: "MENUNGGU_VERIFIKASI", dueVerifyAt: addBusinessDays(new Date(), settings.verifyDeadlineDays) });
-  await db.reportEvent.create({ data: { reportId, type: "REVISI_DIKIRIM", actorId, fromStatus: "PERLU_REVISI", toStatus: "MENUNGGU_VERIFIKASI", note } });
-  const verifiers = report.verifierId ? [report.verifierId] : await verifiersFor(report.reporter);
+  const highRisk = fields.riskLevel === "TINGGI" || fields.riskLevel === "EKSTREM";
+  const escalate = report.path === "A" && highRisk && settings.escalateHighRisk;
+  await inTx(async (tx) => {
+    // Hasil verifikasi lama dihapus agar laporan kembali bersih ke antrean; riwayatnya tetap di ReportEvent
+    await transition(tx, reportId, "PERLU_REVISI", {
+      ...fields,
+      status: "MENUNGGU_VERIFIKASI",
+      dueVerifyAt: addBusinessDays(new Date(), settings.verifyDeadlineDays),
+      verificationResult: null,
+      verifiedAt: null,
+      escalated: report.escalated || escalate,
+    });
+    await tx.reportEvent.create({ data: { reportId, type: "REVISI_DIKIRIM", actorId, fromStatus: "PERLU_REVISI", toStatus: "MENUNGGU_VERIFIKASI", note } });
+    if (escalate && !report.escalated) await tx.reportEvent.create({ data: { reportId, type: "DIESKALASI", note: "Eskalasi otomatis: risiko dinaikkan saat revisi" } });
+  });
+  if (escalate && !report.escalated) {
+    await notify(await managersForArea(report.areaId), `Eskalasi risiko ${RISK_LABEL[fields.riskLevel]}: ${report.number}`, "Risiko dinaikkan saat revisi. Menunggu verifikasi Superintendent.", `/laporan/${reportId}`);
+  }
+  const prev = report.verifierId ? await db.user.findUnique({ where: { id: report.verifierId }, select: { id: true, role: true, status: true } }) : null;
+  const verifiers = prev && prev.status === "ACTIVE" && (prev.role === "SUPERINTENDENT" || prev.role === "ADMIN") ? [prev.id] : await verifiersFor(report.reporter, report.areaId);
   await notify(verifiers, `Revisi laporan ${report.number} dikirim`, note, `/laporan/${reportId}`);
   await audit(actorId, "LAPORAN_DIREVISI", "Report", reportId);
 }
@@ -246,7 +314,8 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
     if (!input.controlHierarchy) throw new WorkflowError("Pilih hierarki pengendalian.");
     const pic = input.picId ? await db.user.findUnique({ where: { id: input.picId } }) : null;
     if (input.picId && (!pic || pic.status !== "ACTIVE")) throw new WorkflowError("Penanggung jawab tidak ditemukan atau tidak aktif.");
-    await transition(reportId, "MENUNGGU_KEPUTUSAN", {
+    const points = await inTx(async (tx) => {
+    await transition(tx, reportId, "MENUNGGU_KEPUTUSAN", {
       status: "DALAM_PERBAIKAN",
       deciderId: actorId,
       decidedAt: now,
@@ -260,18 +329,22 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
       targetDate: input.targetDate,
       controlHierarchy: input.controlHierarchy,
     });
-    await db.reportEvent.create({ data: { reportId, type: "DIPUTUSKAN", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DALAM_PERBAIKAN", note: `Setujui. PIC: ${input.picName?.trim() || pic?.name}. ${input.note ?? ""}`.trim() } });
-    let points = 0;
-    if (report.path === "B") points = await awardValidationPoints(reportId, settings);
+    await tx.reportEvent.create({ data: { reportId, type: "DIPUTUSKAN", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DALAM_PERBAIKAN", note: `Setujui. PIC: ${input.picName?.trim() || pic?.name}. ${input.note ?? ""}`.trim() } });
+      // Jalur B tidak melewati verifikasi; poin diberikan saat disetujui. Jalur A sudah menerima poin saat diverifikasi.
+      return awardValidationPoints(tx, reportId, settings);
+    });
     await notify([report.reporterId], `Laporan ${report.number} disetujui Manager`, `${points > 0 ? `Anda memperoleh ${points} poin. ` : ""}Perbaikan ditargetkan selesai ${input.targetDate.toLocaleDateString("id-ID")}.`, `/laporan/${reportId}`);
     if (pic && pic.id !== report.reporterId) await notify([pic.id], `Anda ditunjuk sebagai penanggung jawab: ${report.number}`, report.description, `/laporan/${reportId}`);
     await audit(actorId, "LAPORAN_DISETUJUI", "Report", reportId, { pic: pic?.id ?? input.picName, target: input.targetDate, points });
   } else {
     if (!input.note?.trim()) throw new WorkflowError("Alasan penolakan wajib diisi.");
     const reason = input.rejectReason ?? "TIDAK_PERLU_TINDAKAN";
-    await transition(reportId, "MENUNGGU_KEPUTUSAN", { status: "DITOLAK", deciderId: actorId, decidedAt: now, decisionResult: "TOLAK", decisionNote: input.note, isDuplicate: reason === "GANDA" });
-    await db.reportEvent.create({ data: { reportId, type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note: input.note } });
-    if (reason === "GANDA" || reason === "TIDAK_BENAR") await revokePoints(reportId, reason === "GANDA" ? "laporan ganda" : "laporan tidak benar");
+    const note = input.note;
+    await inTx(async (tx) => {
+      await transition(tx, reportId, "MENUNGGU_KEPUTUSAN", { status: "DITOLAK", deciderId: actorId, decidedAt: now, decisionResult: "TOLAK", decisionNote: note, isDuplicate: reason === "GANDA" });
+      await tx.reportEvent.create({ data: { reportId, type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note } });
+      if (reason === "GANDA" || reason === "TIDAK_BENAR") await revokePoints(tx, reportId, reason === "GANDA" ? "laporan ganda" : "laporan tidak benar");
+    });
     await notify([report.reporterId], `Laporan ${report.number} ditolak Manager`, input.note, `/laporan/${reportId}`);
     await audit(actorId, "LAPORAN_DITOLAK", "Report", reportId, { reason });
   }
@@ -288,9 +361,11 @@ export async function updateProgress(actorId: string, reportId: string, pct: num
   if (!actor || !canProgress(actor, report)) throw new WorkflowError("Anda tidak berwenang memperbarui progres laporan ini.");
   const now = new Date();
   const pctFinal = done ? 100 : Math.max(0, Math.min(99, pct));
-  await transition(reportId, "DALAM_PERBAIKAN", { progressPct: pctFinal, status: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", completedAt: done ? now : undefined, completionNote: done ? note : undefined });
-  if (photo) await db.photo.create({ data: { reportId, mime: photo.mime, data: photo.data, size: photo.data.length, kind: "PERBAIKAN" } });
-  await db.reportEvent.create({ data: { reportId, type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } });
+  await inTx(async (tx) => {
+    await transition(tx, reportId, "DALAM_PERBAIKAN", { progressPct: pctFinal, status: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", completedAt: done ? now : undefined, completionNote: done ? note : undefined });
+    if (photo) await tx.photo.create({ data: { reportId, mime: photo.mime, data: photo.data, size: photo.data.length, kind: "PERBAIKAN" } });
+    await tx.reportEvent.create({ data: { reportId, type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } });
+  });
   if (done) {
     await notify([report.deciderId, report.verifierId].filter((x) => x !== actorId), `Perbaikan ${report.number} dilaporkan selesai`, note, `/laporan/${reportId}`);
   }
@@ -310,30 +385,33 @@ export async function closeReport(actorId: string, reportId: string, accepted: b
   const now = new Date();
   if (!accepted) {
     if (!note.trim()) throw new WorkflowError("Catatan wajib diisi bila hasil perbaikan belum diterima.");
-    await transition(reportId, "MENUNGGU_PENUTUPAN", { status: "DALAM_PERBAIKAN", progressPct: 80, completedAt: null });
-    await db.reportEvent.create({ data: { reportId, type: "PROGRES", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "DALAM_PERBAIKAN", note: `Hasil belum diterima: ${note}` } });
+    await inTx(async (tx) => {
+      await transition(tx, reportId, "MENUNGGU_PENUTUPAN", { status: "DALAM_PERBAIKAN", progressPct: 80, completedAt: null, completionNote: null });
+      await tx.reportEvent.create({ data: { reportId, type: "PROGRES", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "DALAM_PERBAIKAN", note: `Hasil belum diterima: ${note}` } });
+    });
     await notify([report.picId, report.reporterId], `Perbaikan ${report.number} perlu disempurnakan`, note, `/laporan/${reportId}`);
     await audit(actorId, "PENUTUPAN_DITOLAK", "Report", reportId);
     return;
   }
   const onTime = report.targetDate ? (report.completedAt ?? now) <= report.targetDate : null;
-  await transition(reportId, "MENUNGGU_PENUTUPAN", { status: "SELESAI", closerId: actorId, closedAt: now, closureNote: note || null, closedOnTime: onTime });
-  await db.reportEvent.create({ data: { reportId, type: "DITUTUP", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI", note } });
-  let bonus = 0;
-  if (suggestionApplied) bonus = await awardSuggestionBonus(reportId, settings);
+  const bonus = await inTx(async (tx) => {
+    await transition(tx, reportId, "MENUNGGU_PENUTUPAN", { status: "SELESAI", closerId: actorId, closedAt: now, closureNote: note || null, closedOnTime: onTime });
+    await tx.reportEvent.create({ data: { reportId, type: "DITUTUP", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI", note } });
+    return suggestionApplied ? awardSuggestionBonus(tx, reportId, settings) : 0;
+  });
   await notify([report.reporterId, report.picId].filter((x) => x !== actorId), `Laporan ${report.number} ditutup`, bonus > 0 ? `Usulan perbaikan Anda diterapkan, bonus ${bonus} poin.` : "Hasil perbaikan telah diverifikasi.", `/laporan/${reportId}`);
   await audit(actorId, "LAPORAN_DITUTUP", "Report", reportId, { onTime, bonus });
 }
 
 /** Scope daftar laporan sesuai peran */
-export function reportScope(user: { id: string; role: string; areaId: string | null }) {
+export function reportScope(user: { id: string; role: string; areaId: string | null }): Prisma.ReportWhereInput {
   switch (user.role) {
     case "ADMIN":
     case "DIREKSI":
     case "MANAGER":
       return {};
     case "SUPERINTENDENT":
-      return { OR: [{ reporterId: user.id }, { picId: user.id }, { verifierId: user.id }, { reporter: { atasanId: user.id } }, { status: "MENUNGGU_VERIFIKASI", reporter: { atasanId: null } }, ...(user.areaId ? [{ areaId: user.areaId }] : [])] };
+      return { OR: [{ reporterId: user.id }, { picId: user.id }, { verifierId: user.id }, { reporter: { atasanId: user.id } }, ...(user.areaId ? [{ areaId: user.areaId }] : []), verifiableWhere(user)] };
     default:
       return { OR: [{ reporterId: user.id }, { picId: user.id }] };
   }

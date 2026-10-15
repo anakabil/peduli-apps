@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import type { AdapterUser } from "next-auth/adapters";
 import { OAuth2Client } from "google-auth-library";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
@@ -18,13 +19,16 @@ export function isDemoMode() {
   return envBool("DEMO_MODE");
 }
 
-function emailAllowed(email?: string | null) {
+/** Email boleh masuk bila: admin, sudah didaftarkan admin (ada di basis data), atau sesuai domain yang diizinkan */
+async function emailAllowed(email?: string | null) {
   if (!email) return false;
-  const e = email.toLowerCase();
+  const e = email.trim().toLowerCase();
   if (adminEmails().includes(e)) return true;
   const domains = allowedDomains();
   if (domains.length === 0) return true;
-  return domains.some((d) => e.endsWith(`@${d}`));
+  if (domains.some((d) => e.endsWith(`@${d}`))) return true;
+  const registered = await db.user.findUnique({ where: { email: e }, select: { status: true } });
+  return !!registered && registered.status !== "INACTIVE";
 }
 
 /** Menentukan peran dan status awal untuk akun baru */
@@ -51,9 +55,21 @@ async function upsertGoogleUser(payload: { sub: string; email?: string; name?: s
   });
 }
 
+const baseAdapter = PrismaAdapter(db);
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  adapter: PrismaAdapter(db),
+  adapter: {
+    ...baseAdapter,
+    // Profil awal hanya untuk pengguna yang benar-benar baru. Akun yang sudah ada (dibuat admin atau lewat One Tap)
+    // hanya ditautkan, sehingga peran dan statusnya tidak tertimpa. Email disimpan dalam huruf kecil.
+    createUser: async ({ id: _ignored, ...data }) => {
+      void _ignored;
+      const email = data.email.trim().toLowerCase();
+      return (await db.user.create({ data: { ...data, email, ...initialProfile(email) } })) as AdapterUser;
+    },
+    getUserByEmail: async (email) => (await db.user.findUnique({ where: { email: email.trim().toLowerCase() } })) as AdapterUser | null,
+  },
   providers: [
     ...authConfig.providers,
     // Google One Tap: klien mengirim ID token, server memverifikasi ke Google
@@ -69,7 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
         const payload = ticket.getPayload();
         if (!payload?.email || !payload.email_verified) return null;
-        if (!emailAllowed(payload.email)) return null;
+        if (!(await emailAllowed(payload.email))) return null;
         const user = await upsertGoogleUser({ sub: payload.sub, email: payload.email, name: payload.name, picture: payload.picture });
         if (!user) return null;
         return { id: user.id, email: user.email, name: user.name, image: user.image };
@@ -95,17 +111,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         const email = (profile?.email ?? user.email ?? "").toLowerCase();
-        if (!emailAllowed(email)) return "/masuk?error=domain";
+        if (!(await emailAllowed(email))) return "/masuk?error=domain";
       }
       return true;
     },
   },
   events: {
-    async createUser({ user }) {
-      // Dipanggil adapter saat akun Google baru dibuat
-      const profile = initialProfile(user.email);
-      await db.user.update({ where: { id: user.id! }, data: profile });
-    },
     async signIn({ user, account }) {
       if (!user.id) return;
       await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch(() => {});

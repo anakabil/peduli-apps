@@ -2,6 +2,7 @@
 import { PrismaClient } from "@prisma/client";
 import { DEFAULT_SETTINGS } from "../src/lib/constants";
 import { placeholderPhotos } from "./placeholder-photos";
+import { addBusinessDays } from "../src/lib/format";
 
 const db = new PrismaClient();
 
@@ -28,6 +29,15 @@ async function main() {
     const row = await db.area.upsert({ where: { code: a.code }, create: a, update: { name: a.name } });
     areaMap[a.code] = row.id;
   }
+
+  // Katalog reward
+  const rewards = [
+    { name: "Payung", description: "Contoh hadiah tingkat awal", pointsCost: 10, stock: 50, tier: "AWAL", icon: "Umbrella" },
+    { name: "Tumbler", description: "Contoh hadiah tingkat lanjut", pointsCost: 200, stock: 20, tier: "LANJUT", icon: "CupSoda" },
+    { name: "Sepatu keselamatan", description: "Contoh hadiah tingkat menengah", pointsCost: 100, stock: 15, tier: "MENENGAH", icon: "Footprints" },
+    { name: "Voucher belanja", description: "Senilai Rp100.000", pointsCost: 60, stock: 30, tier: "MENENGAH", icon: "Ticket" },
+  ];
+  if ((await db.reward.count()) === 0) await db.reward.createMany({ data: rewards });
 
   // Akun demo dan laporan contoh hanya bila SEED_DEMO tidak "false"
   const withDemo = process.env.SEED_DEMO !== "false";
@@ -58,21 +68,28 @@ async function main() {
   await db.area.update({ where: { code: "LOG" }, data: { managerId: manager2.id } });
   await db.area.update({ where: { code: "KTR" }, data: { managerId: manager.id } });
 
-  // Katalog reward
-  const rewards = [
-    { name: "Payung", description: "Contoh hadiah tingkat awal", pointsCost: 10, stock: 50, tier: "AWAL", icon: "Umbrella" },
-    { name: "Tumbler", description: "Contoh hadiah tingkat lanjut", pointsCost: 200, stock: 20, tier: "LANJUT", icon: "CupSoda" },
-    { name: "Sepatu keselamatan", description: "Contoh hadiah tingkat menengah", pointsCost: 100, stock: 15, tier: "MENENGAH", icon: "Footprints" },
-    { name: "Voucher belanja", description: "Senilai Rp100.000", pointsCost: 60, stock: 30, tier: "MENENGAH", icon: "Ticket" },
-  ];
-  if ((await db.reward.count()) === 0) await db.reward.createMany({ data: rewards });
-
   // Laporan contoh (hanya bila belum ada)
   if ((await db.report.count()) > 0) {
     console.log("Laporan contoh sudah ada, dilewati.");
     return;
   }
+  await seedReports({ admin, direksi, manager, manager2, supt, supt2, pengawas, pengawas2, pengawas3, areaMap, areas });
+}
 
+type U = { id: string; role: string; atasanId: string | null };
+
+/**
+ * Laporan contoh disimulasikan melewati tahap alur kerja berdasarkan waktu, sehingga status, stempel waktu,
+ * jejak event, dan buku poin selalu konsisten dengan aturan aplikasi:
+ * jalur A = Pengawas (verifikasi Superintendent, poin saat valid); jalur B = peran lain (langsung Manager, poin saat disetujui).
+ */
+async function seedReports(ctx: {
+  admin: U; direksi: U; manager: U; manager2: U; supt: U; supt2: U; pengawas: U; pengawas2: U; pengawas3: U;
+  areaMap: Record<string, string>;
+  areas: Array<{ code: string; name: string; lat: number; lng: number }>;
+}) {
+  const { manager, manager2, supt, supt2, pengawas, pengawas2, pengawas3, direksi, areaMap, areas } = ctx;
+  const P = DEFAULT_SETTINGS.points;
   const cats = ["KONDISI_TIDAK_AMAN", "TINDAKAN_TIDAK_AMAN", "NYARIS_CELAKA", "ERGONOMI", "LINGKUNGAN"];
   const risks = ["RENDAH", "SEDANG", "SEDANG", "TINGGI", "EKSTREM"];
   const descs = [
@@ -87,54 +104,121 @@ async function main() {
     "Tangga portabel retak pada anak tangga ketiga.",
     "Debu logam menumpuk di saluran ventilasi.",
   ];
-  const reporters = [pengawas, pengawas2, pengawas3, pengawas, pengawas2, supt, manager2, pengawas3, pengawas, direksi];
+  const reporters: U[] = [pengawas, pengawas2, pengawas3, pengawas, pengawas2, supt, manager2, pengawas3, pengawas, direksi];
   const areaCodes = ["PRD", "GDG", "UTL", "PRD", "GDG", "PRD", "LOG", "KTR", "PRD", "PRD"];
-  const now = new Date();
+  const controls = ["REKAYASA_TEKNIK", "ADMINISTRATIF", "APD", "SUBSTITUSI", "ELIMINASI"];
   const photos = await placeholderPhotos();
-  let seq = 0;
+  const now = new Date();
+  const H = 3600000;
+  const D = 86400000;
+  const counters = new Map<string, number>();
   const monthsBack = [0, 0, 0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
   for (let i = 0; i < 48; i++) {
-    const mb = monthsBack[i % monthsBack.length];
-    const created = new Date(now.getFullYear(), now.getMonth() - mb, Math.max(1, (i * 7) % 27), 8 + (i % 9), (i * 13) % 60);
-    if (created > now) created.setTime(now.getTime() - i * 3600000);
     const reporter = reporters[i % reporters.length];
+    const path = reporter.role === "PENGAWAS" ? "A" : "B";
     const code = areaCodes[i % areaCodes.length];
     const area = areas.find((a) => a.code === code)!;
     const category = cats[i % cats.length];
     const riskLevel = risks[(i * 3) % risks.length];
-    const path = reporter.role === "PENGAWAS" ? "A" : "B";
-    seq++;
-    const ym = `${created.getFullYear()}${String(created.getMonth() + 1).padStart(2, "0")}`;
-    const number = `PDL-${ym}-${String(seq).padStart(4, "0")}`;
-
-    // Tentukan status berdasarkan umur laporan
-    const ageDays = (now.getTime() - created.getTime()) / 86400000;
-    let status = "MENUNGGU_VERIFIKASI";
-    if (path === "B") status = "MENUNGGU_KEPUTUSAN";
-    if (ageDays > 2) status = "MENUNGGU_KEPUTUSAN";
-    if (ageDays > 5) status = "DALAM_PERBAIKAN";
-    if (ageDays > 12) status = "MENUNGGU_PENUTUPAN";
-    if (ageDays > 18) status = "SELESAI";
-    if (i % 11 === 10) status = "DITOLAK";
-    if (i % 17 === 16 && ageDays < 18) status = "PERLU_REVISI";
-
-    const verifier = reporter.atasanId === supt.id ? supt : supt2;
-    const decider = ["PRD", "UTL", "KTR"].includes(code) ? manager : manager2;
-    const verified = path === "A" && !["MENUNGGU_VERIFIKASI", "PERLU_REVISI"].includes(status);
-    const decided = ["DALAM_PERBAIKAN", "MENUNGGU_PENUTUPAN", "SELESAI"].includes(status);
-    const closed = status === "SELESAI";
-    const verifiedAt = verified ? new Date(created.getTime() + (6 + (i % 30)) * 3600000) : null;
-    const decidedAt = decided ? new Date((verifiedAt ?? created).getTime() + (12 + (i % 40)) * 3600000) : null;
-    const targetDate = decidedAt ? new Date(decidedAt.getTime() + (5 + (i % 10)) * 86400000) : null;
-    const closedAt = closed && decidedAt ? new Date(decidedAt.getTime() + (3 + (i % 14)) * 86400000) : null;
-    const closedOnTime = closedAt && targetDate ? closedAt <= targetDate : null;
     const highRisk = riskLevel === "TINGGI" || riskLevel === "EKSTREM";
-    let pointsAwarded = 0;
-    if (verified || (path === "B" && decided)) {
-      pointsAwarded = category === "NYARIS_CELAKA" ? 3 : 2;
-      if (highRisk) pointsAwarded += 3;
+    const verifier = reporter.atasanId === supt2.id ? supt2 : supt;
+    const decider = ["PRD", "UTL", "KTR"].includes(code) ? manager : manager2;
+    // Peninjauan sejawat: Manager tidak memutuskan laporannya sendiri
+    const deciderFinal = decider.id === reporter.id ? (decider.id === manager.id ? manager2 : manager) : decider;
+    const picUser = code === "GDG" || code === "LOG" ? supt2 : supt;
+
+    // Waktu pembuatan (WIB pagi-sore) tidak melewati saat ini
+    const mb = monthsBack[i % monthsBack.length];
+    const created = new Date(now.getFullYear(), now.getMonth() - mb, Math.max(1, (i * 7) % 27), 1 + (i % 9), (i * 13) % 60);
+    if (created > now) created.setTime(now.getTime() - (i + 1) * 5 * H);
+
+    // Skenario: tolak (ganda), revisi, atau alur normal
+    const rejectDup = i % 11 === 10;
+    const askRevision = path === "A" && !rejectDup && i % 17 === 16;
+
+    // Rencana stempel waktu per tahap
+    const verifiedAt = path === "A" ? new Date(created.getTime() + (6 + (i % 30)) * H) : null;
+    const decidedAt = new Date((verifiedAt ?? created).getTime() + (12 + (i % 40)) * H);
+    const targetDate = new Date(decidedAt.getTime() + (5 + (i % 10)) * D);
+    const completedAt = new Date(decidedAt.getTime() + (3 + (i % 14)) * D);
+    const closedAt = new Date(completedAt.getTime() + D);
+    const reached = (t: Date | null) => !!t && t <= now;
+
+    type Ev = { type: string; actorId?: string; fromStatus?: string; toStatus: string; note?: string; createdAt: Date };
+    const events: Ev[] = [];
+    const ledger: Array<{ type: string; points: number; createdAt: Date }> = [];
+    const r: Record<string, unknown> = {};
+    let status = path === "A" ? "MENUNGGU_VERIFIKASI" : "MENUNGGU_KEPUTUSAN";
+    events.push({ type: "DIBUAT", actorId: reporter.id, toStatus: status, createdAt: created });
+    const escalated = path === "A" && highRisk;
+    if (escalated) events.push({ type: "DIESKALASI", toStatus: status, note: "Eskalasi otomatis risiko Tinggi/Ekstrem ke Manager", createdAt: created });
+    let points = 0;
+    const award = (at: Date) => {
+      const base = category === "NYARIS_CELAKA" ? P.nearMiss : P.valid;
+      ledger.push({ type: category === "NYARIS_CELAKA" ? "NYARIS_CELAKA" : "LAPORAN_VALID", points: base, createdAt: at });
+      points += base;
+      if (highRisk) {
+        ledger.push({ type: "BONUS_RISIKO", points: P.highRiskBonus, createdAt: at });
+        points += P.highRiskBonus;
+      }
+    };
+
+    if (path === "A" && reached(verifiedAt)) {
+      const res = rejectDup ? "TOLAK" : askRevision ? "REVISI" : "VALID";
+      const to = res === "VALID" ? "MENUNGGU_KEPUTUSAN" : res === "REVISI" ? "PERLU_REVISI" : "DITOLAK";
+      Object.assign(r, { verifierId: verifier.id, verifiedAt, verificationResult: res, verificationNote: res === "VALID" ? "Foto sesuai lokasi dan waktu, uraian jelas." : res === "REVISI" ? "Foto kurang jelas, mohon ambil ulang dari sudut lain." : "Laporan ganda dengan laporan sebelumnya." });
+      if (res === "REVISI") r.revisionCount = 1;
+      if (res === "TOLAK") r.isDuplicate = true;
+      events.push({ type: res === "VALID" ? "DIVERIFIKASI" : res === "REVISI" ? "DIREVISI" : "DITOLAK", actorId: verifier.id, fromStatus: status, toStatus: to, note: String(r.verificationNote), createdAt: verifiedAt! });
+      status = to;
+      if (res === "VALID") award(verifiedAt!);
     }
+
+    if (status === "MENUNGGU_KEPUTUSAN" && reached(decidedAt)) {
+      if (rejectDup) {
+        Object.assign(r, { deciderId: deciderFinal.id, decidedAt, decisionResult: "TOLAK", decisionNote: "Laporan ganda dengan laporan sebelumnya.", isDuplicate: true });
+        events.push({ type: "DITOLAK", actorId: deciderFinal.id, fromStatus: status, toStatus: "DITOLAK", note: "Laporan ganda dengan laporan sebelumnya.", createdAt: decidedAt });
+        status = "DITOLAK";
+      } else {
+        Object.assign(r, {
+          deciderId: deciderFinal.id, decidedAt, decisionResult: "SETUJU", decisionNote: "Disetujui, segera ditindaklanjuti.",
+          picId: picUser.id, picName: picUser.id === supt2.id ? "Superintendent Gudang" : "Superintendent Produksi",
+          resourceTenaga: "2 teknisi", resourceBiaya: "Rp1.500.000", resourceMaterial: "Material pelindung dan rambu",
+          targetDate, controlHierarchy: controls[i % controls.length],
+        });
+        events.push({ type: "DIPUTUSKAN", actorId: deciderFinal.id, fromStatus: status, toStatus: "DALAM_PERBAIKAN", note: "Setujui.", createdAt: decidedAt });
+        status = "DALAM_PERBAIKAN";
+        if (path === "B") award(decidedAt);
+        r.progressPct = 40;
+      }
+    }
+
+    if (status === "DALAM_PERBAIKAN" && reached(completedAt)) {
+      Object.assign(r, { progressPct: 100, completedAt, completionNote: "Perbaikan selesai dikerjakan." });
+      events.push({ type: "SELESAI_PERBAIKAN", actorId: picUser.id, fromStatus: status, toStatus: "MENUNGGU_PENUTUPAN", note: "100% - Perbaikan selesai dikerjakan.", createdAt: completedAt });
+      status = "MENUNGGU_PENUTUPAN";
+    }
+
+    let suggestionApplied = false;
+    if (status === "MENUNGGU_PENUTUPAN" && reached(closedAt)) {
+      Object.assign(r, { closerId: deciderFinal.id, closedAt, closureNote: "Hasil perbaikan diverifikasi di lapangan.", closedOnTime: completedAt <= targetDate });
+      events.push({ type: "DITUTUP", actorId: deciderFinal.id, fromStatus: status, toStatus: "SELESAI", note: "Hasil perbaikan diverifikasi di lapangan.", createdAt: closedAt });
+      status = "SELESAI";
+      if (i % 3 === 0) {
+        suggestionApplied = true;
+        ledger.push({ type: "BONUS_USULAN", points: P.suggestionBonus, createdAt: closedAt });
+        points += P.suggestionBonus;
+      }
+    }
+
+    // Nomor laporan per bulan WIB
+    const wib = new Date(created.getTime() + 7 * H);
+    const ym = `${wib.getUTCFullYear()}${String(wib.getUTCMonth() + 1).padStart(2, "0")}`;
+    const seq = (counters.get(ym) ?? 0) + 1;
+    counters.set(ym, seq);
+    const number = `PDL-${ym}-${String(seq).padStart(4, "0")}`;
+    const photo = photos[i % photos.length];
 
     const report = await db.report.create({
       data: {
@@ -147,67 +231,29 @@ async function main() {
         riskLevel,
         description: descs[i % descs.length],
         suggestion: i % 3 === 0 ? "Pasang penutup pelindung dan beri tanda peringatan." : null,
+        suggestionApplied,
         lat: area.lat + ((i % 5) - 2) * 0.0004,
         lng: area.lng + ((i % 7) - 3) * 0.0004,
         accuracyM: 4 + (i % 9),
         createdAt: created,
         status,
-        escalated: highRisk && path === "A",
-        dueVerifyAt: new Date(created.getTime() + 2 * 86400000),
-        dueDecideAt: new Date((verifiedAt ?? created).getTime() + 3 * 86400000),
-        verifierId: verified ? verifier.id : null,
-        verifiedAt,
-        verificationResult: verified ? "VALID" : status === "PERLU_REVISI" ? "REVISI" : null,
-        verificationNote: verified ? "Foto sesuai lokasi dan waktu, uraian jelas." : null,
-        deciderId: decided || status === "DITOLAK" ? decider.id : null,
-        decidedAt: decidedAt ?? (status === "DITOLAK" ? new Date(created.getTime() + 86400000) : null),
-        decisionResult: decided ? "SETUJU" : status === "DITOLAK" ? "TOLAK" : null,
-        decisionNote: decided ? "Disetujui, segera ditindaklanjuti." : status === "DITOLAK" ? "Laporan ganda dengan laporan sebelumnya." : null,
-        picId: decided ? (code === "GDG" || code === "LOG" ? supt2.id : supt.id) : null,
-        picName: decided ? (code === "GDG" || code === "LOG" ? "Superintendent Gudang" : "Superintendent Produksi") : null,
-        resourceTenaga: decided ? "2 teknisi" : null,
-        resourceBiaya: decided ? "Rp1.500.000" : null,
-        resourceMaterial: decided ? "Material pelindung dan rambu" : null,
-        targetDate,
-        controlHierarchy: decided ? ["REKAYASA_TEKNIK", "ADMINISTRATIF", "APD", "SUBSTITUSI", "ELIMINASI"][i % 5] : null,
-        progressPct: closed ? 100 : status === "MENUNGGU_PENUTUPAN" ? 100 : status === "DALAM_PERBAIKAN" ? 40 : 0,
-        completedAt: closed || status === "MENUNGGU_PENUTUPAN" ? new Date((decidedAt ?? created).getTime() + 2 * 86400000) : null,
-        closerId: closed ? decider.id : null,
-        closedAt,
-        closedOnTime,
-        closureNote: closed ? "Hasil perbaikan diverifikasi di lapangan." : null,
-        suggestionApplied: closed && i % 3 === 0,
-        pointsAwarded,
-        isDuplicate: status === "DITOLAK",
-        photos: { create: { mime: "image/jpeg", data: photos[i % photos.length], size: photos[i % photos.length].length, width: 960, height: 720, kind: "LAPORAN" } },
+        escalated,
+        dueVerifyAt: path === "A" ? addBusinessDays(created, DEFAULT_SETTINGS.verifyDeadlineDays) : null,
+        dueDecideAt: path === "B" || r.verificationResult === "VALID" ? addBusinessDays((r.verifiedAt as Date | undefined) ?? created, DEFAULT_SETTINGS.decideDeadlineDays) : null,
+        pointsAwarded: points,
+        ...r,
+        photos: { create: { mime: "image/jpeg", data: photo, size: photo.length, width: 960, height: 720, kind: "LAPORAN" } },
+        events: { create: events },
       },
     });
-
-    const events: Array<{ type: string; actorId: string; createdAt: Date; note?: string; fromStatus?: string; toStatus?: string }> = [
-      { type: "DIBUAT", actorId: reporter.id, createdAt: created, toStatus: path === "A" ? "MENUNGGU_VERIFIKASI" : "MENUNGGU_KEPUTUSAN" },
-    ];
-    if (verified && verifiedAt) events.push({ type: "DIVERIFIKASI", actorId: verifier.id, createdAt: verifiedAt, fromStatus: "MENUNGGU_VERIFIKASI", toStatus: "MENUNGGU_KEPUTUSAN", note: "Valid" });
-    if (decidedAt) events.push({ type: "DIPUTUSKAN", actorId: decider.id, createdAt: decidedAt, toStatus: "DALAM_PERBAIKAN", note: "Setujui" });
-    if (closedAt) events.push({ type: "DITUTUP", actorId: decider.id, createdAt: closedAt, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI" });
-    for (const e of events) await db.reportEvent.create({ data: { reportId: report.id, ...e } });
-
-    if (pointsAwarded > 0) {
-      await db.pointLedger.create({
-        data: { userId: reporter.id, reportId: report.id, type: category === "NYARIS_CELAKA" ? "NYARIS_CELAKA" : "LAPORAN_VALID", points: category === "NYARIS_CELAKA" ? 3 : 2, note: number, createdAt: verifiedAt ?? decidedAt ?? created },
-      });
-      if (highRisk) await db.pointLedger.create({ data: { userId: reporter.id, reportId: report.id, type: "BONUS_RISIKO", points: 3, note: number, createdAt: verifiedAt ?? decidedAt ?? created } });
+    if (ledger.length) {
+      await db.pointLedger.createMany({ data: ledger.map((l) => ({ ...l, userId: reporter.id, reportId: report.id, note: number })) });
     }
   }
 
   // Sinkronkan pencacah nomor laporan dengan data contoh
-  const maxPerMonth = new Map<string, number>();
-  for (const r of await db.report.findMany({ select: { number: true } })) {
-    const m = r.number.match(/^PDL-(\d{6})-(\d+)$/);
-    if (m) maxPerMonth.set(m[1], Math.max(maxPerMonth.get(m[1]) ?? 0, Number(m[2])));
-  }
-  for (const [ym, value] of maxPerMonth) await db.counter.upsert({ where: { key: `report:${ym}` }, create: { key: `report:${ym}`, value }, update: { value } });
-
-  await db.auditLog.create({ data: { actorId: admin.id, action: "SEED", detail: JSON.stringify({ users: 9, reports: 48 }) } });
+  for (const [ym, value] of counters) await db.counter.upsert({ where: { key: `report:${ym}` }, create: { key: `report:${ym}`, value }, update: { value } });
+  await db.auditLog.create({ data: { actorId: ctx.admin.id, action: "SEED", detail: JSON.stringify({ users: 9, reports: 48 }) } });
   console.log("Seed selesai.");
 }
 

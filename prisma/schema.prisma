@@ -133,6 +133,7 @@ model Report {
 
   clientCreatedAt DateTime?
   syncedOffline   Boolean   @default(false)
+  clientId        String?   @unique // kunci idempoten pengiriman dari perangkat (antrean luring)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -237,6 +238,7 @@ model PointLedger {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, type])
 }
 
 model Reward {
@@ -307,4 +309,5 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, createdAt])
 }

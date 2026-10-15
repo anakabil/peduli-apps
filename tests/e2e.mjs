@@ -20,7 +20,10 @@ const ok = (cond, msg) => { if (!cond) throw new Error("GAGAL: " + msg); console
 
 async function login(label, nth = 0) {
   await page.goto(`${BASE}/masuk`, { waitUntil: "networkidle" });
-  if (!(await page.locator('button:has-text("Mode demo")').count())) throw new Error("Mode demo tidak tersedia");
+  if (!(await page.locator('button:has-text("Mode demo")').count())) {
+    await page.screenshot({ path: `${S}/e2e-gagal-masuk.png`, fullPage: true });
+    throw new Error(`Mode demo tidak tersedia di ${page.url()}: ${(await page.textContent("body")).slice(0, 300)}`);
+  }
   await page.getByText("Mode demo").click();
   await page.locator(`button:has-text("${label}")`).nth(nth).click();
   await page.waitForURL(/beranda/, { timeout: 30000 });

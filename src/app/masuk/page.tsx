@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { ShieldCheck, MapPin, Award, Lock, Users, Fingerprint } from "lucide-react";
-import { auth, signIn, isDemoMode } from "@/auth";
+import { signIn, isDemoMode } from "@/auth";
+import { getCurrentUser } from "@/lib/session";
 import { PeduliLogo, GysLogo, Credit } from "@/components/brand";
 import { GoogleOneTap } from "./one-tap";
 import { DemoLogin } from "./demo-login";
@@ -25,8 +26,9 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string }> }) {
   const blocking = envBlocking();
   if (blocking.length) return <SetupChecklist issues={envIssues()} diag={envDiagnostics()} />;
-  const session = await auth().catch(() => null);
-  if (session?.user) redirect("/beranda");
+  // Arahkan ke beranda hanya bila pengguna sesi masih ada di basis data (hindari putaran pengalihan untuk sesi yatim)
+  const current = await getCurrentUser().catch(() => null);
+  if (current) redirect(current.status === "ACTIVE" ? "/beranda" : "/menunggu");
   const sp = await searchParams;
   const error = sp.error ? ERRORS[sp.error] ?? "Terjadi kendala saat masuk. Coba lagi." : null;
   const googleReady = !!googleClientId() && !!googleClientSecret();

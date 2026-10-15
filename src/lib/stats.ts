@@ -14,7 +14,18 @@ export function currentMonthPeriod(now = new Date()): Period {
   return monthPeriod(y, m0);
 }
 
+/**
+ * Periode pembanding. Bila periode tepat satu atau beberapa bulan kalender (WIB), pembandingnya adalah
+ * bulan kalender sebelumnya dengan jumlah bulan yang sama; selain itu, rentang dengan panjang yang sama tepat sebelumnya.
+ */
 export function previousPeriod(p: Period): Period {
+  const f = jktParts(p.from);
+  const t = jktParts(p.to);
+  const startOfDay = (d: Date) => { const x = jktParts(d); return jktDate(x.y, x.m0, x.d).getTime() === d.getTime(); };
+  if (f.d === 1 && t.d === 1 && startOfDay(p.from) && startOfDay(p.to)) {
+    const months = (t.y - f.y) * 12 + (t.m0 - f.m0);
+    if (months > 0) return { from: jktDate(f.y, f.m0 - months, 1), to: p.from };
+  }
   const len = p.to.getTime() - p.from.getTime();
   return { from: new Date(p.from.getTime() - len), to: p.from };
 }
@@ -36,6 +47,7 @@ type Row = {
   targetDate: Date | null;
   closedAt: Date | null;
   closedOnTime: boolean | null;
+  isDuplicate: boolean;
   controlHierarchy: string | null;
   pointsAwarded: number;
   escalated: boolean;
@@ -48,7 +60,7 @@ type Row = {
 
 const select = {
   id: true, number: true, reporterId: true, areaId: true, category: true, riskLevel: true, status: true, path: true, createdAt: true,
-  verifiedAt: true, verificationResult: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, controlHierarchy: true,
+  verifiedAt: true, verificationResult: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, isDuplicate: true, controlHierarchy: true,
   pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true,
   area: { select: { id: true, name: true } },
   reporter: { select: { id: true, name: true, role: true, departemen: true } },
@@ -68,56 +80,95 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
   const prev = previousPeriod(period);
   const earliest = new Date(Math.min(trendStart.getTime(), prev.from.getTime()));
 
-  const [rows, activeUsers, areas] = await Promise.all([
+  const [rows, activeUsers, allAreas] = await Promise.all([
     db.report.findMany({
-      where: { ...(opts.areaId ? { areaId: opts.areaId } : {}), OR: [{ createdAt: { gte: earliest } }, { status: { in: OPEN_STATUSES } }] },
+      where: {
+        ...(opts.areaId ? { areaId: opts.areaId } : {}),
+        // Laporan lama tetap ikut bila ditutup, diputuskan, atau diverifikasi di dalam jendela, atau masih terbuka
+        OR: [{ createdAt: { gte: earliest } }, { closedAt: { gte: earliest } }, { decidedAt: { gte: earliest } }, { verifiedAt: { gte: earliest } }, { status: { in: OPEN_STATUSES } }],
+      },
       select,
     }),
     db.user.findMany({ where: { status: "ACTIVE", role: { in: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"] } }, select: { id: true, name: true, role: true, areaId: true, departemen: true } }),
-    db.area.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    db.area.findMany({ select: { id: true, name: true, active: true }, orderBy: { name: "asc" } }),
   ]);
 
   const inP = (d: Date | null | undefined, p: Period) => !!d && d >= p.from && d < p.to;
   const cur = rows.filter((r) => inP(r.createdAt, period));
   const prevRows = rows.filter((r) => inP(r.createdAt, prev));
-  const valid = (r: Row) => r.verificationResult === "VALID" || r.decisionResult === "SETUJU" || r.pointsAwarded > 0;
+  /** Valid: disetujui Manager, atau lolos verifikasi dan tidak ditolak; laporan ganda tidak pernah valid */
+  const valid = (r: Row) => !r.isDuplicate && (r.decisionResult === "SETUJU" || (r.verificationResult === "VALID" && r.status !== "DITOLAK") || (r.decisionResult === "TOLAK" && r.pointsAwarded > 0));
+  const rejectedAt = (r: Row) => (r.decisionResult === "TOLAK" ? r.decidedAt : r.verificationResult === "TOLAK" ? r.verifiedAt : null);
+  /** Terbuka pada waktu t: sudah dibuat, belum ditutup, dan belum ditolak */
+  const openAt = (r: Row, t: Date) => {
+    if (r.createdAt >= t) return false;
+    if (r.closedAt && r.closedAt < t) return false;
+    const rej = r.status === "DITOLAK" ? rejectedAt(r) ?? r.createdAt : null;
+    return !(rej && rej < t);
+  };
+  const isHigh = (r: Row) => r.riskLevel === "TINGGI" || r.riskLevel === "EKSTREM";
+  const asOf = (p: Period) => (p.to < now ? p.to : now);
 
-  // Partisipasi: pengguna yang melapor dalam periode / pengguna aktif
+  // Partisipasi: pengguna aktif yang melapor dalam periode / pengguna aktif (pembilang dibatasi pada penyebut)
   const eligible = opts.areaId ? activeUsers.filter((u) => u.areaId === opts.areaId) : activeUsers;
-  const reporters = new Set(cur.map((r) => r.reporterId));
-  const prevReporters = new Set(prevRows.map((r) => r.reporterId));
+  const eligibleIds = new Set(eligible.map((u) => u.id));
+  const reporters = new Set(cur.map((r) => r.reporterId).filter((id) => eligibleIds.has(id)));
+  const prevReporters = new Set(prevRows.map((r) => r.reporterId).filter((id) => eligibleIds.has(id)));
   const participation = pct(reporters.size, eligible.length);
   const prevParticipation = pct(prevReporters.size, eligible.length);
 
-  // Waktu penutupan (hari) untuk laporan ditutup dalam periode
-  const closedCur = rows.filter((r) => inP(r.closedAt, period) && r.decidedAt && r.closedAt);
-  const closedPrev = rows.filter((r) => inP(r.closedAt, prev) && r.decidedAt && r.closedAt);
+  // Waktu penutupan (hari) dari persetujuan hingga verifikasi penutupan, untuk laporan ditutup dalam periode
+  const closedIn = (p: Period) => rows.filter((r) => inP(r.closedAt, p) && r.decidedAt && r.closedAt);
+  const closedCur = closedIn(period);
+  const closedPrev = closedIn(prev);
   const closureDays = avg(closedCur.map((r) => daysBetween(r.decidedAt!, r.closedAt!)));
   const prevClosureDays = avg(closedPrev.map((r) => daysBetween(r.decidedAt!, r.closedAt!)));
 
-  // Penutupan tepat waktu
-  const onTime = pct(closedCur.filter((r) => r.closedOnTime).length, closedCur.filter((r) => r.closedOnTime != null).length);
-  const prevOnTime = pct(closedPrev.filter((r) => r.closedOnTime).length, closedPrev.filter((r) => r.closedOnTime != null).length);
+  // Penutupan tepat waktu = selesai sesuai target / seluruh tindak lanjut yang jatuh tempo atau ditutup dalam periode.
+  // Tindak lanjut yang target-nya sudah lewat di dalam periode tetapi belum ditutup dihitung terlambat.
+  const onTimeOf = (p: Period) => {
+    const closed = closedIn(p).filter((r) => r.closedOnTime != null);
+    const end = asOf(p);
+    const lateOpen = rows.filter((r) => r.decisionResult === "SETUJU" && r.targetDate && r.targetDate >= p.from && r.targetDate < end && !(r.closedAt && r.closedAt < end) && !inP(r.closedAt, p));
+    return { pct: pct(closed.filter((r) => r.closedOnTime).length, closed.length + lateOpen.length), lateOpen: lateOpen.length };
+  };
+  const onTimeCur = onTimeOf(period);
+  const onTime = onTimeCur.pct;
+  const prevOnTime = onTimeOf(prev).pct;
 
-  // Risiko tinggi masih terbuka (seluruh waktu)
+  // Risiko tinggi terbuka: potret pada akhir periode (atau saat ini), dibandingkan dengan awal periode
   const openAll = rows.filter((r) => OPEN_STATUSES.includes(r.status as Status));
-  const highOpen = openAll.filter((r) => r.riskLevel === "TINGGI" || r.riskLevel === "EKSTREM");
-  const highOpenPrev = rows.filter((r) => (r.riskLevel === "TINGGI" || r.riskLevel === "EKSTREM") && r.createdAt < period.from && (!r.closedAt || r.closedAt >= period.from) && r.status !== "DITOLAK").length;
+  const highOpenNow = openAll.filter(isHigh);
+  const highOpenCount = rows.filter((r) => isHigh(r) && openAt(r, asOf(period))).length;
+  const highOpenPrev = rows.filter((r) => isHigh(r) && openAt(r, period.from)).length;
 
-  // Waktu respons verifikasi (jam) jalur A
+  // Waktu respons verifikasi (jam), dari pengiriman terakhir (termasuk revisi) hingga diverifikasi, jalur A
   const verCur = cur.filter((r) => r.path === "A" && r.verifiedAt);
-  const verifyHours = avg(verCur.map((r) => hoursBetween(r.createdAt, r.verifiedAt!)));
+  const resubmits = verCur.length
+    ? await db.reportEvent.findMany({ where: { type: "REVISI_DIKIRIM", reportId: { in: verCur.map((r) => r.id) } }, select: { reportId: true, createdAt: true } })
+    : [];
+  const lastSubmit = (r: Row) => {
+    let t = r.createdAt;
+    for (const e of resubmits) if (e.reportId === r.id && e.createdAt > t && e.createdAt <= r.verifiedAt!) t = e.createdAt;
+    return t;
+  };
+  const verifyHours = avg(verCur.map((r) => hoursBetween(lastSubmit(r), r.verifiedAt!)));
   const decCur = cur.filter((r) => r.decidedAt);
-  const decideHours = avg(decCur.map((r) => hoursBetween(r.verifiedAt ?? r.createdAt, r.decidedAt!)));
+  const decideHours = avg(decCur.map((r) => hoursBetween(r.path === "A" && r.verifiedAt ? r.verifiedAt : r.createdAt, r.decidedAt!)));
 
-  // Laporan berulang: lokasi (area) dan kategori sama
+  // Laporan berulang: laporan dengan area dan kategori sama yang muncul lagi (kemunculan pertama tidak dihitung)
   const keyCount = new Map<string, number>();
   for (const r of cur) {
+    if (r.isDuplicate) continue;
     const k = `${r.areaId}|${r.category}`;
     keyCount.set(k, (keyCount.get(k) ?? 0) + 1);
   }
-  const recurring = cur.filter((r) => (keyCount.get(`${r.areaId}|${r.category}`) ?? 0) > 1).length;
+  const recurring = Array.from(keyCount.values()).reduce((s, n) => s + Math.max(0, n - 1), 0);
   const recurringPct = pct(recurring, cur.length);
+
+  // Area yang ditampilkan: area aktif, ditambah area nonaktif yang masih memiliki data
+  const usedAreaIds = new Set(rows.map((r) => r.areaId).filter(Boolean));
+  const areas = allAreas.filter((a) => a.active || usedAreaIds.has(a.id)).map((a) => ({ id: a.id, name: a.active ? a.name : `${a.name} (nonaktif)` }));
 
   // Tren 12 bulan
   const trend: Array<{ label: string; key: string; masuk: number; ditutup: number; valid: number }> = [];
@@ -165,11 +216,13 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
 
   // Penutupan tepat waktu per area (12 bulan)
   const closed12 = rows.filter((r) => r.closedAt && r.closedAt >= trendStart && r.closedOnTime != null);
+  // Hanya area yang memiliki penutupan; area tanpa data tidak ditampilkan sebagai 0%
   const onTimeByArea = areas
     .map((a) => {
       const c = closed12.filter((r) => r.areaId === a.id);
       return { area: a.name, pct: pct(c.filter((r) => r.closedOnTime).length, c.length), n: c.length };
     })
+    .filter((a) => a.n > 0)
     .sort((x, y) => y.pct - x.pct);
 
   // Laporan dan risiko per area
@@ -197,10 +250,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     return { role, users: users.length, reporters: rep, pct: pct(rep, users.length) };
   });
 
-  const overdueOpen = openAll.filter((r) => {
-    if (r.status === "DALAM_PERBAIKAN" || r.status === "MENUNGGU_PENUTUPAN") return r.targetDate && r.targetDate < now;
-    return false;
-  }).length;
+  const overdueOpen = openAll.filter((r) => (r.status === "DALAM_PERBAIKAN" || r.status === "MENUNGGU_PENUTUPAN") && !!r.targetDate && r.targetDate < now).length;
 
   return {
     period,
@@ -220,7 +270,8 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
       onTime,
       prevOnTime,
       closedInPeriod: closedCur.length,
-      highOpen: highOpen.length,
+      highOpen: highOpenCount,
+      lateOpenInPeriod: onTimeCur.lateOpen,
       highOpenPrev,
       openTotal: openAll.length,
       overdueOpen,
@@ -247,7 +298,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     byArea,
     topReporters,
     participationByRole,
-    highOpenList: highOpen.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, 10).map((r) => ({ id: r.id, number: r.number, area: r.area?.name ?? "-", risk: r.riskLevel, status: r.status, days: Math.round(ageOf(r)), category: r.category as Category, riskLevel: r.riskLevel as Risk })),
+    highOpenList: highOpenNow.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, 10).map((r) => ({ id: r.id, number: r.number, area: r.area?.name ?? "-", risk: r.riskLevel, status: r.status, days: Math.round(ageOf(r)), category: r.category as Category, riskLevel: r.riskLevel as Risk })),
   };
 }
 

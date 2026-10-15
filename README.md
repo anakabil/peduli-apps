@@ -90,6 +90,23 @@ npm run test:e2e
 
 Skenario: Pengawas melapor dengan foto dan GPS, Superintendent memverifikasi, Manager memutuskan, perbaikan dan penutupan, poin dan penukaran, pemrosesan admin, ekspor PDF, PPTX, CSV, endpoint pengingat dengan rahasia, lima pengiriman bersamaan memperoleh nomor unik, pengiriman ulang antrean luring tidak menggandakan laporan, dan berkas non-gambar ditolak.
 
+## Audit integritas data
+
+`npm run db:audit` menjalankan 29 pemeriksaan invarian hanya-baca terhadap basis data (memakai `DIRECT_URL`, `DATABASE_URL`, atau `POSTGRES_URL`), misalnya kecocokan poin laporan dengan buku poin, konsistensi status dengan stempel waktu dan jejak event, nomor laporan unik, saldo tidak negatif, serta susunan atasan tanpa siklus. Perintah keluar dengan kode 1 bila ada pelanggaran, sehingga dapat dipakai di CI atau dijalankan berkala terhadap produksi:
+
+```bash
+vercel env pull .env.production.local
+DATABASE_URL="<nilai DATABASE_URL produksi>" npm run db:audit
+```
+
+Prinsip integritas yang dijaga kode:
+
+- Setiap perubahan status laporan, jejak event, foto perbaikan, dan poin ditulis dalam satu transaksi dengan prasyarat status, sehingga tidak ada perubahan setengah jadi.
+- Nomor laporan berasal dari pencacah atomik per bulan WIB; pengiriman ulang dari antrean luring dikunci oleh kolom unik `clientId` per pelapor.
+- Poin hanya untuk peran yang berhak, diberikan sekali per laporan, dicabut bila laporan ganda atau tidak benar; level dihitung dari poin diperoleh bersih, bukan dari pengembalian penukaran.
+- Penukaran mengunci baris pengguna sehingga saldo tidak dapat dibelanjakan dua kali.
+- Aturan siapa yang boleh memverifikasi didefinisikan sekali dan dipakai bersama oleh antrean, hak lihat, notifikasi, dan pengingat.
+
 ## Struktur
 
 ```

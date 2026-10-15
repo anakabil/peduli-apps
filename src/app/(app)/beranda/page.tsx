@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { computeStats, currentMonthPeriod } from "@/lib/stats";
 import { pointBalance, pointEarned, levelFor } from "@/lib/points";
-import { reportScope } from "@/lib/workflow";
+import { reportScope, verifiableWhere } from "@/lib/workflow";
 import { Stat, Card, CardHeader, CardBody } from "@/components/ui";
 import { ReportList } from "@/components/report/report-list";
 import { fmtNumber, fmtMonthLong, cn } from "@/lib/format";
@@ -43,7 +43,7 @@ export default async function BerandaPage() {
   // Widget khusus peran
   let queue: { label: string; count: number; href: string; icon: React.ReactNode; overdue: number } | null = null;
   if (role === "SUPERINTENDENT") {
-    const where = { status: "MENUNGGU_VERIFIKASI", OR: [{ reporter: { atasanId: user.id } }, ...(user.areaId ? [{ reporter: { areaId: user.areaId } }] : []), { reporter: { atasanId: null } }] };
+    const where = verifiableWhere(user);
     const [count, overdue] = await Promise.all([db.report.count({ where }), db.report.count({ where: { ...where, dueVerifyAt: { lt: now } } })]);
     queue = { label: "Menunggu verifikasi Anda", count, href: "/verifikasi", icon: <ShieldCheck size={20} />, overdue };
   } else if (role === "MANAGER") {

@@ -37,13 +37,11 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid." }, { status: 400 });
 
-  // Idempoten untuk antrean luring: bila clientId sudah pernah diproses, kembalikan laporan yang ada
-  if (parsed.data.clientId) {
-    const existing = await db.reportEvent.findFirst({ where: { type: "DIBUAT", meta: parsed.data.clientId }, select: { reportId: true } });
-    if (existing) {
-      const r = await db.report.findUnique({ where: { id: existing.reportId }, select: { id: true, number: true } });
-      if (r) return NextResponse.json({ ok: true, id: r.id, number: r.number, duplicate: true });
-    }
+  // Idempoten untuk antrean luring: kunci dibatasi per pelapor agar tidak bertabrakan antarpengguna
+  const clientKey = parsed.data.clientId ? `${user.id}:${parsed.data.clientId}` : null;
+  if (clientKey) {
+    const r = await db.report.findUnique({ where: { clientId: clientKey }, select: { id: true, number: true } });
+    if (r) return NextResponse.json({ ok: true, id: r.id, number: r.number, duplicate: true });
   }
 
   const photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer> }> = [];
@@ -57,7 +55,7 @@ export async function POST(req: Request) {
   if (photos.length > 3) return NextResponse.json({ error: "Maksimal tiga foto." }, { status: 400 });
 
   try {
-    const report = await createReport({
+    const { report, duplicate } = await createReport({
       reporterId: user.id,
       category: parsed.data.category,
       riskLevel: parsed.data.riskLevel,
@@ -69,10 +67,10 @@ export async function POST(req: Request) {
       accuracyM: parsed.data.accuracyM ?? null,
       clientCreatedAt: parsed.data.clientCreatedAt ? new Date(parsed.data.clientCreatedAt) : null,
       syncedOffline: parsed.data.syncedOffline,
-      clientId: parsed.data.clientId ?? null,
+      clientId: clientKey,
       photos,
     });
-    return NextResponse.json({ ok: true, id: report.id, number: report.number });
+    return NextResponse.json({ ok: true, id: report.id, number: report.number, ...(duplicate ? { duplicate: true } : {}) });
   } catch (e) {
     if (e instanceof WorkflowError) return NextResponse.json({ error: e.message }, { status: 400 });
     console.error(e);

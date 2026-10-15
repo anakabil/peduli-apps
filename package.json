@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "db:deploy": "node scripts/migrate.mjs",
-    "test:e2e": "node tests/e2e.mjs"
+    "test:e2e": "node tests/e2e.mjs",
+    "db:audit": "node scripts/db-audit.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

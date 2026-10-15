@@ -9,8 +9,10 @@ export function PeriodPicker({ areas, mode }: { areas: Array<{ id: string; name:
   const pathname = usePathname();
   const sp = useSearchParams();
   const [, start] = useTransition();
-  const now = new Date();
-  const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // Tanggal hari ini menurut WIB (bukan UTC), agar rentang tidak terpotong satu hari pada pagi hari
+  const wib = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const now = { year: Number(wib.slice(0, 4)), month: Number(wib.slice(5, 7)), today: wib };
+  const curMonth = wib.slice(0, 7);
 
   const go = (next: Record<string, string>) => {
     const p = new URLSearchParams();
@@ -24,16 +26,16 @@ export function PeriodPicker({ areas, mode }: { areas: Array<{ id: string; name:
       <CalendarDays size={16} className="text-brand-600" />
       <div className="flex rounded-lg border border-ink-200 p-0.5 text-xs font-semibold">
         {(["bulan", "tahun", "rentang"] as const).map((m) => (
-          <button key={m} onClick={() => go(m === "bulan" ? { bulan: curMonth, area } : m === "tahun" ? { tahun: String(now.getFullYear()), area } : { dari: `${now.getFullYear()}-01-01`, sampai: now.toISOString().slice(0, 10), area })} className={`rounded-md px-3 py-1.5 capitalize transition-colors ${mode === m ? "bg-brand-700 text-white" : "text-ink-600 hover:bg-ink-100"}`}>
+          <button key={m} onClick={() => go(m === "bulan" ? { bulan: curMonth, area } : m === "tahun" ? { tahun: String(now.year), area } : { dari: `${now.year}-01-01`, sampai: now.today, area })} className={`rounded-md px-3 py-1.5 capitalize transition-colors ${mode === m ? "bg-brand-700 text-white" : "text-ink-600 hover:bg-ink-100"}`}>
             {m}
           </button>
         ))}
       </div>
       {mode === "bulan" && <input type="month" className="input w-auto" value={sp.get("bulan") ?? curMonth} max={curMonth} onChange={(e) => go({ bulan: e.target.value, area })} />}
       {mode === "tahun" && (
-        <select className="input w-auto" value={sp.get("tahun") ?? String(now.getFullYear())} onChange={(e) => go({ tahun: e.target.value, area })}>
+        <select className="input w-auto" value={sp.get("tahun") ?? String(now.year)} onChange={(e) => go({ tahun: e.target.value, area })}>
           {[0, 1, 2, 3].map((i) => (
-            <option key={i} value={now.getFullYear() - i}>{now.getFullYear() - i}</option>
+            <option key={i} value={now.year - i}>{now.year - i}</option>
           ))}
         </select>
       )}
