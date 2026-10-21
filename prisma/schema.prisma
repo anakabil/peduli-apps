@@ -122,8 +122,15 @@ model Report {
 
   category  String // KONDISI_TIDAK_AMAN | TINDAKAN_TIDAK_AMAN | NYARIS_CELAKA | ERGONOMI | LINGKUNGAN
   riskLevel String // RENDAH | SEDANG | TINGGI | EKSTREM
-  description String  @db.Text
-  suggestion  String? @db.Text
+  description String  @db.Text // tindakan atau kondisi tidak aman yang diobservasi
+  suggestion  String? @db.Text // tindakan pencegahan agar tidak terulang (usulan, bonus poin bila diterapkan)
+
+  // Kartu STOP (DuPont)
+  stopItems       String[] @default([]) // kunci item daftar periksa STOP (lihat STOP_GROUPS)
+  activities      String[] @default([]) // aktivitas yang diobservasi
+  safeActs        String?  @db.Text     // tindakan aman yang diobservasi
+  safeEncourage   String?  @db.Text     // tindakan untuk mendorong kinerja aman
+  immediateAction String?  @db.Text     // tindakan perbaikan yang langsung dilakukan
 
   lat         Float?
   lng         Float?
@@ -200,6 +207,7 @@ model Photo {
   kind      String   @default("LAPORAN") // LAPORAN | PERBAIKAN
   mime      String
   data      Bytes
+  thumb     Bytes? // gambar kecil untuk daftar
   width     Int?
   height    Int?
   size      Int

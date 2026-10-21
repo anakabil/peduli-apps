@@ -1,5 +1,6 @@
 "use server";
 
+import { makeThumb } from "@/lib/image";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { verifyReport, decideReport, updateProgress, closeReport, resubmitReport, WorkflowError } from "@/lib/workflow";
@@ -67,12 +68,13 @@ export async function progressAction(reportId: string, fd: FormData): Promise<Ac
   const pct = parseInt(String(fd.get("pct") ?? "0"), 10) || 0;
   const note = String(fd.get("note") ?? "").trim();
   const done = fd.get("done") === "true";
-  let photo: { mime: string; data: Uint8Array<ArrayBuffer> } | undefined;
+  let photo: { mime: string; data: Uint8Array<ArrayBuffer>; thumb?: Uint8Array<ArrayBuffer> | null } | undefined;
   const f = fd.get("photo");
   if (f instanceof File && f.size > 0) {
     if (!ALLOWED_MIME.includes(f.type)) return { ok: false, error: "Format foto harus JPEG, PNG, atau WebP." };
     if (f.size > 2 * 1024 * 1024) return { ok: false, error: "Ukuran foto maksimal 2 MB." };
-    photo = { mime: f.type, data: new Uint8Array(await f.arrayBuffer()) };
+    const data = new Uint8Array(await f.arrayBuffer());
+    photo = { mime: f.type, data, thumb: await makeThumb(data) };
   }
   if (!note) return { ok: false, error: "Catatan progres wajib diisi." };
   const r = await run(() => updateProgress(user.id, reportId, pct, note, done, photo));

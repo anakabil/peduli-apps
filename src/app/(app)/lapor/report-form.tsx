@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff } from "lucide-react";
-import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, type Category, type Risk } from "@/lib/constants";
+import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles } from "lucide-react";
+import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, STOP_GROUPS, ACTIVITIES, suggestCategory, type Category, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
 import { cn } from "@/lib/format";
@@ -18,12 +18,36 @@ const RISK_HELP: Record<Risk, string> = {
   EKSTREM: "Potensi fatalitas atau kecelakaan massal.",
 };
 
+const CYCLE = ["Memutuskan", "Berhenti", "Mengamati", "Bertindak", "Melapor"];
+
+function Section({ no, title, hint, children, className = "" }: { no: number; title: string; hint?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={cn("card p-5", className)}>
+      <div className="flex items-start gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-700 text-xs font-bold text-white">{no}</span>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-ink-900">{title}</h3>
+          {hint && <p className="mt-0.5 text-xs text-ink-500">{hint}</p>}
+        </div>
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
 export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAreaId: string | null; path: "A" | "B" }) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Array<{ blob: Blob; url: string; name: string }>>([]);
+  const [activities, setActivities] = useState<string[]>([]);
+  const [items, setItems] = useState<string[]>([]);
+  const [openGroup, setOpenGroup] = useState<string | null>(STOP_GROUPS[0].key);
   const [category, setCategory] = useState<Category | "">("");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [risk, setRisk] = useState<Risk | "">("");
+  const [safeActs, setSafeActs] = useState("");
+  const [safeEncourage, setSafeEncourage] = useState("");
   const [description, setDescription] = useState("");
+  const [immediateAction, setImmediateAction] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const [areaLabel, setAreaLabel] = useState("");
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -33,6 +57,12 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
   const [done, setDone] = useState<{ number?: string; offline?: boolean } | null>(null);
   const [now, setNow] = useState<Date | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const suggested = useMemo(() => suggestCategory(items), [items]);
+  // Kategori mengikuti saran dari daftar periksa selama pengguna belum memilih sendiri
+  useEffect(() => {
+    if (!categoryTouched && suggested) setCategory(suggested);
+  }, [suggested, categoryTouched]);
 
   useEffect(() => {
     setNow(new Date());
@@ -60,6 +90,8 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
     locate();
   }, []);
 
+  const toggle = (list: string[], setList: (v: string[]) => void, key: string) => setList(list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
+
   const addPhoto = async (files: FileList | null) => {
     if (!files) return;
     setError(null);
@@ -80,9 +112,10 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
 
   const validate = () => {
     if (photos.length === 0) return "Ambil minimal satu foto dari kamera.";
+    if (activities.length === 0) return "Pilih minimal satu aktivitas yang diobservasi.";
     if (!category) return "Pilih kategori bahaya.";
     if (!risk) return "Pilih tingkat risiko awal.";
-    if (description.trim().length < 10) return "Uraian bahaya minimal 10 karakter.";
+    if (description.trim().length < 10) return "Uraikan tindakan atau kondisi tidak aman minimal 10 karakter.";
     return null;
   };
 
@@ -99,6 +132,11 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
       riskLevel: risk,
       description: description.trim(),
       suggestion: suggestion.trim(),
+      safeActs: safeActs.trim(),
+      safeEncourage: safeEncourage.trim(),
+      immediateAction: immediateAction.trim(),
+      stopItems: items.join(","),
+      activities: activities.join(","),
       areaLabel: areaLabel.trim(),
       lat: geo ? String(geo.lat) : "",
       lng: geo ? String(geo.lng) : "",
@@ -137,7 +175,7 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         <div className={cn("mx-auto flex h-16 w-16 items-center justify-center rounded-full", done.offline ? "bg-amber/15 text-[#8a6a0a]" : "bg-brand-100 text-brand-700")}>
           {done.offline ? <WifiOff size={30} /> : <CheckCircle2 size={32} />}
         </div>
-        <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Laporan terkirim"}</h2>
+        <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Kartu STOP terkirim"}</h2>
         <p className="mt-2 text-sm text-ink-500">
           {done.offline
             ? "Tidak ada sinyal. Laporan akan dikirim otomatis dengan penanda waktu sinkronisasi saat jaringan tersedia."
@@ -156,14 +194,20 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
 
   return (
     <div className="space-y-4 stagger">
-      {/* Foto */}
-      <section className="card p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-ink-900">Foto dari kamera <span className="text-red">*</span></h3>
-          <span className="text-xs text-ink-500">{photos.length}/3</span>
-        </div>
-        <p className="mt-1 text-xs text-ink-500">Foto hanya dapat diambil langsung dari kamera untuk menjaga akurasi bukti.</p>
-        <div className="mt-3 grid grid-cols-3 gap-2">
+      {/* Siklus pengamatan STOP */}
+      <div className="card flex flex-wrap items-center justify-center gap-1.5 px-4 py-3 text-[11px] font-semibold text-ink-600">
+        <span className="mr-1 rounded-md bg-red px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white">STOP</span>
+        {CYCLE.map((c, i) => (
+          <span key={c} className="inline-flex items-center gap-1.5">
+            <span className="rounded-full bg-ink-100 px-2.5 py-1">{c}</span>
+            {i < CYCLE.length - 1 && <span className="text-ink-300">&rarr;</span>}
+          </span>
+        ))}
+      </div>
+
+      <Section no={1} title="Foto dari kamera" hint="Foto hanya dapat diambil langsung dari kamera untuk menjaga akurasi bukti.">
+        <div className="mb-2 flex justify-end text-xs text-ink-500">{photos.length}/3</div>
+        <div className="grid grid-cols-3 gap-2">
           {photos.map((p, i) => (
             <div key={p.url} className="relative aspect-square overflow-hidden rounded-xl border border-ink-200 anim-scale-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -174,39 +218,78 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
             </div>
           ))}
           {photos.length < 3 && (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/50 text-brand-700 transition-colors hover:border-brand-400 hover:bg-brand-50"
-            >
+            <button type="button" onClick={() => fileRef.current?.click()} className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/50 text-brand-700 transition-colors hover:border-brand-400 hover:bg-brand-50">
               <Camera size={26} />
               <span className="text-xs font-semibold">Ambil foto</span>
             </button>
           )}
         </div>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => addPhoto(e.target.files)} />
-      </section>
+      </Section>
 
-      {/* Kategori dan risiko */}
-      <section className="card p-5">
-        <h3 className="font-bold text-ink-900">Kategori bahaya <span className="text-red">*</span></h3>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <Section no={2} title="Aktivitas yang diobservasi" hint="Pilih satu atau lebih pekerjaan yang sedang Anda amati.">
+        <div className="flex flex-wrap gap-2">
+          {ACTIVITIES.map((a) => (
+            <button key={a.key} type="button" onClick={() => toggle(activities, setActivities, a.key)} className={cn("chip", activities.includes(a.key) && "chip-active")}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section no={3} title="Daftar periksa pengamatan" hint="Centang hal yang tidak aman. Kategori bahaya akan disarankan otomatis.">
+        <div className="space-y-2">
+          {STOP_GROUPS.map((g) => {
+            const count = g.items.filter((i) => items.includes(i.key)).length;
+            const open = openGroup === g.key;
+            return (
+              <div key={g.key} className={cn("overflow-hidden rounded-xl border transition-colors", count ? "border-red/40" : "border-ink-200")}>
+                <button type="button" onClick={() => setOpenGroup(open ? null : g.key)} className={cn("flex w-full items-center justify-between gap-3 px-4 py-3 text-left", count ? "bg-red/5" : "bg-white")}>
+                  <span>
+                    <span className="block text-sm font-bold uppercase tracking-wide text-ink-800">{g.label}</span>
+                    <span className="block text-[11px] text-ink-500">{g.hint}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {count > 0 && <span className="badge bg-red text-white">{count}</span>}
+                    <ChevronDown size={16} className={cn("text-ink-400 transition-transform", open && "rotate-180")} />
+                  </span>
+                </button>
+                {open && (
+                  <div className="grid grid-cols-1 gap-1.5 border-t border-ink-100 bg-white p-3 sm:grid-cols-2 anim-fade-in">
+                    {g.items.map((it) => {
+                      const on = items.includes(it.key);
+                      return (
+                        <label key={it.key} className={cn("flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors", on ? "border-red/40 bg-red/5 text-ink-900" : "border-ink-100 hover:border-ink-300")}>
+                          <input type="checkbox" checked={on} onChange={() => toggle(items, setItems, it.key)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--red)]" />
+                          <span>{it.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {items.length > 0 && <p className="mt-2 text-xs text-ink-500">{items.length} kriteria tidak aman dipilih.</p>}
+      </Section>
+
+      <Section no={4} title="Kategori dan tingkat risiko">
+        <label className="label">Kategori bahaya <span className="text-red">*</span></label>
+        <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
-            <button key={c} type="button" onClick={() => setCategory(c)} className={cn("chip", category === c && "chip-active")}>
+            <button key={c} type="button" onClick={() => { setCategory(c); setCategoryTouched(true); }} className={cn("chip", category === c && "chip-active")}>
               {CATEGORY_LABEL[c]}
             </button>
           ))}
         </div>
-        <h3 className="mt-5 font-bold text-ink-900">Tingkat risiko awal <span className="text-red">*</span></h3>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {suggested && !categoryTouched && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-brand-700"><Sparkles size={13} /> Disarankan dari daftar periksa: {CATEGORY_LABEL[suggested]}</p>
+        )}
+        <label className="label mt-5">Tingkat risiko awal <span className="text-red">*</span></label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {RISKS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRisk(r)}
-              className={cn("rounded-xl border px-3 py-2.5 text-left transition-all", risk === r ? "border-transparent text-white shadow-soft" : "border-ink-200 bg-white hover:border-ink-300")}
-              style={risk === r ? { background: RISK_COLOR[r] } : undefined}
-            >
+            <button key={r} type="button" onClick={() => setRisk(r)} className={cn("rounded-xl border px-3 py-2.5 text-left transition-all", risk === r ? "border-transparent text-white shadow-soft" : "border-ink-200 bg-white hover:border-ink-300")} style={risk === r ? { background: RISK_COLOR[r] } : undefined}>
               <div className="text-sm font-bold">{RISK_LABEL[r]}</div>
               <div className={cn("mt-0.5 text-[11px] leading-snug", risk === r ? "text-white/85" : "text-ink-500")}>{RISK_HELP[r]}</div>
             </button>
@@ -218,35 +301,49 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
             Risiko Tinggi dan Ekstrem dieskalasi langsung ke Manager dan memperoleh bonus poin bila terverifikasi.
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* Lokasi dan waktu */}
-      <section className={cn("card p-5 border-l-4", geoState === "locked" ? "border-l-brand-500" : "border-l-amber")}>
+      <Section no={5} title="Tindakan aman yang diobservasi" hint="Opsional. Apresiasi perilaku aman yang Anda lihat.">
+        <div className="flex items-center gap-2 text-xs font-semibold text-brand-700"><ThumbsUp size={14} /> Tindakan aman</div>
+        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: operator memakai full body harness dan mengaitkan lanyard sebelum naik." value={safeActs} onChange={(e) => setSafeActs(e.target.value)} maxLength={2000} />
+        <div className="mt-3 text-xs font-semibold text-brand-700">Tindakan untuk mendorong kinerja aman tetap dilanjutkan</div>
+        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: memberi pujian langsung dan menyampaikannya di safety talk." value={safeEncourage} onChange={(e) => setSafeEncourage(e.target.value)} maxLength={2000} />
+      </Section>
+
+      <Section no={6} title="Tindakan tidak aman yang diobservasi" hint="Wajib. Uraikan apa, di mana, dan siapa yang terpapar.">
+        <div className="flex items-center gap-2 text-xs font-semibold text-red"><ShieldAlert size={14} /> Tindakan atau kondisi tidak aman <span className="text-red">*</span></div>
+        <textarea className="input mt-1.5 min-h-24" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink-700"><Wrench size={14} /> Tindakan perbaikan yang langsung dilakukan</div>
+        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: pekerjaan dihentikan, area diberi barikade, pekerja diarahkan memakai kacamata." value={immediateAction} onChange={(e) => setImmediateAction(e.target.value)} maxLength={2000} />
+        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink-700"><Lightbulb size={14} className="text-gold" /> Tindakan pencegahan agar tidak terulang (bonus poin bila diterapkan)</div>
+        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
+      </Section>
+
+      <Section no={7} title="Lokasi dan waktu" hint="Terekam otomatis saat laporan dibuat." className={geoState === "locked" ? "border-l-4 border-l-brand-500" : "border-l-4 border-l-amber"}>
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-ink-900">Otomatis terkunci</h3>
-          <button type="button" onClick={locate} className="btn-ghost btn-sm">
-            <LocateFixed size={14} /> {geoState === "locating" ? "Mencari..." : "Perbarui GPS"}
+          <div className="space-y-1.5 text-sm">
+            <div className="flex items-center gap-2 text-ink-700">
+              <MapPin size={15} className="text-brand-600" />
+              {geoState === "locked" && geo ? (
+                <span>
+                  GPS terkunci, akurasi {Math.round(geo.accuracy)} m <span className="text-ink-400">({geo.lat.toFixed(5)}, {geo.lng.toFixed(5)})</span>
+                </span>
+              ) : geoState === "locating" ? (
+                <span className="text-ink-500">Mengunci posisi GPS...</span>
+              ) : geoState === "denied" ? (
+                <span className="text-[#8a6a0a]">Izin lokasi ditolak. Laporan tetap bisa dikirim dan akan ditandai untuk ditinjau.</span>
+              ) : (
+                <span className="text-ink-500">GPS tidak tersedia di perangkat ini.</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-ink-700">
+              <Clock size={15} className="text-brand-600" />
+              <span>{now ? fmt(now) : "-"} <span className="text-ink-400">(cap waktu final dari server)</span></span>
+            </div>
+          </div>
+          <button type="button" onClick={locate} className="btn-ghost btn-sm shrink-0">
+            <LocateFixed size={14} /> {geoState === "locating" ? "Mencari..." : "Perbarui"}
           </button>
-        </div>
-        <div className="mt-2 space-y-1.5 text-sm">
-          <div className="flex items-center gap-2 text-ink-700">
-            <MapPin size={15} className="text-brand-600" />
-            {geoState === "locked" && geo ? (
-              <span>
-                GPS terkunci, akurasi {Math.round(geo.accuracy)} m <span className="text-ink-400">({geo.lat.toFixed(5)}, {geo.lng.toFixed(5)})</span>
-              </span>
-            ) : geoState === "locating" ? (
-              <span className="text-ink-500">Mengunci posisi GPS...</span>
-            ) : geoState === "denied" ? (
-              <span className="text-[#8a6a0a]">Izin lokasi ditolak. Laporan tetap bisa dikirim dan akan ditandai untuk ditinjau.</span>
-            ) : (
-              <span className="text-ink-500">GPS tidak tersedia di perangkat ini.</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-ink-700">
-            <Clock size={15} className="text-brand-600" />
-            <span>{now ? fmt(now) : "-"} <span className="text-ink-400">(cap waktu final dari server)</span></span>
-          </div>
         </div>
         <div className="mt-3">
           <label className="label">Keterangan lokasi (opsional)</label>
@@ -256,25 +353,14 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
               <option key={a.id} value={a.name} />
             ))}
           </datalist>
-          <p className="help">Area kerja ditentukan otomatis dari koordinat GPS{userAreaId ? ", cadangan dari area profil Anda" : ""}.</p>
+          <p className="help">Area kerja ditentukan otomatis dari koordinat GPS{userAreaId ? ", cadangan dari area profil Anda" : ""}. Nama observer dan departemen diambil dari akun Anda.</p>
         </div>
-      </section>
-
-      {/* Uraian */}
-      <section className="card p-5">
-        <label className="label">Uraian bahaya <span className="text-red">*</span></label>
-        <textarea className="input min-h-24" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        <div className="mt-4 flex items-center gap-2">
-          <Lightbulb size={16} className="text-gold" />
-          <label className="label mb-0">Usulan perbaikan (opsional, bernilai bonus poin bila diterapkan)</label>
-        </div>
-        <textarea className="input mt-1.5 min-h-20" placeholder="Contoh: pasang penutup kabel dan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
-      </section>
+      </Section>
 
       {error && <div className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red anim-fade-in">{error}</div>}
 
       <button type="button" onClick={submit} disabled={busy} className="btn-primary btn-lg w-full">
-        <Send size={18} /> {busy ? "Mengirim..." : "Kirim laporan"}
+        <Send size={18} /> {busy ? "Mengirim..." : "Kirim kartu STOP"}
       </button>
       <p className="text-center text-xs text-ink-400">Nomor laporan unik, identitas, dan peran pelapor terekam otomatis.</p>
     </div>

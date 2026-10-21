@@ -29,7 +29,17 @@ export default async function BerandaPage() {
   const period = currentMonthPeriod(now);
   const settings = await getSettings();
 
-  const [recent, myOpen, notifs] = await Promise.all([
+  const showStats = role === "DIREKSI" || role === "MANAGER" || role === "ADMIN";
+  const showPoints = settings.eligibleRoles.includes(role);
+  const queueWhere =
+    role === "SUPERINTENDENT"
+      ? { where: verifiableWhere(user), due: "dueVerifyAt" as const }
+      : role === "MANAGER"
+        ? { where: { status: "MENUNGGU_KEPUTUSAN", ...(settings.managerPeerReview ? { reporterId: { not: user.id } } : {}) }, due: "dueDecideAt" as const }
+        : null;
+
+  // Seluruh kueri beranda dijalankan bersamaan agar waktu muat tidak menumpuk
+  const [recent, myOpen, notifs, queueCounts, picCount, stats, points, myMonth, myValid, adminExtra] = await Promise.all([
     db.report.findMany({
       where: reportScope(user),
       orderBy: { createdAt: "desc" },
@@ -38,30 +48,21 @@ export default async function BerandaPage() {
     }),
     db.report.count({ where: { reporterId: user.id, status: { in: ["MENUNGGU_VERIFIKASI", "PERLU_REVISI", "MENUNGGU_KEPUTUSAN", "DALAM_PERBAIKAN", "MENUNGGU_PENUTUPAN"] } } }),
     db.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 4 }),
+    queueWhere ? Promise.all([db.report.count({ where: queueWhere.where }), db.report.count({ where: { ...queueWhere.where, [queueWhere.due]: { lt: now } } })]) : null,
+    db.report.count({ where: { picId: user.id, status: "DALAM_PERBAIKAN" } }),
+    showStats ? computeStats(period) : null,
+    showPoints ? Promise.all([pointBalance(user.id), pointEarned(user.id)]) : ([0, 0] as const),
+    db.report.count({ where: { reporterId: user.id, createdAt: { gte: period.from } } }),
+    db.report.count({ where: { reporterId: user.id, pointsAwarded: { gt: 0 } } }),
+    role === "ADMIN" ? Promise.all([db.user.count({ where: { status: "PENDING" } }), db.redemption.count({ where: { status: "DIAJUKAN" } })]) : null,
   ]);
+  const [balance, earned] = points;
+  const level = levelFor(earned, settings.levels);
 
   // Widget khusus peran
   let queue: { label: string; count: number; href: string; icon: React.ReactNode; overdue: number } | null = null;
-  if (role === "SUPERINTENDENT") {
-    const where = verifiableWhere(user);
-    const [count, overdue] = await Promise.all([db.report.count({ where }), db.report.count({ where: { ...where, dueVerifyAt: { lt: now } } })]);
-    queue = { label: "Menunggu verifikasi Anda", count, href: "/verifikasi", icon: <ShieldCheck size={20} />, overdue };
-  } else if (role === "MANAGER") {
-    const where = { status: "MENUNGGU_KEPUTUSAN", ...(settings.managerPeerReview ? { reporterId: { not: user.id } } : {}) };
-    const [count, overdue] = await Promise.all([db.report.count({ where }), db.report.count({ where: { ...where, dueDecideAt: { lt: now } } })]);
-    queue = { label: "Menunggu keputusan Anda", count, href: "/keputusan", icon: <Gavel size={20} />, overdue };
-  }
-  const picCount = await db.report.count({ where: { picId: user.id, status: "DALAM_PERBAIKAN" } });
-
-  const showStats = role === "DIREKSI" || role === "MANAGER" || role === "ADMIN";
-  const stats = showStats ? await computeStats(period) : null;
-  const showPoints = settings.eligibleRoles.includes(role);
-  const [balance, earned] = showPoints ? await Promise.all([pointBalance(user.id), pointEarned(user.id)]) : [0, 0];
-  const level = levelFor(earned, settings.levels);
-  const myMonth = await db.report.count({ where: { reporterId: user.id, createdAt: { gte: period.from } } });
-  const myValid = await db.report.count({ where: { reporterId: user.id, pointsAwarded: { gt: 0 } } });
-
-  const adminExtra = role === "ADMIN" ? await Promise.all([db.user.count({ where: { status: "PENDING" } }), db.redemption.count({ where: { status: "DIAJUKAN" } })]) : null;
+  if (queueCounts && role === "SUPERINTENDENT") queue = { label: "Menunggu verifikasi Anda", count: queueCounts[0], href: "/verifikasi", icon: <ShieldCheck size={20} />, overdue: queueCounts[1] };
+  else if (queueCounts && role === "MANAGER") queue = { label: "Menunggu keputusan Anda", count: queueCounts[0], href: "/keputusan", icon: <Gavel size={20} />, overdue: queueCounts[1] };
 
   return (
     <div className="space-y-6">

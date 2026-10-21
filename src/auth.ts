@@ -6,6 +6,7 @@ import { OAuth2Client } from "google-auth-library";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
 import { envBool, envList, googleClientId, oneTapClientId } from "@/lib/env";
+import { DEMO_DOMAIN, ensureDemoAccounts, ensureSampleRewards } from "@/lib/demo-accounts";
 
 function adminEmails() {
   return envList("ADMIN_EMAILS");
@@ -99,9 +100,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(creds) {
         if (!isDemoMode()) return null;
         const email = typeof creds?.email === "string" ? creds.email.toLowerCase() : "";
-        if (!email.endsWith("@demo.peduli.local")) return null;
-        const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        if (!email.endsWith(DEMO_DOMAIN)) return null;
+        let user = await db.user.findUnique({ where: { email } });
+        if (!user) {
+          // Database baru: siapkan akun, area, dan katalog contoh sekali, tanpa mengubah data yang sudah ada.
+          // Dua login demo bersamaan bisa bentrok pada data unik; percobaan kedua memakai data yang sudah terbentuk.
+          for (let attempt = 0; attempt < 2 && !user; attempt++) {
+            try {
+              await ensureDemoAccounts(db);
+              await ensureSampleRewards(db);
+            } catch (e) {
+              if (attempt === 1) throw e;
+            }
+            user = await db.user.findUnique({ where: { email } });
+          }
+        }
+        if (!user || user.status !== "ACTIVE") return null;
         return { id: user.id, email: user.email, name: user.name, image: user.image };
       },
     }),

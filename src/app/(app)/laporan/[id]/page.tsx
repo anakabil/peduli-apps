@@ -10,6 +10,7 @@ import { Card, CardBody, CardHeader, KeyValue, Badge } from "@/components/ui";
 import { StatusBadge, RiskBadge, CategoryBadge } from "@/components/report/badges";
 import { VerifyPanel, DecidePanel, ProgressPanel, ClosePanel, ResubmitPanel, AuditButton } from "./panels";
 import { Timeline } from "./timeline";
+import { StopCardSummary } from "@/components/report/stop-card";
 import { CONTROL_LABEL, ROLE_LABEL, type Control, type Role } from "@/lib/constants";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -96,7 +97,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
               <Lightbulb size={16} className="mt-0.5 shrink-0 text-gold" />
               <div>
-                <span className="font-semibold">Usulan perbaikan:</span> {report.suggestion}
+                <span className="font-semibold">Tindakan pencegahan:</span> {report.suggestion}
                 {report.suggestionApplied && <Badge tone="success" className="ml-2">Diterapkan</Badge>}
               </div>
             </div>
@@ -118,6 +119,8 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 {reportPhotos.length === 0 && <div className="rounded-xl border border-dashed border-ink-200 p-6 text-center text-sm text-ink-400">Tidak ada foto</div>}
               </div>
             </div>
+
+            <StopCardSummary report={report} />
 
             {/* Terekam otomatis */}
             <div>

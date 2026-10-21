@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { makeThumb } from "@/lib/image";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { createReport, WorkflowError } from "@/lib/workflow";
-import { CATEGORIES, RISKS } from "@/lib/constants";
+import { CATEGORIES, RISKS, STOP_ITEMS, ACTIVITY_LABEL } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -13,6 +14,11 @@ const schema = z.object({
   riskLevel: z.enum(RISKS),
   description: z.string().trim().min(10, "Uraian minimal 10 karakter").max(2000),
   suggestion: z.string().trim().max(2000).optional().nullable(),
+  safeActs: z.string().trim().max(2000).optional().nullable(),
+  safeEncourage: z.string().trim().max(2000).optional().nullable(),
+  immediateAction: z.string().trim().max(2000).optional().nullable(),
+  stopItems: z.string().max(2000).optional().nullable(),
+  activities: z.string().max(1000).optional().nullable(),
   areaLabel: z.string().trim().max(200).optional().nullable(),
   lat: z.coerce.number().min(-90).max(90).optional().nullable(),
   lng: z.coerce.number().min(-180).max(180).optional().nullable(),
@@ -44,7 +50,14 @@ export async function POST(req: Request) {
     if (r) return NextResponse.json({ ok: true, id: r.id, number: r.number, duplicate: true });
   }
 
-  const photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer> }> = [];
+  // Kartu STOP: daftar kunci dipisah koma; kunci yang tidak dikenal ditolak
+  const split = (v?: string | null) => Array.from(new Set((v ?? "").split(",").map((x) => x.trim()).filter(Boolean)));
+  const stopItems = split(parsed.data.stopItems);
+  const activities = split(parsed.data.activities);
+  if (stopItems.some((k) => !STOP_ITEMS[k]) || activities.some((k) => !ACTIVITY_LABEL[k])) return NextResponse.json({ error: "Isian kartu STOP tidak dikenali." }, { status: 400 });
+  if (activities.length === 0) return NextResponse.json({ error: "Pilih minimal satu aktivitas yang diobservasi." }, { status: 400 });
+
+  const photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer>; thumb?: Uint8Array<ArrayBuffer> | null }> = [];
   for (const f of form.getAll("photos")) {
     if (!(f instanceof File)) continue;
     if (!ALLOWED.includes(f.type)) return NextResponse.json({ error: "Format foto harus JPEG, PNG, atau WebP." }, { status: 400 });
@@ -53,6 +66,7 @@ export async function POST(req: Request) {
   }
   if (photos.length === 0) return NextResponse.json({ error: "Foto dari kamera wajib disertakan." }, { status: 400 });
   if (photos.length > 3) return NextResponse.json({ error: "Maksimal tiga foto." }, { status: 400 });
+  await Promise.all(photos.map(async (p) => (p.thumb = await makeThumb(p.data))));
 
   try {
     const { report, duplicate } = await createReport({
@@ -68,6 +82,11 @@ export async function POST(req: Request) {
       clientCreatedAt: parsed.data.clientCreatedAt ? new Date(parsed.data.clientCreatedAt) : null,
       syncedOffline: parsed.data.syncedOffline,
       clientId: clientKey,
+      stopItems,
+      activities,
+      safeActs: parsed.data.safeActs ?? null,
+      safeEncourage: parsed.data.safeEncourage ?? null,
+      immediateAction: parsed.data.immediateAction ?? null,
       photos,
     });
     return NextResponse.json({ ok: true, id: report.id, number: report.number, ...(duplicate ? { duplicate: true } : {}) });

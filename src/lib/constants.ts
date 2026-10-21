@@ -180,3 +180,119 @@ export const APP_TAGLINE = "Pelaporan Bahaya dan Upaya Pengendalian";
 export const COMPANY_NAME = "PT. Garuda Yamato Steel";
 export const COMPANY_SHORT = "GYS";
 export const DEVELOPER_CREDIT = "Developed by Nusa Safety";
+
+// ---------- Kartu STOP (DuPont Safety Training Observation Program) ----------
+// Siklus pengamatan: Memutuskan, Berhenti, Mengamati, Bertindak, Melapor.
+
+export type StopItem = { key: string; label: string; suggests?: Category };
+export type StopGroup = { key: string; label: string; hint: string; items: StopItem[] };
+
+export const STOP_GROUPS: StopGroup[] = [
+  {
+    key: "RS",
+    label: "Reaksi seseorang",
+    hint: "Apa yang dilakukan orang saat melihat Anda mendekat",
+    items: [
+      { key: "RS_APD", label: "Memakai atau membetulkan posisi alat pelindung diri", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "RS_POSISI", label: "Merubah posisi", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "RS_ATUR", label: "Mengatur ulang pekerjaan", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "RS_HENTI", label: "Menghentikan pekerjaan", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "RS_GROUND", label: "Memasang kabel massa atau ground", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "RS_LOTO", label: "Memasang lockout", suggests: "TINDAKAN_TIDAK_AMAN" },
+    ],
+  },
+  {
+    key: "APD",
+    label: "Alat pelindung diri",
+    hint: "Bagian tubuh yang tidak terlindungi dengan benar",
+    items: [
+      { key: "APD_KEPALA", label: "Kepala", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_MATA", label: "Mata dan muka", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_TELINGA", label: "Telinga", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_NAPAS", label: "Sistem pernapasan", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_TANGAN", label: "Jari dan tangan", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_TUBUH", label: "Tubuh", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "APD_KAKI", label: "Kaki dan telapak kaki", suggests: "TINDAKAN_TIDAK_AMAN" },
+    ],
+  },
+  {
+    key: "PS",
+    label: "Posisi seseorang",
+    hint: "Posisi yang dapat menyebabkan cedera",
+    items: [
+      { key: "PS_MEMBENTUR", label: "Membentur atau menabrak benda", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_TERPUKUL", label: "Terpukul atau terhantam benda", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_TERJEPIT", label: "Tersangkut di dalam, pada, atau di antara benda", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_JATUH", label: "Terjatuh dari ketinggian yang sama atau berbeda", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_SUHU", label: "Kontak dengan suhu yang sangat panas atau dingin", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_LISTRIK", label: "Kontak dengan arus listrik", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PS_HIRUP", label: "Menghisap atau menghirup bahan berbahaya", suggests: "LINGKUNGAN" },
+      { key: "PS_SERAP", label: "Menyerap bahan berbahaya", suggests: "LINGKUNGAN" },
+      { key: "PS_TELAN", label: "Menelan bahan berbahaya", suggests: "LINGKUNGAN" },
+      { key: "PS_ANGKAT", label: "Mengangkat terlalu berat atau memaksakan diri", suggests: "ERGONOMI" },
+      { key: "PS_ULANG", label: "Gerakan berulang-ulang", suggests: "ERGONOMI" },
+      { key: "PS_CANGGUNG", label: "Posisi canggung atau sikap tubuh yang salah", suggests: "ERGONOMI" },
+    ],
+  },
+  {
+    key: "PP",
+    label: "Perkakas dan peralatan",
+    hint: "Alat kerja yang dipakai",
+    items: [
+      { key: "PP_TIDAK_SESUAI", label: "Tidak sesuai dengan jenis pekerjaan", suggests: "KONDISI_TIDAK_AMAN" },
+      { key: "PP_TIDAK_TEPAT", label: "Digunakan secara tidak tepat", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PP_TIDAK_AMAN", label: "Dalam kondisi tidak aman", suggests: "KONDISI_TIDAK_AMAN" },
+    ],
+  },
+  {
+    key: "PK",
+    label: "Prosedur dan keteraturan",
+    hint: "Prosedur kerja dan kerapihan (housekeeping)",
+    items: [
+      { key: "PK_PROS_KURANG", label: "Prosedur tidak memadai", suggests: "KONDISI_TIDAK_AMAN" },
+      { key: "PK_PROS_TAHU", label: "Prosedur tidak diketahui atau dimengerti", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PK_PROS_PATUH", label: "Prosedur tidak diikuti atau dipatuhi", suggests: "TINDAKAN_TIDAK_AMAN" },
+      { key: "PK_RAPI_KURANG", label: "Standar kerapihan tidak memadai", suggests: "KONDISI_TIDAK_AMAN" },
+      { key: "PK_RAPI_TAHU", label: "Standar kerapihan tidak diketahui atau dimengerti", suggests: "KONDISI_TIDAK_AMAN" },
+      { key: "PK_RAPI_PATUH", label: "Standar kerapihan tidak diikuti atau dipatuhi", suggests: "KONDISI_TIDAK_AMAN" },
+    ],
+  },
+];
+
+export const STOP_ITEMS: Record<string, StopItem & { group: string }> = Object.fromEntries(
+  STOP_GROUPS.flatMap((g) => g.items.map((i) => [i.key, { ...i, group: g.key }]))
+);
+export const STOP_GROUP_LABEL: Record<string, string> = Object.fromEntries(STOP_GROUPS.map((g) => [g.key, g.label]));
+
+export const ACTIVITIES = [
+  { key: "HOUSEKEEPING", label: "Housekeeping dan pembuangan limbah" },
+  { key: "CATERING", label: "Katering (laundry, memasak)" },
+  { key: "KIMIA", label: "Penanganan bahan kimia" },
+  { key: "RUANG_TERBATAS", label: "Ruang terbatas (confined space)" },
+  { key: "ALAT_BERAT", label: "Operasi alat berat" },
+  { key: "LISTRIK", label: "Pekerjaan kelistrikan" },
+  { key: "LOTO", label: "Isolasi energi (LOTO)" },
+  { key: "RADIOGRAFI", label: "Radiografi" },
+  { key: "ANGKAT", label: "Pengangkatan dan rigging (crane)" },
+  { key: "KETINGGIAN", label: "Tangga dan perancah (scaffolding)" },
+  { key: "MANUAL", label: "Penanganan material manual" },
+  { key: "TRANSPORTASI", label: "Transportasi (darat atau air)" },
+  { key: "PANAS", label: "Pengelasan, pemotongan, dan pekerjaan panas" },
+  { key: "OPERASI", label: "Operasi rutin" },
+  { key: "PERAWATAN", label: "Perawatan rutin" },
+  { key: "LAINNYA", label: "Lainnya" },
+] as const;
+export const ACTIVITY_LABEL: Record<string, string> = Object.fromEntries(ACTIVITIES.map((a) => [a.key, a.label]));
+
+/** Kategori bahaya yang paling sering disarankan oleh item STOP terpilih */
+export function suggestCategory(items: string[]): Category | null {
+  const tally = new Map<Category, number>();
+  for (const k of items) {
+    const c = STOP_ITEMS[k]?.suggests;
+    if (c) tally.set(c, (tally.get(c) ?? 0) + 1);
+  }
+  let best: Category | null = null;
+  let n = 0;
+  for (const [c, v] of tally) if (v > n) [best, n] = [c, v];
+  return best;
+}

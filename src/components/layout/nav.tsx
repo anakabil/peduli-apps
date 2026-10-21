@@ -20,6 +20,7 @@ import {
   Star,
   UserCircle,
   BookOpen,
+  Network,
 } from "lucide-react";
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/format";
@@ -61,6 +62,7 @@ export const NAV: Array<{ group: string; items: Item[] }> = [
     items: [
       { href: "/admin/pengguna", label: "Pengguna", icon: Users, roles: ["ADMIN"] },
       { href: "/admin/area", label: "Area kerja", icon: MapPin, roles: ["ADMIN", "MANAGER"] },
+      { href: "/admin/akuntabilitas", label: "Akuntabilitas", icon: Network, roles: ["ADMIN", "MANAGER"] },
       { href: "/admin/reward", label: "Katalog reward", icon: Package, roles: ["ADMIN"] },
       { href: "/admin/penukaran", label: "Penukaran poin", icon: Star, roles: ["ADMIN"] },
       { href: "/admin/pengaturan", label: "Pengaturan alur", icon: Settings, roles: ["ADMIN", "MANAGER"] },

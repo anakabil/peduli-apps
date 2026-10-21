@@ -117,7 +117,12 @@ export type NewReportInput = {
   clientCreatedAt?: Date | null;
   syncedOffline?: boolean;
   clientId?: string | null;
-  photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer>; width?: number; height?: number }>;
+  stopItems?: string[];
+  activities?: string[];
+  safeActs?: string | null;
+  safeEncourage?: string | null;
+  immediateAction?: string | null;
+  photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer>; thumb?: Uint8Array<ArrayBuffer> | null; width?: number; height?: number }>;
 };
 
 export async function createReport(input: NewReportInput) {
@@ -155,6 +160,11 @@ export async function createReport(input: NewReportInput) {
           riskLevel: input.riskLevel,
           description: input.description,
           suggestion: input.suggestion || null,
+          stopItems: input.stopItems ?? [],
+          activities: input.activities ?? [],
+          safeActs: input.safeActs || null,
+          safeEncourage: input.safeEncourage || null,
+          immediateAction: input.immediateAction || null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
           accuracyM: input.accuracyM ?? null,
@@ -166,7 +176,7 @@ export async function createReport(input: NewReportInput) {
           escalated,
           dueVerifyAt: path === "A" ? addBusinessDays(now, settings.verifyDeadlineDays) : null,
           dueDecideAt: path === "B" ? addBusinessDays(now, settings.decideDeadlineDays) : null,
-          photos: { create: input.photos.map((p) => ({ mime: p.mime, data: p.data, width: p.width, height: p.height, size: p.data.length, kind: "LAPORAN" })) },
+          photos: { create: input.photos.map((p) => ({ mime: p.mime, data: p.data, thumb: p.thumb ?? null, width: p.width, height: p.height, size: p.data.length, kind: "LAPORAN" })) },
           events: {
             create: [
               { type: "DIBUAT", actorId: reporter.id, toStatus: status, note: input.syncedOffline ? "Dikirim dari antrean luring" : null, meta: input.clientId ?? null },
@@ -355,7 +365,7 @@ export function canProgress(user: { id: string; role: string }, report: { status
   return user.role === "ADMIN" || user.role === "MANAGER" || report.picId === user.id || report.deciderId === user.id;
 }
 
-export async function updateProgress(actorId: string, reportId: string, pct: number, note: string, done: boolean, photo?: { mime: string; data: Uint8Array<ArrayBuffer> }) {
+export async function updateProgress(actorId: string, reportId: string, pct: number, note: string, done: boolean, photo?: { mime: string; data: Uint8Array<ArrayBuffer>; thumb?: Uint8Array<ArrayBuffer> | null }) {
   const actor = await db.user.findUnique({ where: { id: actorId } });
   const report = await loadReport(reportId);
   if (!actor || !canProgress(actor, report)) throw new WorkflowError("Anda tidak berwenang memperbarui progres laporan ini.");
@@ -363,7 +373,7 @@ export async function updateProgress(actorId: string, reportId: string, pct: num
   const pctFinal = done ? 100 : Math.max(0, Math.min(99, pct));
   await inTx(async (tx) => {
     await transition(tx, reportId, "DALAM_PERBAIKAN", { progressPct: pctFinal, status: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", completedAt: done ? now : undefined, completionNote: done ? note : undefined });
-    if (photo) await tx.photo.create({ data: { reportId, mime: photo.mime, data: photo.data, size: photo.data.length, kind: "PERBAIKAN" } });
+    if (photo) await tx.photo.create({ data: { reportId, mime: photo.mime, data: photo.data, thumb: photo.thumb ?? null, size: photo.data.length, kind: "PERBAIKAN" } });
     await tx.reportEvent.create({ data: { reportId, type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } });
   });
   if (done) {

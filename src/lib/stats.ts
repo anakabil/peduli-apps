@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, type Category, type Risk, type Status } from "./constants";
+import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, STOP_GROUPS, STOP_ITEMS, STOP_GROUP_LABEL, ACTIVITIES, type Category, type Risk, type Status } from "./constants";
 import { daysBetween, hoursBetween, jktDate, jktParts } from "./format";
 
 export type Period = { from: Date; to: Date };
@@ -54,6 +54,8 @@ type Row = {
   outsideArea: boolean;
   suggestion: string | null;
   suggestionApplied: boolean;
+  stopItems: string[];
+  activities: string[];
   area: { id: string; name: string } | null;
   reporter: { id: string; name: string | null; role: string; departemen: string | null };
 };
@@ -61,7 +63,7 @@ type Row = {
 const select = {
   id: true, number: true, reporterId: true, areaId: true, category: true, riskLevel: true, status: true, path: true, createdAt: true,
   verifiedAt: true, verificationResult: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, isDuplicate: true, controlHierarchy: true,
-  pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true,
+  pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true, stopItems: true, activities: true,
   area: { select: { id: true, name: true } },
   reporter: { select: { id: true, name: true, role: true, departemen: true } },
 } as const;
@@ -250,6 +252,16 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     return { role, users: users.length, reporters: rep, pct: pct(rep, users.length) };
   });
 
+  // Kartu STOP: distribusi kelompok daftar periksa, item teratas, dan aktivitas yang diobservasi
+  const stopGroupDist = STOP_GROUPS.map((g) => ({ key: g.key, label: g.label, count: cur.filter((r) => r.stopItems.some((k) => STOP_ITEMS[k]?.group === g.key)).length }));
+  const itemCount = new Map<string, number>();
+  for (const r of cur) for (const k of r.stopItems) if (STOP_ITEMS[k]) itemCount.set(k, (itemCount.get(k) ?? 0) + 1);
+  const stopTopItems = Array.from(itemCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([key, n]) => ({ key, label: STOP_ITEMS[key].label, group: STOP_GROUP_LABEL[STOP_ITEMS[key].group], count: n }));
+  const activityDist = ACTIVITIES.map((a) => ({ key: a.key, label: a.label, count: cur.filter((r) => r.activities.includes(a.key)).length })).filter((a) => a.count > 0).sort((a, b) => b.count - a.count);
+
   const overdueOpen = openAll.filter((r) => (r.status === "DALAM_PERBAIKAN" || r.status === "MENUNGGU_PENUTUPAN") && !!r.targetDate && r.targetDate < now).length;
 
   return {
@@ -281,6 +293,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
       recurring,
       escalated: cur.filter((r) => r.escalated).length,
       outsideArea: cur.filter((r) => r.outsideArea).length,
+      stopCards: cur.filter((r) => r.activities.length > 0 || r.stopItems.length > 0).length,
       withSuggestion: cur.filter((r) => !!r.suggestion).length,
       suggestionApplied: cur.filter((r) => r.suggestionApplied).length,
       pointsAwarded: cur.reduce((s, r) => s + r.pointsAwarded, 0),
@@ -298,6 +311,9 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     byArea,
     topReporters,
     participationByRole,
+    stopGroupDist,
+    stopTopItems,
+    activityDist,
     highOpenList: highOpenNow.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, 10).map((r) => ({ id: r.id, number: r.number, area: r.area?.name ?? "-", risk: r.riskLevel, status: r.status, days: Math.round(ageOf(r)), category: r.category as Category, riskLevel: r.riskLevel as Risk })),
   };
 }

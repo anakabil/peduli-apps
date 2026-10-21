@@ -128,3 +128,7 @@ Bila memasang domain sendiri, tambahkan domain itu juga ke origins dan redirect 
 | "Email Anda tidak termasuk domain yang diizinkan" | `ALLOWED_EMAIL_DOMAINS` membatasi | Tambahkan domain, atau daftarkan email itu lewat menu Pengguna. |
 | Halaman "Menunggu persetujuan admin" | Akun baru belum disetujui | Admin mengubah status menjadi Aktif di menu Pengguna. |
 | Galat 500 pada halaman tertentu | Galat saat aplikasi berjalan | Buka tab Logs di Vercel, salin pesan galatnya. |
+
+## Region fungsi dan basis data
+
+Basis data Prisma Postgres proyek ini berada di region `sin1` (Singapura). Fungsi aplikasi dipaku ke region yang sama melalui `vercel.json` (`"regions": ["sin1"]`). Bila region fungsi berbeda dari region basis data, setiap kueri harus menyeberang antarbenua dan halaman terasa lambat. Bila suatu saat basis data dipindahkan, sesuaikan nilai `regions` dengan region basis data yang baru.

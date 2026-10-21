@@ -175,6 +175,35 @@ export async function exportPdf(ctx: ExportCtx) {
     });
   }
 
+  // Halaman kartu STOP
+  header("Kartu STOP: daftar periksa dan aktivitas");
+  autoTable(doc, {
+    startY: 44,
+    margin: { left: M, right: W / 2 + 2 },
+    head: [["Kelompok daftar periksa", "Laporan"]],
+    body: stats.stopGroupDist.map((g) => [g.label, g.count]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: "#c8373b", textColor: "#ffffff" },
+  });
+  autoTable(doc, {
+    startY: 44,
+    margin: { left: W / 2 + 2, right: M },
+    head: [["Aktivitas diobservasi", "Laporan"]],
+    body: stats.activityDist.length ? stats.activityDist.map((a) => [a.label, a.count]) : [["Belum ada data", "-"]],
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: BRAND2, textColor: "#ffffff" },
+  });
+  y = ((doc as DocWithTable).lastAutoTable?.finalY ?? 80) + 8;
+  doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text("Tindakan tidak aman teratas", M, y);
+  autoTable(doc, {
+    startY: y + 3,
+    margin: { left: M, right: M },
+    head: [["Item daftar periksa", "Kelompok", "Jumlah"]],
+    body: stats.stopTopItems.length ? stats.stopTopItems.map((i) => [i.label, i.group, i.count]) : [["Belum ada item yang dicentang", "-", "-"]],
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: BRAND, textColor: "#ffffff" },
+  });
+
   // Halaman 3: partisipasi dan indikator
   header("Partisipasi, pengendalian, dan kamus indikator");
   autoTable(doc, {
@@ -310,6 +339,12 @@ export async function exportPptx(ctx: ExportCtx) {
   s5.addTable([[hdr("Peran"), hdr("Pengguna"), hdr("Melapor"), hdr("%")], ...stats.participationByRole.map((p) => [{ text: ROLE_LABEL[p.role as Role] }, { text: String(p.users) }, { text: String(p.reporters) }, { text: `${p.pct}%`, options: { bold: true } }])], { x: 6.15, y: 1.65, w: 3.5, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.4, 0.7, 0.7, 0.7], rowH: 0.26 });
   s5.addTable([[hdr("Pelapor teratas"), hdr("Laporan"), hdr("Valid"), hdr("Poin")], ...stats.topReporters.slice(0, 6).map((r) => [{ text: r.name }, { text: String(r.laporan) }, { text: String(r.valid) }, { text: String(r.poin), options: { bold: true, color: "006042" } }])], { x: 6.15, y: 3.15, w: 3.5, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.7, 0.6, 0.6, 0.6], rowH: 0.26 });
 
+  // Slide kartu STOP
+  const sStop = master("Kartu STOP: daftar periksa dan aktivitas", `${s.stopCards} kartu STOP dalam periode`);
+  sStop.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.stopGroupDist.map((g) => g.label), values: stats.stopGroupDist.map((g) => g.count) }], { x: 0.35, y: 1.65, w: 4.3, h: 3.4, barDir: "bar", chartColors: ["C8373B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Kelompok daftar periksa", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
+  sStop.addTable([[hdr("Tindakan tidak aman teratas"), hdr("Jumlah")], ...(stats.stopTopItems.length ? stats.stopTopItems.slice(0, 6).map((i) => [{ text: i.label }, { text: String(i.count), options: { bold: true } }]) : [[{ text: "Belum ada data" }, { text: "-" }]])], { x: 4.85, y: 1.65, w: 4.8, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [4.0, 0.8], rowH: 0.26 });
+  sStop.addTable([[hdr("Aktivitas diobservasi"), hdr("Laporan")], ...(stats.activityDist.length ? stats.activityDist.slice(0, 5).map((a) => [{ text: a.label }, { text: String(a.count), options: { bold: true } }]) : [[{ text: "Belum ada data" }, { text: "-" }]])], { x: 4.85, y: 3.75, w: 4.8, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [4.0, 0.8], rowH: 0.24 });
+
   // Slide 6: risiko tinggi terbuka
   if (stats.highOpenList.length) {
     const s6 = master("Risiko Tinggi dan Ekstrem yang masih terbuka", "Prioritas eskalasi dan anggaran, diurutkan dari yang paling lama.");
@@ -358,6 +393,15 @@ export function exportCsv(ctx: ExportCtx) {
   rows.push([]);
   rows.push(["Area", "Penutupan tepat waktu (%)", "Jumlah ditutup"]);
   stats.onTimeByArea.forEach((a) => rows.push([a.area, String(a.pct), String(a.n)]));
+  rows.push([]);
+  rows.push(["Kelompok daftar periksa STOP", "Laporan"]);
+  stats.stopGroupDist.forEach((g) => rows.push([g.label, String(g.count)]));
+  rows.push([]);
+  rows.push(["Tindakan tidak aman teratas", "Kelompok", "Jumlah"]);
+  stats.stopTopItems.forEach((i) => rows.push([i.label, i.group, String(i.count)]));
+  rows.push([]);
+  rows.push(["Aktivitas diobservasi", "Laporan"]);
+  stats.activityDist.forEach((a) => rows.push([a.label, String(a.count)]));
   rows.push([]);
   rows.push(["Pelapor", "Peran", "Departemen", "Laporan", "Valid", "Poin"]);
   stats.topReporters.forEach((r) => rows.push([r.name, ROLE_LABEL[r.role as Role], r.departemen ?? "", String(r.laporan), String(r.valid), String(r.poin)]));

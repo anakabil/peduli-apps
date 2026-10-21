@@ -3,10 +3,10 @@ import { PrismaClient } from "@prisma/client";
 import { DEFAULT_SETTINGS } from "../src/lib/constants";
 import { placeholderPhotos } from "./placeholder-photos";
 import { addBusinessDays } from "../src/lib/format";
+import { ensureDemoAccounts, ensureSampleRewards, SAMPLE_AREAS } from "../src/lib/demo-accounts";
 
 const db = new PrismaClient();
 
-const DEMO = "@demo.peduli.local";
 
 async function main() {
   // Pengaturan alur
@@ -17,13 +17,7 @@ async function main() {
   });
 
   // Area kerja (koordinat contoh di kawasan industri Cilegon, Banten; sesuaikan di menu Admin)
-  const areas = [
-    { code: "PRD", name: "Produksi", lat: -5.9955, lng: 106.0152, radiusM: 400 },
-    { code: "GDG", name: "Gudang", lat: -5.9968, lng: 106.0178, radiusM: 300 },
-    { code: "UTL", name: "Utilitas", lat: -5.9942, lng: 106.0131, radiusM: 250 },
-    { code: "LOG", name: "Logistik", lat: -5.9980, lng: 106.0160, radiusM: 350 },
-    { code: "KTR", name: "Perkantoran", lat: -5.9930, lng: 106.0165, radiusM: 200 },
-  ];
+  const areas = SAMPLE_AREAS.map((a) => ({ ...a }));
   const areaMap: Record<string, string> = {};
   for (const a of areas) {
     const row = await db.area.upsert({ where: { code: a.code }, create: a, update: { name: a.name } });
@@ -31,13 +25,7 @@ async function main() {
   }
 
   // Katalog reward
-  const rewards = [
-    { name: "Payung", description: "Contoh hadiah tingkat awal", pointsCost: 10, stock: 50, tier: "AWAL", icon: "Umbrella" },
-    { name: "Tumbler", description: "Contoh hadiah tingkat lanjut", pointsCost: 200, stock: 20, tier: "LANJUT", icon: "CupSoda" },
-    { name: "Sepatu keselamatan", description: "Contoh hadiah tingkat menengah", pointsCost: 100, stock: 15, tier: "MENENGAH", icon: "Footprints" },
-    { name: "Voucher belanja", description: "Senilai Rp100.000", pointsCost: 60, stock: 30, tier: "MENENGAH", icon: "Ticket" },
-  ];
-  if ((await db.reward.count()) === 0) await db.reward.createMany({ data: rewards });
+  await ensureSampleRewards(db);
 
   // Akun demo dan laporan contoh hanya bila SEED_DEMO tidak "false"
   const withDemo = process.env.SEED_DEMO !== "false";
@@ -45,28 +33,9 @@ async function main() {
     console.log("Seed master selesai (pengaturan, area, katalog reward). Akun demo dilewati.");
     return;
   }
-  const mk = async (email: string, name: string, role: string, extra: Record<string, unknown> = {}) =>
-    db.user.upsert({
-      where: { email },
-      create: { email, name, role, status: "ACTIVE", emailVerified: new Date(), ...extra },
-      update: { name, role, status: "ACTIVE", ...extra },
-    });
-
-  const admin = await mk(`admin${DEMO}`, "Admin Program", "ADMIN", { jabatan: "Pengelola Program PEDULI", departemen: "HSE" });
-  const direksi = await mk(`direksi${DEMO}`, "Hendra Wijaya", "DIREKSI", { jabatan: "Direktur Operasional", departemen: "Direksi" });
-  const manager = await mk(`manager${DEMO}`, "Budi Santoso", "MANAGER", { jabatan: "Manager Produksi", departemen: "Produksi", areaId: areaMap.PRD });
-  const manager2 = await mk(`manager2${DEMO}`, "Sri Lestari", "MANAGER", { jabatan: "Manager Gudang dan Logistik", departemen: "Supply Chain", areaId: areaMap.GDG });
-  const supt = await mk(`superintendent${DEMO}`, "Agus Prasetyo", "SUPERINTENDENT", { jabatan: "Superintendent Produksi", departemen: "Produksi", areaId: areaMap.PRD, atasanId: manager.id });
-  const supt2 = await mk(`superintendent2${DEMO}`, "Dewi Anggraini", "SUPERINTENDENT", { jabatan: "Superintendent Gudang", departemen: "Supply Chain", areaId: areaMap.GDG, atasanId: manager2.id });
-  const pengawas = await mk(`pengawas${DEMO}`, "Rizky Firmansyah", "PENGAWAS", { jabatan: "Pengawas Shift A", departemen: "Produksi", areaId: areaMap.PRD, atasanId: supt.id, nik: "GYS-0101" });
-  const pengawas2 = await mk(`pengawas2${DEMO}`, "Yuni Astuti", "PENGAWAS", { jabatan: "Pengawas Gudang", departemen: "Supply Chain", areaId: areaMap.GDG, atasanId: supt2.id, nik: "GYS-0102" });
-  const pengawas3 = await mk(`pengawas3${DEMO}`, "Dani Kurniawan", "PENGAWAS", { jabatan: "Pengawas Utilitas", departemen: "Utilitas", areaId: areaMap.UTL, atasanId: supt.id, nik: "GYS-0103" });
-
-  await db.area.update({ where: { code: "PRD" }, data: { managerId: manager.id } });
-  await db.area.update({ where: { code: "UTL" }, data: { managerId: manager.id } });
-  await db.area.update({ where: { code: "GDG" }, data: { managerId: manager2.id } });
-  await db.area.update({ where: { code: "LOG" }, data: { managerId: manager2.id } });
-  await db.area.update({ where: { code: "KTR" }, data: { managerId: manager.id } });
+  const { users: u } = await ensureDemoAccounts(db, { overwrite: true });
+  const admin = u.admin, direksi = u.direksi, manager = u.manager, manager2 = u.manager2;
+  const supt = u.superintendent, supt2 = u.superintendent2, pengawas = u.pengawas, pengawas2 = u.pengawas2, pengawas3 = u.pengawas3;
 
   // Laporan contoh (hanya bila belum ada)
   if ((await db.report.count()) > 0) {
@@ -103,6 +72,19 @@ async function seedReports(ctx: {
     "APAR terhalang tumpukan pallet.",
     "Tangga portabel retak pada anak tangga ketiga.",
     "Debu logam menumpuk di saluran ventilasi.",
+  ];
+  // Isian kartu STOP yang selaras dengan setiap uraian contoh
+  const stopByDesc: Array<{ items: string[]; acts: string[]; immediate?: string; safe?: string }> = [
+    { items: ["PS_LISTRIK", "PP_TIDAK_AMAN"], acts: ["TRANSPORTASI", "LISTRIK"], immediate: "Area diberi barikade sementara." },
+    { items: ["RS_APD", "APD_MATA"], acts: ["PERAWATAN"], immediate: "Pekerjaan dihentikan, pekerja diarahkan memakai kacamata.", safe: "Pekerja lain di sekitar memakai sarung tangan dan sepatu keselamatan." },
+    { items: ["PS_TERPUKUL", "PS_TERJEPIT"], acts: ["ANGKAT"], immediate: "Pengangkatan dihentikan dan muatan diturunkan." },
+    { items: ["PS_CANGGUNG", "PS_ULANG"], acts: ["OPERASI"] },
+    { items: ["PK_RAPI_PATUH", "PS_JATUH"], acts: ["HOUSEKEEPING", "OPERASI"], immediate: "Ceceran ditaburi absorben." },
+    { items: ["PS_JATUH", "PP_TIDAK_AMAN"], acts: ["KETINGGIAN"], immediate: "Akses mezanin ditutup sementara." },
+    { items: ["PK_PROS_KURANG"], acts: ["TRANSPORTASI"] },
+    { items: ["PK_RAPI_KURANG"], acts: ["HOUSEKEEPING"], immediate: "Pallet dipindahkan dari depan APAR.", safe: "Petugas gudang langsung merapikan jalur evakuasi." },
+    { items: ["PP_TIDAK_AMAN", "PS_JATUH"], acts: ["PERAWATAN", "KETINGGIAN"], immediate: "Tangga diberi label rusak dan ditarik dari pemakaian." },
+    { items: ["PS_HIRUP", "APD_NAPAS"], acts: ["PERAWATAN"] },
   ];
   const reporters: U[] = [pengawas, pengawas2, pengawas3, pengawas, pengawas2, supt, manager2, pengawas3, pengawas, direksi];
   const areaCodes = ["PRD", "GDG", "UTL", "PRD", "GDG", "PRD", "LOG", "KTR", "PRD", "PRD"];
@@ -230,6 +212,10 @@ async function seedReports(ctx: {
         category,
         riskLevel,
         description: descs[i % descs.length],
+        stopItems: stopByDesc[i % descs.length].items,
+        activities: stopByDesc[i % descs.length].acts,
+        immediateAction: stopByDesc[i % descs.length].immediate ?? null,
+        safeActs: stopByDesc[i % descs.length].safe ?? null,
         suggestion: i % 3 === 0 ? "Pasang penutup pelindung dan beri tanda peringatan." : null,
         suggestionApplied,
         lat: area.lat + ((i % 5) - 2) * 0.0004,

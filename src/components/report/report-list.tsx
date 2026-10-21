@@ -43,7 +43,7 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink-100 md:h-24 md:w-24">
               {r.photos[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/foto/${r.photos[0].id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img src={`/api/foto/${r.photos[0].id}?ukuran=kecil`} alt="" className="h-full w-full object-cover" loading="lazy" />
               ) : (
                 <div className="flex h-full items-center justify-center text-ink-300">
                   <ClipboardList size={22} />
