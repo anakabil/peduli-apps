@@ -52,6 +52,8 @@ Google One Tap menggunakan client ID yang sama. Di smartphone, One Tap otomatis 
 
 ## Produksi di Vercel dengan Prisma Postgres
 
+Panduan langkah demi langkah untuk penerapan manual ada di [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md).
+
 1. Impor repository ke Vercel sebagai proyek Next.js (preset bawaan sudah benar, perintah build `npm run build`).
 2. Di tab Storage, pasang integrasi Prisma Postgres dan hubungkan ke proyek. Integrasi menyuntikkan `DATABASE_URL` (kode juga mengenali `PRISMA_DATABASE_URL`, `POSTGRES_URL`, dan `POSTGRES_PRISMA_URL`). Migrasi dijalankan otomatis saat build oleh `scripts/migrate.mjs`, yang memilih URL koneksi langsung bila tersedia (`DIRECT_URL`, `POSTGRES_URL_NON_POOLING`).
 3. Tambahkan variabel lingkungan berikut di Settings, Environment Variables, lalu deploy ulang:
