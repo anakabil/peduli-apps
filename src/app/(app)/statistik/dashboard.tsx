@@ -42,7 +42,6 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
     onTime: useRef<Chart<"bar"> | undefined>(null),
     status: useRef<Chart<"bar"> | undefined>(null),
     control: useRef<Chart<"doughnut"> | undefined>(null),
-    stop: useRef<Chart<"bar"> | undefined>(null),
   };
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -232,48 +231,6 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
             <div className="h-56">
               <DoughnutChart ref={refs.control} data={{ labels: stats.controlDist.map((c) => CONTROL_LABEL[c.key as Control]), datasets: [{ data: stats.controlDist.map((c) => c.count), backgroundColor: GREEN_RAMP, borderWidth: 2, borderColor: "#fff" }] }} />
             </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Kartu STOP (DuPont) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
-        <Card className="anim-fade-up">
-          <CardHeader title="Kartu STOP: kelompok daftar periksa" subtitle={`${s.stopCards} kartu STOP dalam periode`} />
-          <CardBody className="min-w-0 overflow-x-auto pt-3">
-            <div className="h-56">
-              <BarChart ref={refs.stop} horizontal data={{ labels: stats.stopGroupDist.map((g) => g.label), datasets: [{ label: "Laporan", data: stats.stopGroupDist.map((g) => g.count), backgroundColor: "#138d6b", borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } } }} />
-            </div>
-          </CardBody>
-        </Card>
-        <Card className="anim-fade-up">
-          <CardHeader title="Tindakan tidak aman teratas" subtitle="Item daftar periksa yang paling sering dicentang" />
-          <CardBody className="min-w-0 overflow-x-auto pt-3">
-            {stats.stopTopItems.length === 0 ? <p className="text-sm text-ink-500">Belum ada item yang dicentang pada periode ini.</p> : (
-              <table className="table">
-                <thead><tr><th>Item</th><th className="text-right">Jumlah</th></tr></thead>
-                <tbody>
-                  {stats.stopTopItems.map((i) => (
-                    <tr key={i.key}><td><div className="font-medium">{i.label}</div><div className="text-xs text-ink-500">{i.group}</div></td><td className="text-right font-bold">{i.count}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardBody>
-        </Card>
-        <Card className="anim-fade-up">
-          <CardHeader title="Aktivitas yang diobservasi" />
-          <CardBody className="min-w-0 overflow-x-auto pt-3">
-            {stats.activityDist.length === 0 ? <p className="text-sm text-ink-500">Belum ada data aktivitas pada periode ini.</p> : (
-              <table className="table">
-                <thead><tr><th>Aktivitas</th><th className="text-right">Laporan</th></tr></thead>
-                <tbody>
-                  {stats.activityDist.map((a) => (
-                    <tr key={a.key}><td className="font-medium">{a.label}</td><td className="text-right font-bold">{a.count}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
           </CardBody>
         </Card>
       </div>

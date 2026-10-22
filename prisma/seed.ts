@@ -73,19 +73,6 @@ async function seedReports(ctx: {
     "Tangga portabel retak pada anak tangga ketiga.",
     "Debu logam menumpuk di saluran ventilasi.",
   ];
-  // Isian kartu STOP yang selaras dengan setiap uraian contoh
-  const stopByDesc: Array<{ items: string[]; acts: string[]; immediate?: string; safe?: string }> = [
-    { items: ["PS_LISTRIK", "PP_TIDAK_AMAN"], acts: ["TRANSPORTASI", "LISTRIK"], immediate: "Area diberi barikade sementara." },
-    { items: ["RS_APD", "APD_MATA"], acts: ["PERAWATAN"], immediate: "Pekerjaan dihentikan, pekerja diarahkan memakai kacamata.", safe: "Pekerja lain di sekitar memakai sarung tangan dan sepatu keselamatan." },
-    { items: ["PS_TERPUKUL", "PS_TERJEPIT"], acts: ["ANGKAT"], immediate: "Pengangkatan dihentikan dan muatan diturunkan." },
-    { items: ["PS_CANGGUNG", "PS_ULANG"], acts: ["OPERASI"] },
-    { items: ["PK_RAPI_PATUH", "PS_JATUH"], acts: ["HOUSEKEEPING", "OPERASI"], immediate: "Ceceran ditaburi absorben." },
-    { items: ["PS_JATUH", "PP_TIDAK_AMAN"], acts: ["KETINGGIAN"], immediate: "Akses mezanin ditutup sementara." },
-    { items: ["PK_PROS_KURANG"], acts: ["TRANSPORTASI"] },
-    { items: ["PK_RAPI_KURANG"], acts: ["HOUSEKEEPING"], immediate: "Pallet dipindahkan dari depan APAR.", safe: "Petugas gudang langsung merapikan jalur evakuasi." },
-    { items: ["PP_TIDAK_AMAN", "PS_JATUH"], acts: ["PERAWATAN", "KETINGGIAN"], immediate: "Tangga diberi label rusak dan ditarik dari pemakaian." },
-    { items: ["PS_HIRUP", "APD_NAPAS"], acts: ["PERAWATAN"] },
-  ];
   const reporters: U[] = [pengawas, pengawas2, pengawas3, pengawas, pengawas2, supt, manager2, pengawas3, pengawas, direksi];
   const areaCodes = ["PRD", "GDG", "UTL", "PRD", "GDG", "PRD", "LOG", "KTR", "PRD", "PRD"];
   const controls = ["REKAYASA_TEKNIK", "ADMINISTRATIF", "APD", "SUBSTITUSI", "ELIMINASI"];
@@ -212,10 +199,6 @@ async function seedReports(ctx: {
         category,
         riskLevel,
         description: descs[i % descs.length],
-        stopItems: stopByDesc[i % descs.length].items,
-        activities: stopByDesc[i % descs.length].acts,
-        immediateAction: stopByDesc[i % descs.length].immediate ?? null,
-        safeActs: stopByDesc[i % descs.length].safe ?? null,
         suggestion: i % 3 === 0 ? "Pasang penutup pelindung dan beri tanda peringatan." : null,
         suggestionApplied,
         lat: area.lat + ((i % 5) - 2) * 0.0004,

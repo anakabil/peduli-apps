@@ -13,8 +13,8 @@ export default async function LaporPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        eyebrow="Kartu STOP (DuPont)"
-        title="Lapor bahaya: kartu STOP"
+        eyebrow="Pelaporan dari lapangan"
+        title="Lapor bahaya"
         description={
           path === "A"
             ? "Laporan Anda akan diverifikasi Superintendent lebih dahulu, lalu diputuskan Manager."

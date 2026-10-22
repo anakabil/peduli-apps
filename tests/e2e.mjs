@@ -34,25 +34,19 @@ async function logout() {
   await page.waitForURL(/masuk/);
 }
 
-// 1. Pengawas membuat laporan kartu STOP dengan foto dan GPS
+// 1. Pengawas membuat laporan bahaya dengan foto dan GPS
 await login("Pengawas");
 await page.goto(`${BASE}/lapor`, { waitUntil: "networkidle" });
 await page.waitForSelector("text=GPS terkunci", { timeout: 15000 });
 await page.locator('input[type="file"]').setInputFiles(photo);
 await page.waitForSelector('img[alt="Foto 1"]');
-// Kartu STOP: aktivitas wajib dan daftar periksa yang tinggal dicentang
-await page.getByRole("checkbox", { name: "Transportasi (darat atau air)" }).click();
-await page.getByRole("button", { name: /Posisi seseorang/i }).click();
-await page.getByLabel(/Terpukul/).check();
-await page.locator('textarea[placeholder^="Contoh: operator"]').fill("Operator lain membunyikan klakson di setiap tikungan.");
-await page.locator('textarea[placeholder^="Contoh: pekerjaan dihentikan"]').fill("Lalu lintas forklift di tikungan rak B dihentikan sementara.");
 await page.getByRole("radio", { name: "Nyaris celaka" }).click();
 await page.getByRole("radio", { name: /^Tinggi/ }).click();
 await page.locator('input[placeholder^="Contoh: Gudang"]').fill("Jalur forklift 2, dekat rak B");
 await page.locator('textarea[placeholder^="Tulis uraian"]').fill("Forklift hampir menabrak pekerja di tikungan rak B karena cermin cembung pecah.");
 await page.locator('textarea[placeholder^="Contoh: pasang"]').fill("Ganti cermin cembung dan pasang pembatas kecepatan.");
 await page.screenshot({ path: `${S}/e2e-01-form.png`, fullPage: true });
-await page.getByRole("button", { name: "Kirim kartu STOP" }).click();
+await page.getByRole("button", { name: "Kirim laporan" }).click();
 await page.waitForURL(/\/laporan\/[a-z0-9]+$/, { timeout: 30000 });
 const reportUrl = page.url();
 const number = (await page.getByText(/^PDL-\d{6}-\d{4}$/).first().textContent()).trim();
@@ -60,7 +54,7 @@ ok(/^PDL-\d{6}-\d{4}$/.test(number), `Laporan dibuat dengan nomor ${number}`);
 ok(await page.getByText("Menunggu verifikasi").count(), "Status awal menunggu verifikasi (jalur A)");
 ok(await page.getByText("Eskalasi Manager").count(), "Risiko Tinggi dieskalasi otomatis");
 ok(await page.getByText("Produksi").count(), "Area ditentukan dari koordinat GPS");
-ok(await page.getByText("Terpukul atau terhantam benda").count() && await page.getByText("Transportasi (darat atau air)").count(), "Isian kartu STOP tampil di detail laporan");
+ok(await page.getByText("Ganti cermin cembung dan pasang pembatas kecepatan.").count(), "Usulan perbaikan tampil di detail laporan");
 await page.goto(`${BASE}/laporan`, { waitUntil: "networkidle" });
 const thumbSrc = await page.locator('img[src*="ukuran=kecil"]').first().getAttribute("src");
 const thumbRes = await page.request.get(`${BASE}${thumbSrc}`);
@@ -176,23 +170,19 @@ await logout();
 // 8. Pengiriman bersamaan: nomor laporan harus unik (uji kondisi balapan)
 await login("Pengawas");
 const photoBuf = fs.readFileSync(photo);
-const submit = (i) => page.request.post(`${BASE}/api/laporan`, { multipart: { activities: "OPERASI", category: "KONDISI_TIDAK_AMAN", riskLevel: "RENDAH", description: `Uji pengiriman bersamaan nomor ${i}, lantai licin.`, lat: "-5.9955", lng: "106.0152", accuracyM: "5", clientId: `race-${Date.now()}-${i}`, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } });
+const submit = (i) => page.request.post(`${BASE}/api/laporan`, { multipart: { category: "KONDISI_TIDAK_AMAN", riskLevel: "RENDAH", description: `Uji pengiriman bersamaan nomor ${i}, lantai licin.`, lat: "-5.9955", lng: "106.0152", accuracyM: "5", clientId: `race-${Date.now()}-${i}`, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } });
 const results = await Promise.all([0, 1, 2, 3, 4].map(submit));
 const bodies = await Promise.all(results.map((r) => r.json()));
 const numbers = bodies.map((b) => b.number);
 ok(results.every((r) => r.ok()) && new Set(numbers).size === 5, `Lima pengiriman bersamaan memperoleh nomor unik: ${numbers.join(", ")}`);
 // Idempoten: clientId sama tidak membuat laporan baru
 const cid = `idem-${Date.now()}`;
-const first = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { activities: "OPERASI", category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
-const second = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { activities: "OPERASI", category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
+const first = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
+const second = await (await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji idempoten antrean luring.", clientId: cid, photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } })).json();
 ok(first.id === second.id && second.duplicate === true, "Pengiriman ulang dengan clientId sama tidak menggandakan laporan");
 // Berkas non-gambar ditolak
-const bad = await page.request.post(`${BASE}/api/laporan`, { multipart: { activities: "OPERASI", category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji berkas berbahaya ditolak.", photos: { name: "x.html", mimeType: "text/html", buffer: Buffer.from("<script>1</script>") } } });
+const bad = await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji berkas berbahaya ditolak.", photos: { name: "x.html", mimeType: "text/html", buffer: Buffer.from("<script>1</script>") } } });
 ok(bad.status() === 400, "Unggahan berkas non-gambar ditolak");
-// Kartu STOP tanpa aktivitas dan dengan kunci tak dikenal ditolak
-const noAct = await page.request.post(`${BASE}/api/laporan`, { multipart: { category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji kartu STOP tanpa aktivitas.", photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } });
-const badKey = await page.request.post(`${BASE}/api/laporan`, { multipart: { activities: "OPERASI", stopItems: "XX_PALSU", category: "ERGONOMI", riskLevel: "RENDAH", description: "Uji kunci kartu STOP palsu.", photos: { name: "foto.jpg", mimeType: "image/jpeg", buffer: photoBuf } } });
-ok(noAct.status() === 400 && badKey.status() === 400, "Validasi kartu STOP di server menolak isian tidak lengkap atau palsu");
 
 await browser.close();
 if (errors.length) { console.log("Kesalahan konsol/HTTP:"); errors.forEach((e) => console.log(" -", e)); }

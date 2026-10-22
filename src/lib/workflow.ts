@@ -117,11 +117,6 @@ export type NewReportInput = {
   clientCreatedAt?: Date | null;
   syncedOffline?: boolean;
   clientId?: string | null;
-  stopItems?: string[];
-  activities?: string[];
-  safeActs?: string | null;
-  safeEncourage?: string | null;
-  immediateAction?: string | null;
   photos: Array<{ mime: string; data: Uint8Array<ArrayBuffer>; thumb?: Uint8Array<ArrayBuffer> | null; width?: number; height?: number }>;
 };
 
@@ -160,11 +155,6 @@ export async function createReport(input: NewReportInput) {
           riskLevel: input.riskLevel,
           description: input.description,
           suggestion: input.suggestion || null,
-          stopItems: input.stopItems ?? [],
-          activities: input.activities ?? [],
-          safeActs: input.safeActs || null,
-          safeEncourage: input.safeEncourage || null,
-          immediateAction: input.immediateAction || null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
           accuracyM: input.accuracyM ?? null,

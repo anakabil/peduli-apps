@@ -60,7 +60,7 @@ export default async function AkuntabilitasPage() {
   const isAdmin = user.role === "ADMIN";
 
   const steps = [
-    { icon: UserCheck, title: "Pelapor", body: "Pengawas mengirim kartu STOP. Area kerja ditentukan dari koordinat GPS, cadangan dari area profil." },
+    { icon: UserCheck, title: "Pelapor", body: "Pengawas mengirim laporan bahaya. Area kerja ditentukan dari koordinat GPS, cadangan dari area profil." },
     { icon: ShieldCheck, title: "Verifikasi (jalur A)", body: `Superintendent atasan pelapor, lalu Superintendent area, lalu seluruh Superintendent. Batas ${settings.verifyDeadlineDays} hari kerja.` },
     { icon: Gavel, title: "Keputusan", body: `Manager area laporan, bila kosong seluruh Manager aktif.${settings.managerPeerReview ? " Manager tidak memutuskan laporannya sendiri." : ""} Batas ${settings.decideDeadlineDays} hari kerja.${settings.escalateHighRisk ? " Risiko Tinggi dan Ekstrem dieskalasi langsung." : ""}` },
     { icon: Wrench, title: "Penanggung jawab", body: `Ditetapkan Manager saat menyetujui${settings.picByArea ? ", bawaannya Manager area" : ""}, lengkap dengan sumber daya dan target selesai.` },

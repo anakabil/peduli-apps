@@ -21,17 +21,17 @@ model User {
   image         String?
 
   // Profil organisasi
-  role       String   @default("PENGAWAS") // ADMIN | DIREKSI | MANAGER | SUPERINTENDENT | PENGAWAS
-  status     String   @default("PENDING")  // PENDING | ACTIVE | INACTIVE
-  nik        String?  @unique
+  role       String  @default("PENGAWAS") // ADMIN | DIREKSI | MANAGER | SUPERINTENDENT | PENGAWAS
+  status     String  @default("PENDING") // PENDING | ACTIVE | INACTIVE
+  nik        String? @unique
   jabatan    String?
   departemen String?
   phone      String?
   areaId     String?
-  area       Area?    @relation("UserArea", fields: [areaId], references: [id])
-  atasanId   String?  // Superintendent bagi Pengawas, Manager bagi Superintendent
-  atasan     User?    @relation("Atasan", fields: [atasanId], references: [id])
-  bawahan    User[]   @relation("Atasan")
+  area       Area?   @relation("UserArea", fields: [areaId], references: [id])
+  atasanId   String? // Superintendent bagi Pengawas, Manager bagi Superintendent
+  atasan     User?   @relation("Atasan", fields: [atasanId], references: [id])
+  bawahan    User[]  @relation("Atasan")
 
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -40,18 +40,18 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  reports        Report[]      @relation("Reporter")
-  verifications  Report[]      @relation("Verifier")
-  decisions      Report[]      @relation("Decider")
-  picReports     Report[]      @relation("Pic")
-  closures       Report[]      @relation("Closer")
-  events         ReportEvent[]
-  pointLedger    PointLedger[]
-  redemptions    Redemption[]  @relation("Redeemer")
-  processed      Redemption[]  @relation("Processor")
-  auditLogs      AuditLog[]
-  notifications  Notification[]
-  managedAreas   Area[]        @relation("AreaManager")
+  reports       Report[]       @relation("Reporter")
+  verifications Report[]       @relation("Verifier")
+  decisions     Report[]       @relation("Decider")
+  picReports    Report[]       @relation("Pic")
+  closures      Report[]       @relation("Closer")
+  events        ReportEvent[]
+  pointLedger   PointLedger[]
+  redemptions   Redemption[]   @relation("Redeemer")
+  processed     Redemption[]   @relation("Processor")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  managedAreas  Area[]         @relation("AreaManager")
 }
 
 model Account {
@@ -91,15 +91,15 @@ model VerificationToken {
 // ---------- Master ----------
 
 model Area {
-  id        String  @id @default(cuid())
-  code      String  @unique
+  id        String   @id @default(cuid())
+  code      String   @unique
   name      String
   lat       Float?
   lng       Float?
-  radiusM   Int     @default(300)
+  radiusM   Int      @default(300)
   managerId String?
-  manager   User?   @relation("AreaManager", fields: [managerId], references: [id])
-  active    Boolean @default(true)
+  manager   User?    @relation("AreaManager", fields: [managerId], references: [id])
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   users   User[]   @relation("UserArea")
@@ -120,22 +120,23 @@ model Report {
   area      Area?   @relation(fields: [areaId], references: [id])
   areaLabel String? // lokasi spesifik yang ditulis pelapor
 
-  category  String // KONDISI_TIDAK_AMAN | TINDAKAN_TIDAK_AMAN | NYARIS_CELAKA | ERGONOMI | LINGKUNGAN
-  riskLevel String // RENDAH | SEDANG | TINGGI | EKSTREM
-  description String  @db.Text // tindakan atau kondisi tidak aman yang diobservasi
-  suggestion  String? @db.Text // tindakan pencegahan agar tidak terulang (usulan, bonus poin bila diterapkan)
+  category    String // KONDISI_TIDAK_AMAN | TINDAKAN_TIDAK_AMAN | NYARIS_CELAKA | ERGONOMI | LINGKUNGAN
+  riskLevel   String // RENDAH | SEDANG | TINGGI | EKSTREM
+  description String  @db.Text
+  suggestion  String? @db.Text // usulan perbaikan, bonus poin bila diterapkan
 
-  // Kartu STOP (DuPont)
-  stopItems       String[] @default([]) // kunci item daftar periksa STOP (lihat STOP_GROUPS)
-  activities      String[] @default([]) // aktivitas yang diobservasi
-  safeActs        String?  @db.Text     // tindakan aman yang diobservasi
-  safeEncourage   String?  @db.Text     // tindakan untuk mendorong kinerja aman
-  immediateAction String?  @db.Text     // tindakan perbaikan yang langsung dilakukan
+  // Kolom bekas uji coba kartu STOP. Tidak dipakai lagi; dapat dihapus lewat migrasi tersendiri
+  // setelah dipastikan tidak ada data yang perlu disimpan.
+  stopItems       String[] @default([])
+  activities      String[] @default([])
+  safeActs        String?  @db.Text
+  safeEncourage   String?  @db.Text
+  immediateAction String?  @db.Text
 
-  lat         Float?
-  lng         Float?
-  accuracyM   Float?
-  outsideArea Boolean @default(false)
+  lat          Float?
+  lng          Float?
+  accuracyM    Float?
+  outsideArea  Boolean @default(false)
   locationFlag String? // catatan bila lokasi mencurigakan
 
   clientCreatedAt DateTime?
@@ -144,7 +145,7 @@ model Report {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  status String // MENUNGGU_VERIFIKASI | PERLU_REVISI | DITOLAK | MENUNGGU_KEPUTUSAN | DALAM_PERBAIKAN | MENUNGGU_PENUTUPAN | SELESAI
+  status    String // MENUNGGU_VERIFIKASI | PERLU_REVISI | DITOLAK | MENUNGGU_KEPUTUSAN | DALAM_PERBAIKAN | MENUNGGU_PENUTUPAN | SELESAI
   escalated Boolean @default(false)
 
   dueVerifyAt DateTime?
@@ -154,35 +155,35 @@ model Report {
   verifierId         String?
   verifier           User?     @relation("Verifier", fields: [verifierId], references: [id])
   verifiedAt         DateTime?
-  verificationResult String?   // VALID | REVISI | TOLAK
+  verificationResult String? // VALID | REVISI | TOLAK
   verificationNote   String?
   revisionCount      Int       @default(0)
 
   // Keputusan Manager
-  deciderId        String?
-  decider          User?     @relation("Decider", fields: [deciderId], references: [id])
-  decidedAt        DateTime?
-  decisionResult   String?   // SETUJU | TOLAK
-  decisionNote     String?
-  picId            String?
-  pic              User?     @relation("Pic", fields: [picId], references: [id])
-  picName          String?
-  resourceTenaga   String?
-  resourceBiaya    String?
-  resourceMaterial String?
-  targetDate       DateTime?
-  controlHierarchy String?   // ELIMINASI | SUBSTITUSI | REKAYASA_TEKNIK | ADMINISTRATIF | APD
-  suggestionApplied Boolean  @default(false)
+  deciderId         String?
+  decider           User?     @relation("Decider", fields: [deciderId], references: [id])
+  decidedAt         DateTime?
+  decisionResult    String? // SETUJU | TOLAK
+  decisionNote      String?
+  picId             String?
+  pic               User?     @relation("Pic", fields: [picId], references: [id])
+  picName           String?
+  resourceTenaga    String?
+  resourceBiaya     String?
+  resourceMaterial  String?
+  targetDate        DateTime?
+  controlHierarchy  String? // ELIMINASI | SUBSTITUSI | REKAYASA_TEKNIK | ADMINISTRATIF | APD
+  suggestionApplied Boolean   @default(false)
 
   // Perbaikan dan penutupan
-  progressPct     Int       @default(0)
-  completedAt     DateTime? // PIC melaporkan selesai
-  completionNote  String?
-  closerId        String?
-  closer          User?     @relation("Closer", fields: [closerId], references: [id])
-  closedAt        DateTime?
-  closureNote     String?
-  closedOnTime    Boolean?
+  progressPct    Int       @default(0)
+  completedAt    DateTime? // PIC melaporkan selesai
+  completionNote String?
+  closerId       String?
+  closer         User?     @relation("Closer", fields: [closerId], references: [id])
+  closedAt       DateTime?
+  closureNote    String?
+  closedOnTime   Boolean?
 
   isDuplicate   Boolean @default(false)
   duplicateOfId String?
@@ -222,7 +223,7 @@ model ReportEvent {
   report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   actorId    String?
   actor      User?    @relation(fields: [actorId], references: [id])
-  type       String   // DIBUAT | DIVERIFIKASI | DIREVISI | DITOLAK | DIPUTUSKAN | PROGRES | SELESAI_PERBAIKAN | DITUTUP | DIESKALASI | PENGINGAT | REVISI_DIKIRIM
+  type       String // DIBUAT | DIVERIFIKASI | DIREVISI | DITOLAK | DIPUTUSKAN | PROGRES | SELESAI_PERBAIKAN | DITUTUP | DIESKALASI | PENGINGAT | REVISI_DIKIRIM
   fromStatus String?
   toStatus   String?
   note       String?  @db.Text
@@ -240,7 +241,7 @@ model PointLedger {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reportId  String?
   report    Report?  @relation(fields: [reportId], references: [id])
-  type      String   // LAPORAN_VALID | NYARIS_CELAKA | BONUS_RISIKO | BONUS_USULAN | BONUS_KONSISTEN | PENUKARAN | PENYESUAIAN | PEMBATALAN
+  type      String // LAPORAN_VALID | NYARIS_CELAKA | BONUS_RISIKO | BONUS_USULAN | BONUS_KONSISTEN | PENUKARAN | PENYESUAIAN | PEMBATALAN
   points    Int
   note      String?
   createdAt DateTime @default(now())
@@ -250,15 +251,15 @@ model PointLedger {
 }
 
 model Reward {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
   description String?
   pointsCost  Int
-  stock       Int      @default(0)
-  tier        String   @default("AWAL") // AWAL | MENENGAH | LANJUT
-  icon        String?  // nama ikon lucide
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  stock       Int          @default(0)
+  tier        String       @default("AWAL") // AWAL | MENENGAH | LANJUT
+  icon        String? // nama ikon lucide
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
   redemptions Redemption[]
 }
 

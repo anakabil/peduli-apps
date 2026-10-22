@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles, Recycle, UtensilsCrossed, FlaskConical, DoorClosed, Tractor, Zap, Lock, Radiation, Anchor, Construction, Package, Truck, Flame, Factory, CircleEllipsis, TriangleAlert, UserX, Siren, PersonStanding, Leaf } from "lucide-react";
-import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, STOP_GROUPS, ACTIVITIES, suggestCategory, type Category, type Risk } from "@/lib/constants";
+import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, TriangleAlert, UserX, Siren, PersonStanding, Leaf } from "lucide-react";
+import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, type Category, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
 import { cn } from "@/lib/format";
@@ -17,25 +17,6 @@ const CATEGORY_ICON: Record<string, ComponentType<{ size?: number; className?: s
   LINGKUNGAN: Leaf,
 };
 
-const ACTIVITY_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  HOUSEKEEPING: Recycle,
-  CATERING: UtensilsCrossed,
-  KIMIA: FlaskConical,
-  RUANG_TERBATAS: DoorClosed,
-  ALAT_BERAT: Tractor,
-  LISTRIK: Zap,
-  LOTO: Lock,
-  RADIOGRAFI: Radiation,
-  ANGKAT: Anchor,
-  KETINGGIAN: Construction,
-  MANUAL: Package,
-  TRANSPORTASI: Truck,
-  PANAS: Flame,
-  OPERASI: Factory,
-  PERAWATAN: Wrench,
-  LAINNYA: CircleEllipsis,
-};
-
 type Area = { id: string; name: string; code: string };
 type Geo = { lat: number; lng: number; accuracy: number; at: Date };
 
@@ -45,8 +26,6 @@ const RISK_HELP: Record<Risk, string> = {
   TINGGI: "Cedera serius atau cacat tetap, kerusakan besar.",
   EKSTREM: "Potensi fatalitas atau kecelakaan massal.",
 };
-
-const CYCLE = ["Memutuskan", "Berhenti", "Mengamati", "Bertindak", "Melapor"];
 
 function Section({ no, title, hint, aside, children, className = "" }: { no: number; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
@@ -67,16 +46,9 @@ function Section({ no, title, hint, aside, children, className = "" }: { no: num
 export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAreaId: string | null; path: "A" | "B" }) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Array<{ blob: Blob; url: string; name: string }>>([]);
-  const [activities, setActivities] = useState<string[]>([]);
-  const [items, setItems] = useState<string[]>([]);
-  const [openGroup, setOpenGroup] = useState<string | null>(STOP_GROUPS[0].key);
   const [category, setCategory] = useState<Category | "">("");
-  const [categoryTouched, setCategoryTouched] = useState(false);
   const [risk, setRisk] = useState<Risk | "">("");
-  const [safeActs, setSafeActs] = useState("");
-  const [safeEncourage, setSafeEncourage] = useState("");
   const [description, setDescription] = useState("");
-  const [immediateAction, setImmediateAction] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const [areaLabel, setAreaLabel] = useState("");
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -86,12 +58,6 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
   const [done, setDone] = useState<{ number?: string; offline?: boolean } | null>(null);
   const [now, setNow] = useState<Date | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const suggested = useMemo(() => suggestCategory(items), [items]);
-  // Kategori mengikuti saran dari daftar periksa selama pengguna belum memilih sendiri
-  useEffect(() => {
-    if (!categoryTouched && suggested) setCategory(suggested);
-  }, [suggested, categoryTouched]);
 
   useEffect(() => {
     setNow(new Date());
@@ -119,8 +85,6 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
     locate();
   }, []);
 
-  const toggle = (list: string[], setList: (v: string[]) => void, key: string) => setList(list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
-
   const addPhoto = async (files: FileList | null) => {
     if (!files) return;
     setError(null);
@@ -141,10 +105,9 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
 
   const validate = () => {
     if (photos.length === 0) return "Ambil minimal satu foto dari kamera.";
-    if (activities.length === 0) return "Pilih minimal satu aktivitas yang diobservasi.";
     if (!category) return "Pilih kategori bahaya.";
     if (!risk) return "Pilih tingkat risiko awal.";
-    if (description.trim().length < 10) return "Uraikan tindakan atau kondisi tidak aman minimal 10 karakter.";
+    if (description.trim().length < 10) return "Uraikan bahaya minimal 10 karakter.";
     return null;
   };
 
@@ -161,11 +124,6 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
       riskLevel: risk,
       description: description.trim(),
       suggestion: suggestion.trim(),
-      safeActs: safeActs.trim(),
-      safeEncourage: safeEncourage.trim(),
-      immediateAction: immediateAction.trim(),
-      stopItems: items.join(","),
-      activities: activities.join(","),
       areaLabel: areaLabel.trim(),
       lat: geo ? String(geo.lat) : "",
       lng: geo ? String(geo.lng) : "",
@@ -204,7 +162,7 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         <div className={cn("mx-auto flex h-16 w-16 items-center justify-center rounded-full", done.offline ? "bg-amber/15 text-[#8a6a0a]" : "bg-brand-100 text-brand-700")}>
           {done.offline ? <WifiOff size={30} /> : <CheckCircle2 size={32} />}
         </div>
-        <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Kartu STOP terkirim"}</h2>
+        <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Laporan terkirim"}</h2>
         <p className="mt-2 text-sm text-ink-500">
           {done.offline
             ? "Tidak ada sinyal. Laporan akan dikirim otomatis dengan penanda waktu sinkronisasi saat jaringan tersedia."
@@ -223,17 +181,6 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
 
   return (
     <div className="space-y-4 stagger">
-      {/* Siklus pengamatan STOP */}
-      <ol className="card relative grid grid-cols-5 px-2 py-3.5" aria-label="Siklus pengamatan">
-        <span className="absolute left-[10%] right-[10%] top-[26px] h-px bg-ink-200" aria-hidden />
-        {CYCLE.map((c, i) => (
-          <li key={c} className="relative flex flex-col items-center gap-1.5 text-center">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-brand-200 bg-white text-[11px] font-bold tabular-nums text-brand-700">{i + 1}</span>
-            <span className="text-xs font-medium text-ink-700">{c}</span>
-          </li>
-        ))}
-      </ol>
-
       <Section no={1} title="Foto dari kamera" hint="Foto diambil langsung dari kamera untuk menjaga akurasi bukti." aside={`${photos.length}/3`}>
         <div className="grid grid-cols-3 gap-2">
           {photos.map((p, i) => (
@@ -255,63 +202,15 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => addPhoto(e.target.files)} />
       </Section>
 
-      <Section no={2} title="Aktivitas yang diobservasi" hint="Pilih satu atau lebih pekerjaan yang sedang Anda amati." aside={activities.length ? `${activities.length} dipilih` : undefined}>
-        <ChoiceGrid
-          ariaLabel="Aktivitas yang diobservasi"
-          options={ACTIVITIES.map((a) => ({ ...a, icon: ACTIVITY_ICON[a.key] }))}
-          selected={activities}
-          onToggle={(k) => toggle(activities, setActivities, k)}
-        />
-      </Section>
-
-      <Section no={3} title="Daftar periksa pengamatan" hint="Centang hal yang tidak aman. Kategori bahaya disarankan otomatis." aside={items.length ? `${items.length} dicentang` : undefined}>
-        <div className="space-y-2">
-          {STOP_GROUPS.map((g) => {
-            const count = g.items.filter((i) => items.includes(i.key)).length;
-            const open = openGroup === g.key;
-            return (
-              <div key={g.key} className={cn("overflow-hidden rounded-xl border transition-colors", count ? "border-brand-300" : "border-ink-200")}>
-                <button type="button" aria-expanded={open} onClick={() => setOpenGroup(open ? null : g.key)} className="flex min-h-14 w-full items-center justify-between gap-3 bg-white px-4 py-3 text-left">
-                  <span>
-                    <span className="block text-sm font-semibold text-ink-900">{g.label}</span>
-                    <span className="block text-xs text-ink-500">{g.hint}</span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {count > 0 && <span className="badge bg-brand-700 tabular-nums text-white">{count}</span>}
-                    <ChevronDown size={16} className={cn("text-ink-400 transition-transform", open && "rotate-180")} />
-                  </span>
-                </button>
-                {open && (
-                  <div className="grid grid-cols-1 gap-1.5 border-t border-ink-100 bg-white p-3 sm:grid-cols-2 anim-fade-in">
-                    {g.items.map((it) => {
-                      const on = items.includes(it.key);
-                      return (
-                        <label key={it.key} className={cn("flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm leading-snug transition-colors", on ? "border-brand-300 bg-brand-50 text-ink-900" : "border-ink-100 text-ink-700 hover:border-ink-300")}>
-                          <input type="checkbox" checked={on} onChange={() => toggle(items, setItems, it.key)} className="mt-px size-[18px] shrink-0 accent-[var(--brand-700)]" />
-                          <span>{it.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      <Section no={4} title="Kategori dan tingkat risiko">
+      <Section no={2} title="Kategori dan tingkat risiko">
         <label className="label">Kategori bahaya <span className="text-red">*</span></label>
         <ChoiceGrid
           multiple={false}
           ariaLabel="Kategori bahaya"
           options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], icon: CATEGORY_ICON[c] }))}
           selected={category ? [category] : []}
-          onToggle={(k) => { setCategory(k as Category); setCategoryTouched(true); }}
+          onToggle={(k) => setCategory(k as Category)}
         />
-        {suggested && !categoryTouched && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-brand-700"><Sparkles size={13} /> Disarankan dari daftar periksa: {CATEGORY_LABEL[suggested]}</p>
-        )}
         <label className="label mt-5">Tingkat risiko awal <span className="text-red">*</span></label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {RISKS.map((r) => (
@@ -332,23 +231,14 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         )}
       </Section>
 
-      <Section no={5} title="Tindakan aman yang diobservasi" hint="Opsional. Apresiasi perilaku aman yang Anda lihat.">
-        <label className="label flex items-center gap-1.5"><ThumbsUp size={14} className="text-ink-400" /> Tindakan aman</label>
-        <textarea className="input min-h-16" placeholder="Contoh: operator memakai full body harness dan mengaitkan lanyard sebelum naik." value={safeActs} onChange={(e) => setSafeActs(e.target.value)} maxLength={2000} />
-        <label className="label mt-4">Tindakan untuk mendorong kinerja aman tetap dilanjutkan</label>
-        <textarea className="input min-h-16" placeholder="Contoh: memberi pujian langsung dan menyampaikannya di safety talk." value={safeEncourage} onChange={(e) => setSafeEncourage(e.target.value)} maxLength={2000} />
+      <Section no={3} title="Uraian bahaya" hint="Jelaskan apa bahayanya, di mana, dan siapa yang dapat terpapar.">
+        <label className="label">Uraian bahaya <span className="text-red">*</span></label>
+        <textarea className="input min-h-28" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <label className="label mt-4 flex items-start gap-1.5"><Lightbulb size={14} className="mt-0.5 shrink-0 text-ink-400" /> <span>Usulan perbaikan <span className="font-normal text-ink-500">(opsional, bonus poin bila diterapkan)</span></span></label>
+        <textarea className="input min-h-20" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
       </Section>
 
-      <Section no={6} title="Tindakan tidak aman yang diobservasi" hint="Wajib. Uraikan apa, di mana, dan siapa yang terpapar.">
-        <label className="label flex items-center gap-1.5"><ShieldAlert size={14} className="text-ink-400" /> Tindakan atau kondisi tidak aman <span className="text-red">*</span></label>
-        <textarea className="input min-h-24" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        <label className="label mt-4 flex items-center gap-1.5"><Wrench size={14} className="text-ink-400" /> Tindakan perbaikan yang langsung dilakukan</label>
-        <textarea className="input min-h-16" placeholder="Contoh: pekerjaan dihentikan, area diberi barikade, pekerja diarahkan memakai kacamata." value={immediateAction} onChange={(e) => setImmediateAction(e.target.value)} maxLength={2000} />
-        <label className="label mt-4 flex items-start gap-1.5"><Lightbulb size={14} className="mt-0.5 shrink-0 text-ink-400" /> <span>Tindakan pencegahan agar tidak terulang <span className="font-normal text-ink-500">(bonus poin bila diterapkan)</span></span></label>
-        <textarea className="input min-h-16" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
-      </Section>
-
-      <Section no={7} title="Lokasi dan waktu" hint="Terekam otomatis saat laporan dibuat." className={geoState === "locked" ? "border-l-4 border-l-brand-500" : "border-l-4 border-l-amber"}>
+      <Section no={4} title="Lokasi dan waktu" hint="Terekam otomatis saat laporan dibuat." className={geoState === "locked" ? "border-l-4 border-l-brand-500" : "border-l-4 border-l-amber"}>
         <div className="space-y-2.5 text-sm">
           <div className="flex items-start gap-2.5 text-ink-800">
             <MapPin size={16} className="mt-0.5 shrink-0 text-brand-600" />
@@ -384,16 +274,16 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
               <option key={a.id} value={a.name} />
             ))}
           </datalist>
-          <p className="help">Area kerja ditentukan otomatis dari koordinat GPS{userAreaId ? ", cadangan dari area profil Anda" : ""}. Nama observer dan departemen diambil dari akun Anda.</p>
+          <p className="help">Area kerja ditentukan otomatis dari koordinat GPS{userAreaId ? ", cadangan dari area profil Anda" : ""}. Nama pelapor dan departemen diambil dari akun Anda.</p>
         </div>
       </Section>
 
       {error && <div className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red anim-fade-in">{error}</div>}
 
       <button type="button" onClick={submit} disabled={busy} className="btn-primary btn-lg w-full">
-        <Send size={18} /> {busy ? "Mengirim..." : "Kirim kartu STOP"}
+        <Send size={18} /> {busy ? "Mengirim..." : "Kirim laporan"}
       </button>
-      <p className="text-center text-xs text-ink-400">Nomor laporan unik, identitas, dan peran pelapor terekam otomatis.</p>
+      <p className="text-center text-xs text-ink-500">Nomor laporan unik, identitas, dan peran pelapor terekam otomatis.</p>
     </div>
   );
 }

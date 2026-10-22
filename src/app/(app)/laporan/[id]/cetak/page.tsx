@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { reportScope } from "@/lib/workflow";
 import { fmtDateTime, fmtDate } from "@/lib/format";
-import { CATEGORY_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, STOP_GROUPS, ACTIVITY_LABEL, type Category, type Status, type Control, type Role } from "@/lib/constants";
+import { CATEGORY_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, type Category, type Status, type Control, type Role } from "@/lib/constants";
 import { PrintButton } from "@/components/print-button";
 import { RiskBadge } from "@/components/report/badges";
 import { GysLogo, PeduliLogo } from "@/components/brand";
@@ -51,21 +51,8 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
           <Row k="Koordinat" v={r.lat != null ? `${r.lat.toFixed(5)}, ${r.lng?.toFixed(5)} (akurasi ${Math.round(r.accuracyM ?? 0)} m)` : "-"} />
           <Row k="Kategori" v={CATEGORY_LABEL[r.category as Category]} />
           <Row k="Risiko awal" v={<RiskBadge risk={r.riskLevel} />} />
-          <Row k="Aktivitas diobservasi" v={r.activities.map((a) => ACTIVITY_LABEL[a] ?? a).join(", ") || "-"} />
-          <Row k="Tindakan aman" v={r.safeActs} />
-          <Row k="Dorongan kinerja aman" v={r.safeEncourage} />
-          <Row k="Tindakan tidak aman" v={r.description} />
-          <Row k="Perbaikan segera" v={r.immediateAction} />
-          <Row k="Tindakan pencegahan" v={r.suggestion} />
-        </tbody>
-      </table>
-      <h2 className="mt-5 text-sm font-bold uppercase tracking-wide text-brand-700">Daftar periksa kartu STOP</h2>
-      <table className="mt-2 w-full border-collapse">
-        <tbody>
-          {STOP_GROUPS.map((g) => {
-            const picked = g.items.filter((i) => r.stopItems.includes(i.key));
-            return <Row key={g.key} k={g.label} v={picked.length ? picked.map((i) => i.label).join("; ") : "-"} />;
-          })}
+          <Row k="Uraian bahaya" v={r.description} />
+          <Row k="Usulan perbaikan" v={r.suggestion} />
         </tbody>
       </table>
       {r.photos.filter((p) => p.kind === "LAPORAN").length > 0 && (
