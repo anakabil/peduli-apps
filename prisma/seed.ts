@@ -208,7 +208,7 @@ async function seedReports(ctx: {
         reporterId: reporter.id,
         path,
         areaId: areaMap[code],
-        areaLabel: `${area.name} - titik ${1 + (i % 6)}`,
+        areaLabel: `Titik ${1 + (i % 6)}`,
         category,
         riskLevel,
         description: descs[i % descs.length],

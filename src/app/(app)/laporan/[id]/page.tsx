@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Clock, User, Zap, AlertTriangle, ExternalLink, Award, Lightbulb, Printer } from "lucide-react";
+import { ArrowLeft, ArrowDown, MapPin, Clock, User, Zap, AlertTriangle, ExternalLink, Award, Lightbulb, Printer } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -57,10 +57,17 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
     (report.status === "MENUNGGU_KEPUTUSAN" && report.dueDecideAt && report.dueDecideAt < now) ||
     ((report.status === "DALAM_PERBAIKAN" || report.status === "MENUNGGU_PENUTUPAN") && report.targetDate && report.targetDate < now);
 
+  const actionLabel = showVerify ? "Verifikasi laporan ini" : showDecide ? "Putuskan laporan ini" : showProgress ? "Perbarui progres perbaikan" : showClose ? "Periksa dan tutup laporan" : showResubmit ? "Kirim ulang revisi" : null;
+
   return (
     <div className="mx-auto max-w-5xl">
+      {actionLabel && (
+        <a href="#aksi" className="no-print fixed inset-x-4 z-30 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(0,61,42,0.6)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }}>
+          {actionLabel} <ArrowDown size={16} />
+        </a>
+      )}
       <div className="mb-4 flex items-center justify-between no-print">
-        <Link href="/laporan" className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brand-700">
+        <Link href="/laporan" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-ink-600 hover:text-brand-700">
           <ArrowLeft size={16} /> Kembali
         </Link>
         <div className="flex items-center gap-2">
@@ -74,7 +81,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       <div className="card overflow-hidden anim-fade-up">
         <div className="border-b border-ink-100 bg-gradient-to-r from-brand-50 to-white px-5 py-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-sm font-bold text-brand-700">{report.number}</span>
+            <span className="text-sm font-bold tabular-nums text-brand-800">{report.number}</span>
             <StatusBadge status={report.status} />
             <RiskBadge risk={report.riskLevel} />
             <CategoryBadge category={report.category} />
@@ -127,9 +134,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
               <div className="section-title mb-2">Terekam otomatis</div>
               <KeyValue
                 items={[
-                  { k: "Pelapor", v: <span className="inline-flex items-center gap-1.5"><User size={14} className="text-ink-400" /> {report.reporter.name} <span className="text-ink-400">({ROLE_LABEL[report.reporter.role as Role]}{report.reporter.jabatan ? `, ${report.reporter.jabatan}` : ""})</span></span> },
+                  { k: "Pelapor", v: <span className="flex items-start gap-1.5"><User size={14} className="mt-0.5 shrink-0 text-ink-400" /><span><span className="block font-medium">{report.reporter.name}</span><span className="block text-xs text-ink-500">{ROLE_LABEL[report.reporter.role as Role]}{report.reporter.jabatan ? `, ${report.reporter.jabatan}` : ""}</span></span></span> },
                   { k: "Cap waktu server", v: <span className="inline-flex items-center gap-1.5"><Clock size={14} className="text-ink-400" /> {fmtDateTime(report.createdAt)}</span> },
-                  { k: "Area kerja (dari koordinat)", v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel ? ` - ${report.areaLabel}` : ""}</span> },
+                  { k: "Area kerja (dari koordinat)", v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel && !report.areaLabel.startsWith(report.area?.name ?? "\u0000") ? ` · ${report.areaLabel}` : ""}</span> },
                   {
                     k: "Koordinat GPS",
                     v: mapsUrl ? (
@@ -157,7 +164,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 {report.verifiedAt ? (
                   <KeyValue
                     items={[
-                      { k: "Hasil", v: <Badge tone={report.verificationResult === "VALID" ? "success" : report.verificationResult === "REVISI" ? "warn" : "danger"}>{report.verificationResult}</Badge> },
+                      { k: "Hasil", v: <Badge tone={report.verificationResult === "VALID" ? "success" : report.verificationResult === "REVISI" ? "warn" : "danger"}>{report.verificationResult === "VALID" ? "Valid" : report.verificationResult === "REVISI" ? "Perlu revisi" : "Ditolak"}</Badge> },
                       { k: "Oleh", v: report.verifier?.name },
                       { k: "Waktu", v: fmtDateTime(report.verifiedAt) },
                       { k: "Catatan", v: report.verificationNote },
@@ -174,14 +181,17 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
               <div className="section-title mb-2">Keputusan Manager</div>
               {report.decidedAt ? (
                 <KeyValue
+                  hideEmpty
                   items={[
-                    { k: "Hasil", v: <Badge tone={report.decisionResult === "SETUJU" ? "success" : "danger"}>{report.decisionResult}</Badge> },
+                    { k: "Hasil", v: <Badge tone={report.decisionResult === "SETUJU" ? "success" : "danger"}>{report.decisionResult === "SETUJU" ? "Disetujui" : "Ditolak"}</Badge> },
                     { k: "Oleh", v: report.decider?.name },
                     { k: "Waktu", v: fmtDateTime(report.decidedAt) },
                     { k: "Penanggung jawab", v: report.picName ?? report.pic?.name },
-                    { k: "Sumber daya", v: [report.resourceTenaga, report.resourceBiaya, report.resourceMaterial].filter(Boolean).join(" | ") || "-" },
+                    { k: "Tenaga", v: report.resourceTenaga },
+                    { k: "Biaya", v: report.resourceBiaya },
+                    { k: "Material", v: report.resourceMaterial },
                     { k: "Target selesai", v: fmtDate(report.targetDate) },
-                    { k: "Hierarki pengendalian", v: report.controlHierarchy ? CONTROL_LABEL[report.controlHierarchy as Control] : "-" },
+                    { k: "Hierarki pengendalian", v: report.controlHierarchy ? CONTROL_LABEL[report.controlHierarchy as Control] : null },
                     { k: "Catatan", v: report.decisionNote },
                   ]}
                 />
@@ -213,13 +223,15 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   </div>
                 )}
                 <div className="mt-3">
+                  {!report.completedAt && !report.closedAt && <p className="text-sm text-ink-500">Perbaikan sedang berjalan. Rincian penyelesaian muncul setelah penanggung jawab melaporkan selesai.</p>}
                   <KeyValue
+                    hideEmpty
                     items={[
                       { k: "Perbaikan selesai", v: fmtDateTime(report.completedAt) },
                       { k: "Catatan penyelesaian", v: report.completionNote },
                       { k: "Ditutup oleh", v: report.closer?.name },
                       { k: "Waktu penutupan", v: fmtDateTime(report.closedAt) },
-                      { k: "Tepat waktu", v: report.closedOnTime == null ? "-" : report.closedOnTime ? <Badge tone="success">Ya</Badge> : <Badge tone="danger">Terlambat</Badge> },
+                      { k: "Tepat waktu", v: report.closedOnTime == null ? null : report.closedOnTime ? <Badge tone="success">Ya</Badge> : <Badge tone="danger">Terlambat</Badge> },
                       { k: "Catatan penutupan", v: report.closureNote },
                     ]}
                   />
@@ -235,7 +247,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <div className="no-print space-y-4">
+            <div id="aksi" className="no-print scroll-mt-20 space-y-4">
               {showVerify && <VerifyPanel reportId={report.id} />}
               {showDecide && <DecidePanel reportId={report.id} candidates={candidates.map((c) => ({ ...c, name: c.name ?? "-" }))} hasSuggestion={!!report.suggestion} defaultPicId={defaultPic} />}
               {showProgress && <ProgressPanel reportId={report.id} current={report.progressPct} />}

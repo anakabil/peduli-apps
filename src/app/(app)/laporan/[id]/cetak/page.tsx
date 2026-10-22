@@ -3,8 +3,9 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { reportScope } from "@/lib/workflow";
 import { fmtDateTime, fmtDate } from "@/lib/format";
-import { CATEGORY_LABEL, RISK_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, STOP_GROUPS, ACTIVITY_LABEL, type Category, type Risk, type Status, type Control, type Role } from "@/lib/constants";
+import { CATEGORY_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, STOP_GROUPS, ACTIVITY_LABEL, type Category, type Status, type Control, type Role } from "@/lib/constants";
 import { PrintButton } from "@/components/print-button";
+import { RiskBadge } from "@/components/report/badges";
 import { GysLogo, PeduliLogo } from "@/components/brand";
 
 export const metadata = { title: "Cetak laporan" };
@@ -19,12 +20,12 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
   if (!r) notFound();
   const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
     <tr>
-      <td className="w-48 border border-ink-200 bg-ink-50 px-3 py-1.5 text-xs font-semibold text-ink-600">{k}</td>
+      <td className="w-[38%] border border-ink-200 bg-ink-50 px-3 py-1.5 align-top text-xs font-semibold text-ink-600 sm:w-48">{k}</td>
       <td className="border border-ink-200 px-3 py-1.5 text-sm">{v ?? "-"}</td>
     </tr>
   );
   return (
-    <div className="mx-auto max-w-3xl bg-white p-6 md:p-8 card">
+    <div className="print-sheet mx-auto max-w-3xl bg-white p-5 md:p-8 card">
       <div className="no-print mb-4 flex justify-end">
         <PrintButton />
       </div>
@@ -49,7 +50,7 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
           <Row k="Area kerja" v={`${r.area?.name ?? "-"}${r.areaLabel ? ` - ${r.areaLabel}` : ""}`} />
           <Row k="Koordinat" v={r.lat != null ? `${r.lat.toFixed(5)}, ${r.lng?.toFixed(5)} (akurasi ${Math.round(r.accuracyM ?? 0)} m)` : "-"} />
           <Row k="Kategori" v={CATEGORY_LABEL[r.category as Category]} />
-          <Row k="Risiko awal" v={RISK_LABEL[r.riskLevel as Risk]} />
+          <Row k="Risiko awal" v={<RiskBadge risk={r.riskLevel} />} />
           <Row k="Aktivitas diobservasi" v={r.activities.map((a) => ACTIVITY_LABEL[a] ?? a).join(", ") || "-"} />
           <Row k="Tindakan aman" v={r.safeActs} />
           <Row k="Dorongan kinerja aman" v={r.safeEncourage} />
@@ -78,9 +79,9 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
       <h2 className="mt-5 text-sm font-bold uppercase tracking-wide text-brand-700">Verifikasi dan keputusan</h2>
       <table className="mt-2 w-full border-collapse">
         <tbody>
-          <Row k="Verifikasi" v={r.verifiedAt ? `${r.verificationResult} oleh ${r.verifier?.name}, ${fmtDateTime(r.verifiedAt)}` : r.path === "B" ? "Tidak diperlukan (jalur B)" : "-"} />
+          <Row k="Verifikasi" v={r.verifiedAt ? `${r.verificationResult === "VALID" ? "Valid" : r.verificationResult === "REVISI" ? "Perlu revisi" : "Ditolak"} oleh ${r.verifier?.name}, ${fmtDateTime(r.verifiedAt)}` : r.path === "B" ? "Tidak diperlukan (jalur B)" : "-"} />
           <Row k="Catatan verifikasi" v={r.verificationNote} />
-          <Row k="Keputusan" v={r.decidedAt ? `${r.decisionResult} oleh ${r.decider?.name}, ${fmtDateTime(r.decidedAt)}` : "-"} />
+          <Row k="Keputusan" v={r.decidedAt ? `${r.decisionResult === "SETUJU" ? "Disetujui" : "Ditolak"} oleh ${r.decider?.name}, ${fmtDateTime(r.decidedAt)}` : "-"} />
           <Row k="Penanggung jawab" v={r.picName ?? r.pic?.name} />
           <Row k="Sumber daya" v={[r.resourceTenaga, r.resourceBiaya, r.resourceMaterial].filter(Boolean).join(" | ") || "-"} />
           <Row k="Target selesai" v={fmtDate(r.targetDate)} />

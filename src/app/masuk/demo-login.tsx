@@ -21,8 +21,8 @@ export function DemoLogin() {
   return (
     <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/60">
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-brand-700">
-        <span className="flex items-center gap-2">
-          <FlaskConical size={16} /> Mode demo: masuk sebagai akun contoh
+        <span className="flex items-center gap-2 text-left">
+          <FlaskConical size={16} className="shrink-0" /> Mode demo: masuk sebagai akun contoh
         </span>
         <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -37,10 +37,10 @@ export function DemoLogin() {
                 setBusy(a.email);
                 await signIn("demo", { email: a.email, callbackUrl: "/beranda" });
               }}
-              className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-left transition-all hover:border-brand-400 hover:shadow-card disabled:opacity-60"
+              className="min-h-12 rounded-lg border border-ink-200 bg-white px-3 py-2 text-left transition-colors hover:border-brand-400 hover:bg-brand-50/40 disabled:opacity-60"
             >
-              <div className="text-xs font-bold text-ink-800">{a.label}</div>
-              <div className="text-[11px] text-ink-500">{busy === a.email ? "Masuk..." : a.desc}</div>
+              <div className="text-[13px] font-semibold text-ink-900">{a.label}</div>
+              <div className="text-xs text-ink-500">{busy === a.email ? "Masuk..." : a.desc}</div>
             </button>
           ))}
         </div>

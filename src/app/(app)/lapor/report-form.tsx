@@ -2,12 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles, Recycle, UtensilsCrossed, FlaskConical, DoorClosed, Tractor, Zap, Lock, Radiation, Anchor, Construction, Package, Truck, Flame, Factory, CircleEllipsis } from "lucide-react";
+import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles, Recycle, UtensilsCrossed, FlaskConical, DoorClosed, Tractor, Zap, Lock, Radiation, Anchor, Construction, Package, Truck, Flame, Factory, CircleEllipsis, TriangleAlert, UserX, Siren, PersonStanding, Leaf } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, STOP_GROUPS, ACTIVITIES, suggestCategory, type Category, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
 import { cn } from "@/lib/format";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
+
+const CATEGORY_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  KONDISI_TIDAK_AMAN: TriangleAlert,
+  TINDAKAN_TIDAK_AMAN: UserX,
+  NYARIS_CELAKA: Siren,
+  ERGONOMI: PersonStanding,
+  LINGKUNGAN: Leaf,
+};
 
 const ACTIVITY_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
   HOUSEKEEPING: Recycle,
@@ -40,15 +48,16 @@ const RISK_HELP: Record<Risk, string> = {
 
 const CYCLE = ["Memutuskan", "Berhenti", "Mengamati", "Bertindak", "Melapor"];
 
-function Section({ no, title, hint, children, className = "" }: { no: number; title: string; hint?: string; children: React.ReactNode; className?: string }) {
+function Section({ no, title, hint, aside, children, className = "" }: { no: number; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("card p-5", className)}>
+    <section className={cn("card p-4 sm:p-5", className)}>
       <div className="flex items-start gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-700 text-xs font-bold text-white">{no}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-700 text-xs font-bold tabular-nums text-white">{no}</span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-ink-900">{title}</h3>
-          {hint && <p className="mt-0.5 text-xs text-ink-500">{hint}</p>}
+          <h3 className="text-[15px] font-bold text-ink-900">{title}</h3>
+          {hint && <p className="mt-0.5 text-[13px] leading-snug text-ink-500">{hint}</p>}
         </div>
+        {aside && <div className="shrink-0 pt-0.5 text-xs font-medium tabular-nums text-ink-500">{aside}</div>}
       </div>
       <div className="mt-4">{children}</div>
     </section>
@@ -215,25 +224,24 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
   return (
     <div className="space-y-4 stagger">
       {/* Siklus pengamatan STOP */}
-      <div className="card flex flex-wrap items-center justify-center gap-1.5 px-4 py-3 text-[11px] font-semibold text-ink-600">
-        <span className="mr-1 rounded-md bg-red px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white">STOP</span>
+      <ol className="card relative grid grid-cols-5 px-2 py-3.5" aria-label="Siklus pengamatan">
+        <span className="absolute left-[10%] right-[10%] top-[26px] h-px bg-ink-200" aria-hidden />
         {CYCLE.map((c, i) => (
-          <span key={c} className="inline-flex items-center gap-1.5">
-            <span className="rounded-full bg-ink-100 px-2.5 py-1">{c}</span>
-            {i < CYCLE.length - 1 && <span className="text-ink-300">&rarr;</span>}
-          </span>
+          <li key={c} className="relative flex flex-col items-center gap-1.5 text-center">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-brand-200 bg-white text-[11px] font-bold tabular-nums text-brand-700">{i + 1}</span>
+            <span className="text-xs font-medium text-ink-700">{c}</span>
+          </li>
         ))}
-      </div>
+      </ol>
 
-      <Section no={1} title="Foto dari kamera" hint="Foto hanya dapat diambil langsung dari kamera untuk menjaga akurasi bukti.">
-        <div className="mb-2 flex justify-end text-xs text-ink-500">{photos.length}/3</div>
+      <Section no={1} title="Foto dari kamera" hint="Foto diambil langsung dari kamera untuk menjaga akurasi bukti." aside={`${photos.length}/3`}>
         <div className="grid grid-cols-3 gap-2">
           {photos.map((p, i) => (
             <div key={p.url} className="relative aspect-square overflow-hidden rounded-xl border border-ink-200 anim-scale-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
-              <button type="button" onClick={() => removePhoto(i)} className="absolute right-1 top-1 rounded-full bg-ink-900/70 p-1 text-white" aria-label="Hapus foto">
-                <X size={14} />
+              <button type="button" onClick={() => removePhoto(i)} className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-ink-900/70 text-white" aria-label="Hapus foto">
+                <X size={15} />
               </button>
             </div>
           ))}
@@ -247,7 +255,7 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => addPhoto(e.target.files)} />
       </Section>
 
-      <Section no={2} title="Aktivitas yang diobservasi" hint="Pilih satu atau lebih pekerjaan yang sedang Anda amati.">
+      <Section no={2} title="Aktivitas yang diobservasi" hint="Pilih satu atau lebih pekerjaan yang sedang Anda amati." aside={activities.length ? `${activities.length} dipilih` : undefined}>
         <ChoiceGrid
           ariaLabel="Aktivitas yang diobservasi"
           options={ACTIVITIES.map((a) => ({ ...a, icon: ACTIVITY_ICON[a.key] }))}
@@ -256,20 +264,20 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         />
       </Section>
 
-      <Section no={3} title="Daftar periksa pengamatan" hint="Centang hal yang tidak aman. Kategori bahaya akan disarankan otomatis.">
+      <Section no={3} title="Daftar periksa pengamatan" hint="Centang hal yang tidak aman. Kategori bahaya disarankan otomatis." aside={items.length ? `${items.length} dicentang` : undefined}>
         <div className="space-y-2">
           {STOP_GROUPS.map((g) => {
             const count = g.items.filter((i) => items.includes(i.key)).length;
             const open = openGroup === g.key;
             return (
-              <div key={g.key} className={cn("overflow-hidden rounded-xl border transition-colors", count ? "border-red/40" : "border-ink-200")}>
-                <button type="button" onClick={() => setOpenGroup(open ? null : g.key)} className={cn("flex w-full items-center justify-between gap-3 px-4 py-3 text-left", count ? "bg-red/5" : "bg-white")}>
+              <div key={g.key} className={cn("overflow-hidden rounded-xl border transition-colors", count ? "border-brand-300" : "border-ink-200")}>
+                <button type="button" aria-expanded={open} onClick={() => setOpenGroup(open ? null : g.key)} className="flex min-h-14 w-full items-center justify-between gap-3 bg-white px-4 py-3 text-left">
                   <span>
-                    <span className="block text-sm font-bold uppercase tracking-wide text-ink-800">{g.label}</span>
-                    <span className="block text-[11px] text-ink-500">{g.hint}</span>
+                    <span className="block text-sm font-semibold text-ink-900">{g.label}</span>
+                    <span className="block text-xs text-ink-500">{g.hint}</span>
                   </span>
                   <span className="flex items-center gap-2">
-                    {count > 0 && <span className="badge bg-red text-white">{count}</span>}
+                    {count > 0 && <span className="badge bg-brand-700 tabular-nums text-white">{count}</span>}
                     <ChevronDown size={16} className={cn("text-ink-400 transition-transform", open && "rotate-180")} />
                   </span>
                 </button>
@@ -278,8 +286,8 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
                     {g.items.map((it) => {
                       const on = items.includes(it.key);
                       return (
-                        <label key={it.key} className={cn("flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors", on ? "border-red/40 bg-red/5 text-ink-900" : "border-ink-100 hover:border-ink-300")}>
-                          <input type="checkbox" checked={on} onChange={() => toggle(items, setItems, it.key)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--red)]" />
+                        <label key={it.key} className={cn("flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm leading-snug transition-colors", on ? "border-brand-300 bg-brand-50 text-ink-900" : "border-ink-100 text-ink-700 hover:border-ink-300")}>
+                          <input type="checkbox" checked={on} onChange={() => toggle(items, setItems, it.key)} className="mt-px size-[18px] shrink-0 accent-[var(--brand-700)]" />
                           <span>{it.label}</span>
                         </label>
                       );
@@ -290,27 +298,29 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
             );
           })}
         </div>
-        {items.length > 0 && <p className="mt-2 text-xs text-ink-500">{items.length} kriteria tidak aman dipilih.</p>}
       </Section>
 
       <Section no={4} title="Kategori dan tingkat risiko">
         <label className="label">Kategori bahaya <span className="text-red">*</span></label>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
-            <button key={c} type="button" onClick={() => { setCategory(c); setCategoryTouched(true); }} className={cn("chip", category === c && "chip-active")}>
-              {CATEGORY_LABEL[c]}
-            </button>
-          ))}
-        </div>
+        <ChoiceGrid
+          multiple={false}
+          ariaLabel="Kategori bahaya"
+          options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], icon: CATEGORY_ICON[c] }))}
+          selected={category ? [category] : []}
+          onToggle={(k) => { setCategory(k as Category); setCategoryTouched(true); }}
+        />
         {suggested && !categoryTouched && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-brand-700"><Sparkles size={13} /> Disarankan dari daftar periksa: {CATEGORY_LABEL[suggested]}</p>
         )}
         <label className="label mt-5">Tingkat risiko awal <span className="text-red">*</span></label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {RISKS.map((r) => (
-            <button key={r} type="button" onClick={() => setRisk(r)} className={cn("rounded-xl border px-3 py-2.5 text-left transition-all", risk === r ? "border-transparent text-white shadow-soft" : "border-ink-200 bg-white hover:border-ink-300")} style={risk === r ? { background: RISK_COLOR[r] } : undefined}>
-              <div className="text-sm font-bold">{RISK_LABEL[r]}</div>
-              <div className={cn("mt-0.5 text-[11px] leading-snug", risk === r ? "text-white/85" : "text-ink-500")}>{RISK_HELP[r]}</div>
+            <button key={r} type="button" role="radio" aria-checked={risk === r} onClick={() => setRisk(r)} className={cn("flex h-full flex-col justify-start rounded-xl border bg-white px-3 py-2.5 text-left transition-colors", risk === r ? "ring-1" : "border-ink-200 hover:border-ink-300")} style={risk === r ? { borderColor: RISK_COLOR[r], background: `${RISK_COLOR[r]}14`, ["--tw-ring-color" as string]: RISK_COLOR[r] } : undefined}>
+              <span className="flex items-center gap-2 text-sm font-bold text-ink-900">
+                <span className="h-2 w-2 rounded-full" style={{ background: RISK_COLOR[r] }} />
+                {RISK_LABEL[r]}
+              </span>
+              <span className="mt-1 text-xs leading-snug text-ink-600">{RISK_HELP[r]}</span>
             </button>
           ))}
         </div>
@@ -323,48 +333,50 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
       </Section>
 
       <Section no={5} title="Tindakan aman yang diobservasi" hint="Opsional. Apresiasi perilaku aman yang Anda lihat.">
-        <div className="flex items-center gap-2 text-xs font-semibold text-brand-700"><ThumbsUp size={14} /> Tindakan aman</div>
-        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: operator memakai full body harness dan mengaitkan lanyard sebelum naik." value={safeActs} onChange={(e) => setSafeActs(e.target.value)} maxLength={2000} />
-        <div className="mt-3 text-xs font-semibold text-brand-700">Tindakan untuk mendorong kinerja aman tetap dilanjutkan</div>
-        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: memberi pujian langsung dan menyampaikannya di safety talk." value={safeEncourage} onChange={(e) => setSafeEncourage(e.target.value)} maxLength={2000} />
+        <label className="label flex items-center gap-1.5"><ThumbsUp size={14} className="text-ink-400" /> Tindakan aman</label>
+        <textarea className="input min-h-16" placeholder="Contoh: operator memakai full body harness dan mengaitkan lanyard sebelum naik." value={safeActs} onChange={(e) => setSafeActs(e.target.value)} maxLength={2000} />
+        <label className="label mt-4">Tindakan untuk mendorong kinerja aman tetap dilanjutkan</label>
+        <textarea className="input min-h-16" placeholder="Contoh: memberi pujian langsung dan menyampaikannya di safety talk." value={safeEncourage} onChange={(e) => setSafeEncourage(e.target.value)} maxLength={2000} />
       </Section>
 
       <Section no={6} title="Tindakan tidak aman yang diobservasi" hint="Wajib. Uraikan apa, di mana, dan siapa yang terpapar.">
-        <div className="flex items-center gap-2 text-xs font-semibold text-red"><ShieldAlert size={14} /> Tindakan atau kondisi tidak aman <span className="text-red">*</span></div>
-        <textarea className="input mt-1.5 min-h-24" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink-700"><Wrench size={14} /> Tindakan perbaikan yang langsung dilakukan</div>
-        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: pekerjaan dihentikan, area diberi barikade, pekerja diarahkan memakai kacamata." value={immediateAction} onChange={(e) => setImmediateAction(e.target.value)} maxLength={2000} />
-        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink-700"><Lightbulb size={14} className="text-gold" /> Tindakan pencegahan agar tidak terulang (bonus poin bila diterapkan)</div>
-        <textarea className="input mt-1.5 min-h-16" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
+        <label className="label flex items-center gap-1.5"><ShieldAlert size={14} className="text-ink-400" /> Tindakan atau kondisi tidak aman <span className="text-red">*</span></label>
+        <textarea className="input min-h-24" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <label className="label mt-4 flex items-center gap-1.5"><Wrench size={14} className="text-ink-400" /> Tindakan perbaikan yang langsung dilakukan</label>
+        <textarea className="input min-h-16" placeholder="Contoh: pekerjaan dihentikan, area diberi barikade, pekerja diarahkan memakai kacamata." value={immediateAction} onChange={(e) => setImmediateAction(e.target.value)} maxLength={2000} />
+        <label className="label mt-4 flex items-start gap-1.5"><Lightbulb size={14} className="mt-0.5 shrink-0 text-ink-400" /> <span>Tindakan pencegahan agar tidak terulang <span className="font-normal text-ink-500">(bonus poin bila diterapkan)</span></span></label>
+        <textarea className="input min-h-16" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
       </Section>
 
       <Section no={7} title="Lokasi dan waktu" hint="Terekam otomatis saat laporan dibuat." className={geoState === "locked" ? "border-l-4 border-l-brand-500" : "border-l-4 border-l-amber"}>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1.5 text-sm">
-            <div className="flex items-center gap-2 text-ink-700">
-              <MapPin size={15} className="text-brand-600" />
-              {geoState === "locked" && geo ? (
-                <span>
-                  GPS terkunci, akurasi {Math.round(geo.accuracy)} m <span className="text-ink-400">({geo.lat.toFixed(5)}, {geo.lng.toFixed(5)})</span>
-                </span>
-              ) : geoState === "locating" ? (
-                <span className="text-ink-500">Mengunci posisi GPS...</span>
-              ) : geoState === "denied" ? (
-                <span className="text-[#8a6a0a]">Izin lokasi ditolak. Laporan tetap bisa dikirim dan akan ditandai untuk ditinjau.</span>
-              ) : (
-                <span className="text-ink-500">GPS tidak tersedia di perangkat ini.</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-ink-700">
-              <Clock size={15} className="text-brand-600" />
-              <span>{now ? fmt(now) : "-"} <span className="text-ink-400">(cap waktu final dari server)</span></span>
-            </div>
+        <div className="space-y-2.5 text-sm">
+          <div className="flex items-start gap-2.5 text-ink-800">
+            <MapPin size={16} className="mt-0.5 shrink-0 text-brand-600" />
+            {geoState === "locked" && geo ? (
+              <span>
+                GPS terkunci, akurasi {Math.round(geo.accuracy)} m
+                <span className="block text-xs tabular-nums text-ink-500">{geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}</span>
+              </span>
+            ) : geoState === "locating" ? (
+              <span className="text-ink-500">Mengunci posisi GPS...</span>
+            ) : geoState === "denied" ? (
+              <span className="text-[#7a5c06]">Izin lokasi ditolak. Laporan tetap bisa dikirim dan akan ditandai untuk ditinjau.</span>
+            ) : (
+              <span className="text-ink-500">GPS tidak tersedia di perangkat ini.</span>
+            )}
           </div>
-          <button type="button" onClick={locate} className="btn-ghost btn-sm shrink-0">
-            <LocateFixed size={14} /> {geoState === "locating" ? "Mencari..." : "Perbarui"}
+          <div className="flex items-start gap-2.5 text-ink-800">
+            <Clock size={16} className="mt-0.5 shrink-0 text-brand-600" />
+            <span>
+              {now ? fmt(now) : "-"}
+              <span className="block text-xs text-ink-500">Cap waktu final dicatat oleh server</span>
+            </span>
+          </div>
+          <button type="button" onClick={locate} className="btn-secondary btn-sm min-h-9">
+            <LocateFixed size={14} /> {geoState === "locating" ? "Mencari posisi..." : "Perbarui lokasi"}
           </button>
         </div>
-        <div className="mt-3">
+        <div className="mt-4">
           <label className="label">Keterangan lokasi (opsional)</label>
           <input className="input" placeholder="Contoh: Gudang bahan baku, dekat jalur forklift 2" value={areaLabel} onChange={(e) => setAreaLabel(e.target.value)} list="area-list" />
           <datalist id="area-list">

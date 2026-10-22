@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, MapPin, Clock, AlertTriangle, Zap, ClipboardList } from "lucide-react";
-import { StatusBadge, RiskBadge, CategoryBadge } from "./badges";
+import { StatusBadge, RiskBadge } from "./badges";
+import { CATEGORY_LABEL, type Category } from "@/lib/constants";
 import { fmtDateTime, relTime, cn } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
 
@@ -40,7 +41,7 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
         const overdue = isOverdue(r, now);
         return (
           <Link key={r.id} href={`/laporan/${r.id}`} className="card card-hover flex gap-3 p-3 md:p-4">
-            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink-100 md:h-24 md:w-24">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink-100 md:h-20 md:w-20">
               {r.photos[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/api/foto/${r.photos[0].id}?ukuran=kecil`} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -51,24 +52,18 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="font-mono text-xs font-semibold text-brand-700">{r.number}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold tabular-nums text-ink-500">
+                  {r.number}
+                  {r.escalated && <Zap size={13} className="shrink-0 text-orange" aria-label="Dieskalasi ke Manager" />}
+                  {overdue && <AlertTriangle size={13} className="shrink-0 text-red" aria-label="Lewat batas waktu" />}
+                </span>
                 <StatusBadge status={r.status} />
-                {r.escalated && (
-                  <span className="badge bg-orange/15 text-orange">
-                    <Zap size={11} /> Eskalasi
-                  </span>
-                )}
-                {overdue && (
-                  <span className="badge bg-red/10 text-red">
-                    <AlertTriangle size={11} /> Lewat batas
-                  </span>
-                )}
               </div>
-              <p className="mt-1 line-clamp-2 text-sm font-medium text-ink-800">{r.description}</p>
+              <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-ink-900">{r.description}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
                 <RiskBadge risk={r.riskLevel} />
-                <CategoryBadge category={r.category} />
+                <span>{CATEGORY_LABEL[r.category as Category] ?? r.category}</span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin size={12} /> {r.area?.name ?? "-"}{r.areaLabel ? ` - ${r.areaLabel}` : ""}
                   {r.outsideArea && <span className="text-[#8a6a0a]"> (di luar area)</span>}
@@ -83,7 +78,7 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
                   <div className="progress flex-1">
                     <span style={{ width: `${r.progressPct}%` }} />
                   </div>
-                  <span className="text-[11px] font-semibold text-ink-500">{r.progressPct}%</span>
+                  <span className="text-xs font-semibold tabular-nums text-ink-500">{r.progressPct}%</span>
                 </div>
               )}
             </div>

@@ -6,6 +6,7 @@ import { CheckCircle2, RotateCcw, XCircle, ThumbsUp, ThumbsDown, Wrench, Flag, C
 import { verifyAction, decideAction, progressAction, closeAction, resubmitAction, auditSampleAction, type ActionResult } from "./actions";
 import { CONTROLS, CONTROL_LABEL, CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL } from "@/lib/constants";
 import { Field } from "@/components/ui";
+import { ChoiceGrid } from "@/components/ui/choice-grid";
 
 function useAction(fn: (fd: FormData) => Promise<ActionResult>) {
   const [pending, start] = useTransition();
@@ -19,6 +20,30 @@ function useAction(fn: (fd: FormData) => Promise<ActionResult>) {
     });
   return { pending, msg, submit };
 }
+
+type Tone = "good" | "warn" | "bad";
+const TONE_ON: Record<Tone, string> = {
+  good: "border-brand-600 bg-brand-50 text-brand-800 ring-1 ring-brand-600",
+  warn: "border-[#c9940f] bg-amber/10 text-[#7a5c06] ring-1 ring-[#c9940f]",
+  bad: "border-red bg-red/5 text-[#a3262a] ring-1 ring-red",
+};
+
+/** Tombol pilihan hasil: garis tepi berwarna dan latar lembut saat dipilih, bukan blok warna penuh */
+function Outcome({ active, tone, onClick, children }: { active: boolean; tone: Tone; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onClick} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors ${active ? TONE_ON[tone] : "border-ink-200 bg-white text-ink-700 hover:border-ink-300"}`}>
+      {children}
+    </button>
+  );
+}
+
+const CONTROL_HINT: Record<string, string> = {
+  ELIMINASI: "Menghilangkan sumber bahaya",
+  SUBSTITUSI: "Mengganti dengan bahan atau cara yang lebih aman",
+  REKAYASA_TEKNIK: "Memisahkan pekerja dari bahaya, misalnya pelindung mesin",
+  ADMINISTRATIF: "Prosedur, rambu, izin kerja, pelatihan",
+  APD: "Alat pelindung diri sebagai lapis terakhir",
+};
 
 function Feedback({ msg }: { msg: ActionResult | null }) {
   if (!msg) return null;
@@ -38,22 +63,24 @@ export function VerifyPanel({ reportId }: { reportId: string }) {
         <ShieldCheck size={18} className="text-brand-600" />
         <h3 className="font-bold">Verifikasi laporan Pengawas</h3>
       </div>
-      <ul className="mt-3 space-y-1 text-sm text-ink-600">
-        <li>Foto sesuai lokasi dan waktu</li>
-        <li>Uraian bahaya jelas dan lengkap</li>
-        <li>Bukan laporan ganda</li>
+      <ul className="mt-3 space-y-1.5 text-sm text-ink-700">
+        {["Foto sesuai lokasi dan waktu", "Uraian bahaya jelas dan lengkap", "Bukan laporan ganda"].map((t) => (
+          <li key={t} className="flex items-start gap-2">
+            <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-brand-600" /> {t}
+          </li>
+        ))}
       </ul>
       <input type="hidden" name="result" value={result} />
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <button type="button" onClick={() => setResult("VALID")} className={`btn ${result === "VALID" ? "btn-success" : "btn-secondary"}`}>
+        <Outcome active={result === "VALID"} tone="good" onClick={() => setResult("VALID")}>
           <CheckCircle2 size={16} /> Valid
-        </button>
-        <button type="button" onClick={() => setResult("REVISI")} className={`btn ${result === "REVISI" ? "btn-warn" : "btn-secondary"}`}>
+        </Outcome>
+        <Outcome active={result === "REVISI"} tone="warn" onClick={() => setResult("REVISI")}>
           <RotateCcw size={16} /> Revisi
-        </button>
-        <button type="button" onClick={() => setResult("TOLAK")} className={`btn ${result === "TOLAK" ? "btn-danger" : "btn-secondary"}`}>
+        </Outcome>
+        <Outcome active={result === "TOLAK"} tone="bad" onClick={() => setResult("TOLAK")}>
           <XCircle size={16} /> Tolak
-        </button>
+        </Outcome>
       </div>
       <div className="mt-4">
         <Field label={result === "VALID" ? "Catatan (opsional)" : "Catatan untuk pelapor"} required={result !== "VALID"}>
@@ -74,6 +101,7 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
   const { pending, msg, submit } = useAction((fd) => decideAction(reportId, fd));
   const [result, setResult] = useState<"SETUJU" | "TOLAK">("SETUJU");
   const [control, setControl] = useState<string>("");
+  const [picMode, setPicMode] = useState<"daftar" | "manual">("daftar");
   const minDate = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   return (
     <form action={submit} className="card border-brand-200 p-5 anim-fade-up">
@@ -84,28 +112,38 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
       <input type="hidden" name="result" value={result} />
       <input type="hidden" name="controlHierarchy" value={control} />
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setResult("SETUJU")} className={`btn ${result === "SETUJU" ? "btn-success" : "btn-secondary"}`}>
+        <Outcome active={result === "SETUJU"} tone="good" onClick={() => setResult("SETUJU")}>
           <ThumbsUp size={16} /> Setujui
-        </button>
-        <button type="button" onClick={() => setResult("TOLAK")} className={`btn ${result === "TOLAK" ? "btn-danger" : "btn-secondary"}`}>
+        </Outcome>
+        <Outcome active={result === "TOLAK"} tone="bad" onClick={() => setResult("TOLAK")}>
           <ThumbsDown size={16} /> Tolak
-        </button>
+        </Outcome>
       </div>
 
       {result === "SETUJU" ? (
         <div className="mt-4 space-y-4 anim-fade-in">
-          <Field label="Penanggung jawab" required help="Pilih pengguna terdaftar atau tulis jabatan/nama bila belum terdaftar.">
-            <select name="picId" className="input" defaultValue={defaultPicId ?? ""}>
-              <option value="">Pilih dari daftar pengguna</option>
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.jabatan ?? c.role})
-                </option>
+          <Field label="Penanggung jawab" required>
+            <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-ink-100 p-1 text-[13px] font-medium">
+              {(["daftar", "manual"] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={picMode === m} onClick={() => setPicMode(m)} className={`min-h-9 rounded-lg transition-colors ${picMode === m ? "bg-white text-ink-900 shadow-sm" : "text-ink-600"}`}>
+                  {m === "daftar" ? "Pengguna terdaftar" : "Tulis manual"}
+                </button>
               ))}
-            </select>
-            <input name="picName" className="input mt-2" placeholder="Atau tulis jabatan/nama penanggung jawab" />
+            </div>
+            {picMode === "daftar" ? (
+              <select name="picId" className="input" defaultValue={defaultPicId ?? ""}>
+                <option value="">Pilih dari daftar pengguna</option>
+                {candidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.jabatan ?? c.role})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input name="picName" className="input" placeholder="Jabatan atau nama penanggung jawab" />
+            )}
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3">
             <Field label="Tenaga">
               <input name="resourceTenaga" className="input" placeholder="Contoh: 2 teknisi" />
             </Field>
@@ -119,14 +157,15 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
           <Field label="Target selesai" required>
             <input type="date" name="targetDate" className="input" min={minDate} required />
           </Field>
-          <Field label="Hierarki pengendalian (ISO 45001:2018 klausul 8.1.2)" required>
-            <div className="flex flex-wrap gap-2">
-              {CONTROLS.map((c) => (
-                <button key={c} type="button" onClick={() => setControl(c)} className={`chip ${control === c ? "chip-active" : ""}`}>
-                  {CONTROL_LABEL[c]}
-                </button>
-              ))}
-            </div>
+          <Field label="Hierarki pengendalian (ISO 45001:2018 klausul 8.1.2)" required help="Urut dari paling efektif ke paling lemah. Pilih tingkat tertinggi yang dapat diterapkan.">
+            <ChoiceGrid
+              multiple={false}
+              className="grid-cols-1 sm:grid-cols-1"
+              ariaLabel="Hierarki pengendalian"
+              options={CONTROLS.map((c, i) => ({ key: c, label: `${i + 1}. ${CONTROL_LABEL[c]}`, hint: CONTROL_HINT[c] }))}
+              selected={control ? [control] : []}
+              onToggle={(k) => setControl(k)}
+            />
           </Field>
           <Field label="Catatan keputusan (opsional)">
             <textarea name="note" className="input min-h-16" />
@@ -181,7 +220,7 @@ export function ProgressPanel({ reportId, current }: { reportId: string; current
         <input type="range" min={0} max={100} step={5} value={done ? 100 : pct} disabled={done} onChange={(e) => setPct(Number(e.target.value))} className="mt-2 w-full accent-[var(--brand-600)]" />
       </div>
       <label className="mt-4 flex items-center gap-2 rounded-xl border border-ink-200 px-3 py-2.5 text-sm">
-        <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} className="accent-[var(--brand-600)]" />
+        <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} className="size-5 accent-[var(--brand-600)]" />
         Perbaikan selesai, ajukan penutupan
       </label>
       <div className="mt-4">
@@ -227,7 +266,7 @@ export function ClosePanel({ reportId, hasSuggestion }: { reportId: string; hasS
       </div>
       {hasSuggestion && accepted && (
         <label className="mt-4 flex items-center gap-2 rounded-xl border border-gold/40 bg-gold/5 px-3 py-2.5 text-sm">
-          <input type="checkbox" name="suggestionApplied" className="accent-[var(--brand-600)]" />
+          <input type="checkbox" name="suggestionApplied" className="size-5 accent-[var(--brand-600)]" />
           Usulan perbaikan dari pelapor diterapkan (bonus poin)
         </label>
       )}

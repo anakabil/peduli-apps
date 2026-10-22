@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PlusCircle, ShieldCheck, Gavel, Wrench, Award, BarChart3, Users, Star, ArrowRight, AlertTriangle, Clock, TrendingUp, FileCheck2 } from "lucide-react";
+import { PlusCircle, ShieldCheck, Gavel, Wrench, Award, BarChart3, Users, Star, ArrowRight, AlertTriangle, Clock, TrendingUp, FileCheck2, Bell } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -8,8 +8,9 @@ import { pointBalance, pointEarned, levelFor } from "@/lib/points";
 import { reportScope, verifiableWhere } from "@/lib/workflow";
 import { Stat, Card, CardHeader, CardBody } from "@/components/ui";
 import { ReportList } from "@/components/report/report-list";
+import { RiskBadge } from "@/components/report/badges";
 import { fmtNumber, fmtMonthLong, cn } from "@/lib/format";
-import { ROLE_LABEL, RISK_LABEL, STATUS_LABEL, type Role, type Risk, type Status } from "@/lib/constants";
+import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "@/lib/constants";
 import { MiniTrend } from "@/components/charts/mini-trend";
 
 export const metadata = { title: "Beranda" };
@@ -69,10 +70,9 @@ export default async function BerandaPage() {
       {/* Sapaan */}
       <div className="hero-pattern relative overflow-hidden rounded-3xl p-6 text-white md:p-8 anim-fade-up">
         <div className="absolute inset-0 grid-lines opacity-50" />
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand-400/25 blur-3xl" />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-200">{ROLE_LABEL[role]}{user.jabatan ? ` - ${user.jabatan}` : ""}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-200">{user.jabatan && !user.jabatan.toLowerCase().startsWith(ROLE_LABEL[role].toLowerCase()) ? `${ROLE_LABEL[role]}, ${user.jabatan}` : user.jabatan || ROLE_LABEL[role]}</div>
             <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight md:text-3xl">
               {greeting()}, {user.name?.split(" ")[0]}.
             </h1>
@@ -85,7 +85,7 @@ export default async function BerandaPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/lapor" className="btn bg-white text-brand-800 hover:bg-brand-50 shadow-float">
+            <Link href="/lapor" className="btn bg-white text-brand-800 hover:bg-brand-50">
               <PlusCircle size={18} /> Lapor bahaya
             </Link>
             {showStats && (
@@ -98,14 +98,14 @@ export default async function BerandaPage() {
       </div>
 
       {/* Kartu tugas dan ringkasan pribadi */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 stagger">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] stagger">
         {queue && (
           <Link href={queue.href} className={cn("card card-hover col-span-2 p-4 md:p-5 border-l-4", queue.overdue > 0 ? "border-l-red" : "border-l-brand-500")}>
             <div className="flex items-center justify-between">
               <div className="rounded-lg bg-brand-50 p-2 text-brand-700">{queue.icon}</div>
               <ArrowRight size={16} className="text-ink-300" />
             </div>
-            <div className="mt-3 text-3xl font-bold">{queue.count}</div>
+            <div className="mt-3 text-3xl font-bold tabular-nums">{queue.count}</div>
             <div className="text-sm font-semibold text-ink-700">{queue.label}</div>
             {queue.overdue > 0 && (
               <div className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-red">
@@ -121,7 +121,7 @@ export default async function BerandaPage() {
                 <div className="rounded-lg bg-brand-50 p-2 text-brand-700"><Users size={20} /></div>
                 <ArrowRight size={16} className="text-ink-300" />
               </div>
-              <div className="mt-3 text-3xl font-bold">{adminExtra[0]}</div>
+              <div className="mt-3 text-3xl font-bold tabular-nums">{adminExtra[0]}</div>
               <div className="text-sm font-semibold text-ink-700">Akun menunggu persetujuan</div>
             </Link>
             <Link href="/admin/penukaran" className="card card-hover p-4 md:p-5">
@@ -129,7 +129,7 @@ export default async function BerandaPage() {
                 <div className="rounded-lg bg-gold/10 p-2 text-gold"><Star size={20} /></div>
                 <ArrowRight size={16} className="text-ink-300" />
               </div>
-              <div className="mt-3 text-3xl font-bold">{adminExtra[1]}</div>
+              <div className="mt-3 text-3xl font-bold tabular-nums">{adminExtra[1]}</div>
               <div className="text-sm font-semibold text-ink-700">Penukaran poin diajukan</div>
             </Link>
           </>
@@ -140,7 +140,7 @@ export default async function BerandaPage() {
               <div className="rounded-lg bg-gold/10 p-2 text-gold"><Award size={20} /></div>
               <span className="badge" style={{ background: `${level.color}22`, color: level.color }}>{level.name}</span>
             </div>
-            <div className="mt-3 text-3xl font-bold">{fmtNumber(balance)}</div>
+            <div className="mt-3 text-3xl font-bold tabular-nums">{fmtNumber(balance)}</div>
             <div className="text-sm font-semibold text-ink-700">Saldo poin</div>
           </Link>
         )}
@@ -148,14 +148,14 @@ export default async function BerandaPage() {
           <div className="flex items-center justify-between">
             <div className="rounded-lg bg-brand-50 p-2 text-brand-700"><FileCheck2 size={20} /></div>
           </div>
-          <div className="mt-3 text-3xl font-bold">{myMonth}</div>
+          <div className="mt-3 text-3xl font-bold tabular-nums">{myMonth}</div>
           <div className="text-sm font-semibold text-ink-700">Laporan saya bulan ini</div>
           <div className="mt-1 text-xs text-ink-500">{myValid} valid seluruh waktu, {myOpen} masih berjalan</div>
         </Link>
         {picCount > 0 && (
           <Link href="/tindak-lanjut" className="card card-hover p-4 md:p-5 border-l-4 border-l-amber">
             <div className="rounded-lg bg-amber/10 p-2 text-[#8a6a0a] w-fit"><Wrench size={20} /></div>
-            <div className="mt-3 text-3xl font-bold">{picCount}</div>
+            <div className="mt-3 text-3xl font-bold tabular-nums">{picCount}</div>
             <div className="text-sm font-semibold text-ink-700">Perbaikan yang Anda tangani</div>
           </Link>
         )}
@@ -173,12 +173,12 @@ export default async function BerandaPage() {
               Lihat statistik lengkap
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5 stagger">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5 stagger [&>*:last-child]:col-span-2 md:[&>*:last-child]:col-span-1">
             <Stat label="Laporan masuk" value={stats.summary.total} delta={stats.summary.deltaTotalPct != null ? `${stats.summary.deltaTotalPct > 0 ? "+" : ""}${stats.summary.deltaTotalPct}% dari bulan lalu` : "Belum ada pembanding"} tone={stats.summary.deltaTotalPct != null && stats.summary.deltaTotalPct >= 0 ? "good" : "neutral"} icon={<TrendingUp size={16} />} />
-            <Stat label="Partisipasi pelapor" value={`${stats.summary.participation}%`} delta={`${stats.summary.reporters} dari ${stats.summary.activeUsers} pengguna`} icon={<Users size={16} />} />
-            <Stat label="Waktu penutupan" value={`${stats.summary.closureDays} hari`} delta={stats.summary.prevClosureDays ? `${stats.summary.prevClosureDays} hari bulan lalu` : "rerata"} tone={stats.summary.closureDays <= stats.summary.prevClosureDays ? "good" : "warn"} icon={<Clock size={16} />} />
-            <Stat label="Penutupan tepat waktu" value={`${stats.summary.onTime}%`} delta={`${stats.summary.closedInPeriod} laporan ditutup`} tone={stats.summary.onTime >= 80 ? "good" : "warn"} icon={<FileCheck2 size={16} />} />
-            <Stat label="Risiko tinggi terbuka" value={stats.summary.highOpen} delta={`${stats.summary.overdueOpen} lewat target`} tone={stats.summary.highOpen > 0 ? "bad" : "good"} icon={<AlertTriangle size={16} />} />
+            <Stat label="Partisipasi pelapor" value={`${fmtNumber(stats.summary.participation, 1)}%`} delta={`${stats.summary.reporters} dari ${stats.summary.activeUsers} pengguna`} icon={<Users size={16} />} />
+            <Stat label="Waktu penutupan" value={`${fmtNumber(stats.summary.closureDays, 1)} hari`} delta={stats.summary.prevClosureDays ? `${fmtNumber(stats.summary.prevClosureDays, 1)} hari bulan lalu` : "rerata"} tone={stats.summary.closureDays <= stats.summary.prevClosureDays ? "good" : "warn"} icon={<Clock size={16} />} />
+            <Stat label="Penutupan tepat waktu" value={`${fmtNumber(stats.summary.onTime, 1)}%`} delta={`${stats.summary.closedInPeriod} laporan ditutup`} tone={stats.summary.onTime >= 80 ? "good" : "warn"} icon={<FileCheck2 size={16} />} />
+            <Stat label="Risiko tinggi terbuka" value={stats.summary.highOpen} delta={`${stats.summary.overdueOpen} lewat target`} tone={stats.summary.overdueOpen > 0 ? "bad" : stats.summary.highOpen > 0 ? "warn" : "good"} icon={<AlertTriangle size={16} />} />
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
             <Card className="lg:col-span-2">
@@ -201,7 +201,7 @@ export default async function BerandaPage() {
                             <div className="truncate text-sm font-semibold">{r.number} <span className="font-normal text-ink-500">- {r.area}</span></div>
                             <div className="text-xs text-ink-500">{STATUS_LABEL[r.status as Status]} - {r.days} hari</div>
                           </div>
-                          <span className={cn("badge text-white", r.risk === "EKSTREM" ? "bg-red" : "bg-orange")}>{RISK_LABEL[r.risk as Risk]}</span>
+                          <RiskBadge risk={r.risk} />
                         </Link>
                       </li>
                     ))}
@@ -229,7 +229,11 @@ export default async function BerandaPage() {
           </div>
           <Card>
             {notifs.length === 0 ? (
-              <CardBody><p className="text-sm text-ink-500">Belum ada notifikasi.</p></CardBody>
+              <CardBody className="flex flex-col items-center py-8 text-center">
+                <div className="rounded-xl bg-ink-100 p-2.5 text-ink-500"><Bell size={18} /></div>
+                <p className="mt-2 text-sm font-medium text-ink-700">Belum ada notifikasi</p>
+                <p className="text-xs text-ink-500">Kabar verifikasi dan keputusan akan muncul di sini.</p>
+              </CardBody>
             ) : (
               <ul className="divide-y divide-ink-100">
                 {notifs.map((n) => (

@@ -40,7 +40,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       {/* Panel kiri: hero */}
       <section className="hero-pattern relative hidden lg:flex flex-col justify-between p-12 text-white overflow-hidden">
         <div className="absolute inset-0 grid-lines opacity-60" />
-        <div className="absolute -right-24 -bottom-24 h-96 w-96 rounded-full bg-brand-500/30 blur-3xl" />
         <div className="relative flex items-center gap-4">
           <div className="rounded-2xl bg-white p-2.5 shadow-float">
             <GysLogo size={44} />
@@ -60,7 +59,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="mt-4 text-white/75 leading-relaxed">
             PEDULI menyatukan UU No. 1 Tahun 1970, PP No. 50 Tahun 2012 tentang SMK3, dan ISO 45001:2018 dalam satu alur digital yang ringan bagi pelapor dan lengkap bagi pengambil keputusan.
           </p>
-          <div className="mt-8 grid grid-cols-3 gap-3">
+          <div className="mt-8 grid grid-cols-3 gap-3 [&>*]:h-full">
             {[
               { icon: MapPin, t: "Geotagging otomatis", d: "Lokasi dan waktu terekam saat laporan dibuat." },
               { icon: Users, t: "Verifikasi berjenjang", d: "Superintendent memverifikasi, Manager memutuskan." },
@@ -74,23 +73,21 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             ))}
           </div>
         </div>
-        <div className="relative text-xs text-white/50">Developed by Nusa Safety</div>
+        <div className="relative text-xs text-white/60">{APP_TAGLINE}</div>
       </section>
 
       {/* Panel kanan: formulir masuk */}
       <section className="flex min-h-dvh flex-col items-center justify-center px-5 py-10 lg:min-h-0">
         <div className="w-full max-w-sm anim-scale-in">
-          <div className="mb-6 flex items-center justify-center lg:hidden">
-            <div className="rounded-2xl bg-white p-2 shadow-card ring-1 ring-ink-100">
-              <GysLogo size={40} />
-            </div>
+          <div className="mb-5 flex items-center justify-center gap-2.5 lg:hidden">
+            <GysLogo size={28} className="rounded" />
+            <span className="text-xs font-medium text-ink-600">{COMPANY_NAME}</span>
           </div>
           <div className="card p-7 md:p-8">
             <div className="flex justify-center">
               <PeduliLogo height={64} />
             </div>
-            <p className="mt-3 text-center text-sm text-ink-500">{APP_TAGLINE}</p>
-            <p className="mt-0.5 text-center text-xs font-semibold tracking-wide text-ink-400 uppercase">{COMPANY_NAME}</p>
+            <p className="mt-4 text-center text-sm text-ink-600">Masuk untuk melaporkan bahaya dan memantau tindak lanjutnya.</p>
 
             {error && <div className="mt-5 rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">{error}</div>}
 
@@ -106,14 +103,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                     <GoogleIcon /> Masuk dengan akun Google
                   </button>
                 </form>
-              ) : (
+              ) : process.env.NODE_ENV !== "production" ? (
                 <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-4 text-xs text-ink-500">
                   <div className="flex items-center gap-2 font-semibold text-ink-700">
                     <Lock size={14} /> Google OAuth belum dikonfigurasi
                   </div>
                   Isi AUTH_GOOGLE_ID dan AUTH_GOOGLE_SECRET pada berkas .env untuk mengaktifkan masuk dengan Google. Lihat README.
                 </div>
-              )}
+              ) : !demo ? (
+                <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm text-ink-600">Masuk dengan Google belum tersedia. Hubungi admin program PEDULI.</div>
+              ) : null}
               {oneTap && <GoogleOneTap clientId={oneTap} />}
               {demo && <DemoLogin />}
             </div>

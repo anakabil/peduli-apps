@@ -49,13 +49,13 @@ export function UserEditor({ user, areas, supervisors }: { user: { id: string; n
   const [open, setOpen] = useState(false);
   const { pending, res, action } = useFormAction((fd) => updateUserAction(user.id, fd));
   const adj = useFormAction(async (fd) => adjustPointsAction(user.id, Number(fd.get("points")), String(fd.get("note") ?? "")));
-  if (!open) return <button className="btn-ghost btn-sm" onClick={() => setOpen(true)}><Pencil size={14} /> Ubah</button>;
+  if (!open) return <button className="btn-secondary btn-sm min-h-9" onClick={() => setOpen(true)}><Pencil size={14} /> Ubah</button>;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-900/40 p-0 sm:items-center sm:p-4 anim-fade-in" onClick={() => setOpen(false)}>
       <div className="card w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-b-none sm:rounded-b-2xl p-5 anim-slide-up" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="font-bold">Ubah pengguna</h3>
-          <button className="rounded-full p-1.5 hover:bg-ink-100" onClick={() => setOpen(false)}><X size={18} /></button>
+          <h3 className="text-lg font-bold">Ubah pengguna <span className="font-medium text-ink-500">{user.name}</span></h3>
+          <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-ink-100" aria-label="Tutup" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
         <form action={action} className="mt-4 space-y-4">
           <Fields u={user} areas={areas} supervisors={supervisors} />

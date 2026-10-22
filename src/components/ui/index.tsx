@@ -43,14 +43,14 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
 export function Stat({ label, value, delta, tone = "neutral", icon, hint }: { label: string; value: ReactNode; delta?: ReactNode; tone?: "neutral" | "good" | "bad" | "warn"; icon?: ReactNode; hint?: string }) {
   const deltaColor = tone === "good" ? "text-brand-600" : tone === "bad" ? "text-red" : tone === "warn" ? "text-[#8a6a0a]" : "text-ink-500";
   return (
-    <div className="card card-hover p-4 md:p-5">
+    <div className="card flex flex-col p-4 md:p-5">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</div>
+        <div className="text-[13px] font-medium leading-snug text-ink-600">{label}</div>
         {icon && <div className="rounded-lg bg-brand-50 p-1.5 text-brand-600">{icon}</div>}
       </div>
-      <div className="mt-2 text-2xl md:text-3xl font-bold tracking-tight text-ink-900">{value}</div>
-      {delta && <div className={cn("mt-1 text-xs font-semibold", deltaColor)}>{delta}</div>}
-      {hint && <div className="mt-1 text-[11px] text-ink-400">{hint}</div>}
+      <div className="mt-2 whitespace-nowrap text-2xl font-bold tracking-tight tabular-nums text-ink-900 md:text-[1.75rem]">{value}</div>
+      {delta && <div className={cn("mt-1 text-xs font-medium", deltaColor)}>{delta}</div>}
+      {hint && <div className="mt-auto pt-1 text-xs text-ink-500">{hint}</div>}
     </div>
   );
 }
@@ -121,12 +121,14 @@ export function LinkButton({ href, children, variant = "primary", className = ""
   );
 }
 
-export function KeyValue({ items }: { items: Array<{ k: string; v: ReactNode }> }) {
+/** Pasangan label dan nilai; hideEmpty menyembunyikan butir yang belum berisi */
+export function KeyValue({ items, hideEmpty = false }: { items: Array<{ k: string; v: ReactNode }>; hideEmpty?: boolean }) {
+  const list = hideEmpty ? items.filter((it) => it.v != null && it.v !== "" && it.v !== "-") : items;
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-      {items.map((it) => (
+      {list.map((it) => (
         <div key={it.k} className="min-w-0">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">{it.k}</dt>
+          <dt className="text-xs font-medium text-ink-500">{it.k}</dt>
           <dd className="mt-0.5 text-sm text-ink-800 break-words">{it.v ?? "-"}</dd>
         </div>
       ))}

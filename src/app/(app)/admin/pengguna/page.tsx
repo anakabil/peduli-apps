@@ -50,9 +50,9 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
     <div>
       <PageHeader eyebrow="Administrasi" title="Pengguna dan peran" description="Satu akun untuk satu orang. Tetapkan peran, area kerja, dan atasan agar alur verifikasi berjalan otomatis." />
       <div className="mb-4 flex flex-wrap items-center gap-2 no-print">
-        <form className="flex gap-2">
-          <input name="q" defaultValue={sp.q ?? ""} className="input w-56" placeholder="Cari nama, email, NIK" />
-          <select name="status" defaultValue={sp.status ?? ""} className="input w-auto">
+        <form className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <input name="q" defaultValue={sp.q ?? ""} className="input min-w-0 flex-1 sm:w-56 sm:flex-none" placeholder="Cari nama, email, NIK" />
+          <select name="status" defaultValue={sp.status ?? ""} className="input w-full sm:w-auto">
             <option value="">Semua status</option>
             <option value="PENDING">Menunggu persetujuan</option>
             <option value="ACTIVE">Aktif</option>
@@ -60,9 +60,9 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
           </select>
           <button className="btn-secondary">Terapkan</button>
         </form>
-        <details className="ml-auto">
-          <summary className="btn-primary cursor-pointer list-none"><UserPlus size={16} /> Tambah pengguna</summary>
-          <div className="card mt-2 w-[min(92vw,560px)] p-4 absolute right-4 md:right-8 z-20 shadow-float anim-scale-in">
+        <details className="w-full sm:ml-auto sm:w-auto">
+          <summary className="btn-primary w-full cursor-pointer list-none sm:w-auto"><UserPlus size={16} /> Tambah pengguna</summary>
+          <div className="card fixed inset-x-3 top-16 z-50 max-h-[80dvh] overflow-y-auto p-4 shadow-float anim-scale-in md:absolute md:inset-x-auto md:top-auto md:right-8 md:mt-2 md:w-[560px]">
             <NewUserForm areas={activeAreas} supervisors={supervisors} />
           </div>
         </details>
@@ -74,7 +74,32 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
-      <Card>
+      {/* Ponsel: daftar kartu, tombol Ubah selalu terlihat */}
+      <div className="space-y-2.5 md:hidden">
+        {users.map((u) => (
+          <div key={u.id} className="card p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-ink-900">{u.name}</div>
+                <div className="truncate text-xs text-ink-500">{u.email}</div>
+              </div>
+              <Badge tone={u.status === "ACTIVE" ? "success" : u.status === "PENDING" ? "warn" : "danger"}>{USER_STATUS_LABEL[u.status]}</Badge>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+              <div><dt className="text-ink-500">Peran</dt><dd className="font-medium text-ink-800">{ROLE_LABEL[u.role as Role]}</dd></div>
+              <div><dt className="text-ink-500">Area</dt><dd className="font-medium text-ink-800">{u.area?.name ?? "-"}</dd></div>
+              <div><dt className="text-ink-500">Atasan</dt><dd className="font-medium text-ink-800">{u.atasan?.name ?? "-"}</dd></div>
+              <div><dt className="text-ink-500">Laporan dan poin</dt><dd className="font-medium tabular-nums text-ink-800">{u._count.reports} laporan, {balance.get(u.id) ?? 0} poin</dd></div>
+            </dl>
+            <div className="mt-3 flex justify-end border-t border-ink-100 pt-3">
+              <UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areasFor(u.areaId)} supervisors={supervisorsFor(u)} />
+            </div>
+          </div>
+        ))}
+        {users.length === 0 && <div className="card p-8 text-center text-sm text-ink-500"><Users className="mx-auto mb-2" /> Tidak ada pengguna.</div>}
+      </div>
+
+      <Card className="hidden md:block">
         <CardBody className="p-0 overflow-x-auto">
           <table className="table">
             <thead>
@@ -88,7 +113,7 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
                     <div className="text-xs text-ink-500">{u.email}{u.nik ? ` - ${u.nik}` : ""}</div>
                     <div className="text-xs text-ink-500">{u.jabatan}{u.departemen ? `, ${u.departemen}` : ""}</div>
                   </td>
-                  <td><Badge tone="neutral">{ROLE_LABEL[u.role as Role]}</Badge></td>
+                  <td className="whitespace-nowrap"><Badge tone="neutral">{ROLE_LABEL[u.role as Role]}</Badge></td>
                   <td><Badge tone={u.status === "ACTIVE" ? "success" : u.status === "PENDING" ? "warn" : "danger"}>{USER_STATUS_LABEL[u.status]}</Badge></td>
                   <td className="text-xs text-ink-600">{u.area?.name ?? "-"}<br />{u.atasan?.name ?? "-"}</td>
                   <td className="text-right">{u._count.reports}</td>
