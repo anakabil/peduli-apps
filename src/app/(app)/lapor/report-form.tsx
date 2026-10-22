@@ -1,12 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles } from "lucide-react";
+import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, ChevronDown, ThumbsUp, Wrench, ShieldAlert, Sparkles, Recycle, UtensilsCrossed, FlaskConical, DoorClosed, Tractor, Zap, Lock, Radiation, Anchor, Construction, Package, Truck, Flame, Factory, CircleEllipsis } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, STOP_GROUPS, ACTIVITIES, suggestCategory, type Category, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
 import { cn } from "@/lib/format";
+import { ChoiceGrid } from "@/components/ui/choice-grid";
+
+const ACTIVITY_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  HOUSEKEEPING: Recycle,
+  CATERING: UtensilsCrossed,
+  KIMIA: FlaskConical,
+  RUANG_TERBATAS: DoorClosed,
+  ALAT_BERAT: Tractor,
+  LISTRIK: Zap,
+  LOTO: Lock,
+  RADIOGRAFI: Radiation,
+  ANGKAT: Anchor,
+  KETINGGIAN: Construction,
+  MANUAL: Package,
+  TRANSPORTASI: Truck,
+  PANAS: Flame,
+  OPERASI: Factory,
+  PERAWATAN: Wrench,
+  LAINNYA: CircleEllipsis,
+};
 
 type Area = { id: string; name: string; code: string };
 type Geo = { lat: number; lng: number; accuracy: number; at: Date };
@@ -228,13 +248,12 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
       </Section>
 
       <Section no={2} title="Aktivitas yang diobservasi" hint="Pilih satu atau lebih pekerjaan yang sedang Anda amati.">
-        <div className="flex flex-wrap gap-2">
-          {ACTIVITIES.map((a) => (
-            <button key={a.key} type="button" onClick={() => toggle(activities, setActivities, a.key)} className={cn("chip", activities.includes(a.key) && "chip-active")}>
-              {a.label}
-            </button>
-          ))}
-        </div>
+        <ChoiceGrid
+          ariaLabel="Aktivitas yang diobservasi"
+          options={ACTIVITIES.map((a) => ({ ...a, icon: ACTIVITY_ICON[a.key] }))}
+          selected={activities}
+          onToggle={(k) => toggle(activities, setActivities, k)}
+        />
       </Section>
 
       <Section no={3} title="Daftar periksa pengamatan" hint="Centang hal yang tidak aman. Kategori bahaya akan disarankan otomatis.">

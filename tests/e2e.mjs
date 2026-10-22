@@ -41,7 +41,7 @@ await page.waitForSelector("text=GPS terkunci", { timeout: 15000 });
 await page.locator('input[type="file"]').setInputFiles(photo);
 await page.waitForSelector('img[alt="Foto 1"]');
 // Kartu STOP: aktivitas wajib dan daftar periksa yang tinggal dicentang
-await page.getByRole("button", { name: "Transportasi (darat atau air)" }).click();
+await page.getByRole("checkbox", { name: "Transportasi (darat atau air)" }).click();
 await page.getByRole("button", { name: /Posisi seseorang/i }).click();
 await page.getByLabel(/Terpukul/).check();
 await page.locator('textarea[placeholder^="Contoh: operator"]').fill("Operator lain membunyikan klakson di setiap tikungan.");
