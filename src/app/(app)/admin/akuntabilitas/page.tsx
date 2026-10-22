@@ -27,7 +27,8 @@ export default async function AkuntabilitasPage() {
   const managers = active.filter((u) => u.role === "MANAGER");
   const supts = active.filter((u) => u.role === "SUPERINTENDENT");
   const validAtasan = (u: (typeof users)[number]) => !!u.atasan && u.atasan.role === "SUPERINTENDENT" && u.atasan.status === "ACTIVE";
-  const pengawasNoAtasan = active.filter((u) => u.role === "PENGAWAS" && !validAtasan(u));
+  const pengawasList = active.filter((u) => u.role === "PENGAWAS");
+  const pengawasNoAtasan = pengawasList.filter((u) => !validAtasan(u));
   const noArea = active.filter((u) => (u.role === "PENGAWAS" || u.role === "SUPERINTENDENT") && !u.areaId);
   const open = (areaId: string | null, statuses: string[]) => openByArea.filter((g) => g.areaId === areaId && statuses.includes(g.status)).reduce((s, g) => s + g._count._all, 0);
   const unmappedOpen = open(null, OPEN);
@@ -97,8 +98,8 @@ export default async function AkuntabilitasPage() {
             </ul>
             {isAdmin && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/admin/area" className="btn-ghost btn-sm">Atur Manager area</Link>
-                <Link href="/admin/pengguna" className="btn-ghost btn-sm">Atur peran, area, dan atasan</Link>
+                <Link href="/admin/area" className="btn-secondary btn-sm min-h-11 md:min-h-0">Atur Manager area</Link>
+                <Link href="/admin/pengguna" className="btn-secondary btn-sm min-h-11 md:min-h-0">Atur peran, area, dan atasan</Link>
               </div>
             )}
           </CardBody>
@@ -107,58 +108,118 @@ export default async function AkuntabilitasPage() {
 
       <Card>
         <CardHeader title="Penanggung jawab per area" subtitle="Beban laporan terbuka dihitung dari seluruh waktu" />
-        <CardBody className="overflow-x-auto pt-3">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Area</th>
-                <th>Manager (pemutus)</th>
-                <th>Superintendent (verifikator)</th>
-                <th className="text-right">Pengawas</th>
-                <th className="text-right">Tunggu verifikasi</th>
-                <th className="text-right">Tunggu keputusan</th>
-                <th className="text-right">Perbaikan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td><span className="font-mono text-xs font-bold text-brand-700">{r.code}</span> <span className="font-medium">{r.name}</span></td>
-                  <td>{r.managerOk ? r.manager!.name : <Badge tone="warn">Belum ada, semua Manager</Badge>}</td>
-                  <td>{r.areaSupts.length ? r.areaSupts.map((s) => s.name).join(", ") : <Badge tone="warn">Belum ada</Badge>}</td>
-                  <td className="text-right">
-                    {r.areaPengawas.length}
-                    {r.noAtasan > 0 && <div className="text-[11px] font-semibold text-[#8a6a0a]">{r.noAtasan} tanpa atasan</div>}
-                  </td>
-                  <td className="text-right">{r.verif}</td>
-                  <td className="text-right">{r.decide}</td>
-                  <td className="text-right">{r.fix}</td>
+        <CardBody className="pt-3">
+          {/* Layar sempit: satu kartu per area */}
+          <div className="space-y-2.5 md:hidden">
+            {rows.map((r) => (
+              <div key={r.id} className="rounded-xl border border-ink-200 p-4">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-xs font-bold tracking-wide tabular-nums text-brand-700">{r.code}</span>
+                  <span className="font-semibold text-ink-900">{r.name}</span>
+                </div>
+                <dl className="mt-3 space-y-2.5 text-sm">
+                  <div>
+                    <dt className="text-xs text-ink-500">Manager (pemutus)</dt>
+                    <dd className="mt-0.5 font-medium text-ink-800">{r.managerOk ? r.manager!.name : <Badge tone="warn">Belum ada, semua Manager</Badge>}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-ink-500">Superintendent (verifikator)</dt>
+                    <dd className="mt-0.5 font-medium text-ink-800">{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">Belum ada</Badge>}</dd>
+                  </div>
+                </dl>
+                <dl className="mt-3 grid grid-cols-4 gap-2 border-t border-ink-100 pt-3">
+                  {[
+                    ["Pengawas", r.areaPengawas.length],
+                    ["Verifikasi", r.verif],
+                    ["Keputusan", r.decide],
+                    ["Perbaikan", r.fix],
+                  ].map(([k, v]) => (
+                    <div key={String(k)} className="min-w-0">
+                      <dt className="truncate text-xs text-ink-500">{k}</dt>
+                      <dd className="mt-0.5 text-base font-bold tabular-nums text-ink-900">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {r.noAtasan > 0 && <p className="mt-2 text-xs font-semibold text-[#8a6a0a]">{r.noAtasan} Pengawas tanpa atasan</p>}
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Manager (pemutus)</th>
+                  <th>Superintendent (verifikator)</th>
+                  <th className="text-right">Pengawas</th>
+                  <th className="text-right">Tunggu verifikasi</th>
+                  <th className="text-right">Tunggu keputusan</th>
+                  <th className="text-right">Perbaikan</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {unmappedOpen > 0 && <p className="mt-2 text-xs text-ink-500">{unmappedOpen} laporan terbuka belum terpetakan ke area (GPS di luar radius dan pelapor tanpa area).</p>}
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td><span className="text-xs font-bold tracking-wide tabular-nums text-brand-700">{r.code}</span> <span className="font-medium">{r.name}</span></td>
+                    <td>{r.managerOk ? r.manager!.name : <Badge tone="warn">Belum ada, semua Manager</Badge>}</td>
+                    <td>{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">Belum ada</Badge>}</td>
+                    <td className="text-right tabular-nums">
+                      {r.areaPengawas.length}
+                      {r.noAtasan > 0 && <div className="whitespace-nowrap text-xs font-semibold text-[#8a6a0a]">{r.noAtasan} tanpa atasan</div>}
+                    </td>
+                    <td className="text-right tabular-nums">{r.verif}</td>
+                    <td className="text-right tabular-nums">{r.decide}</td>
+                    <td className="text-right tabular-nums">{r.fix}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {unmappedOpen > 0 && <p className="mt-3 text-xs text-ink-500">{unmappedOpen} laporan terbuka belum terpetakan ke area (GPS di luar radius dan pelapor tanpa area).</p>}
         </CardBody>
       </Card>
 
       <Card>
         <CardHeader title="Garis atasan Pengawas" subtitle="Atasan menerima tugas verifikasi laporan bawahannya" />
-        <CardBody className="overflow-x-auto pt-3">
-          {active.filter((u) => u.role === "PENGAWAS").length === 0 ? (
+        <CardBody className="pt-3">
+          {pengawasList.length === 0 ? (
             <p className="text-sm text-ink-500">Belum ada Pengawas aktif.</p>
           ) : (
-            <table className="table">
-              <thead><tr><th>Pengawas</th><th>Area</th><th>Atasan (Superintendent)</th></tr></thead>
-              <tbody>
-                {active.filter((u) => u.role === "PENGAWAS").map((p) => (
-                  <tr key={p.id}>
-                    <td><div className="font-medium">{p.name ?? "-"}</div><div className="text-xs text-ink-500">{p.email}</div></td>
-                    <td>{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">Belum diatur</Badge>}</td>
-                    <td>{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">Belum ada atasan aktif</Badge>}</td>
-                  </tr>
+            <>
+              {/* Layar sempit: satu kartu per Pengawas */}
+              <div className="space-y-2.5 md:hidden">
+                {pengawasList.map((p) => (
+                  <div key={p.id} className="rounded-xl border border-ink-200 p-4">
+                    <div className="font-semibold text-ink-900">{p.name ?? "-"}</div>
+                    <div className="truncate text-xs text-ink-500">{p.email}</div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div className="min-w-0">
+                        <dt className="text-xs text-ink-500">Area</dt>
+                        <dd className="mt-0.5 font-medium text-ink-800">{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">Belum diatur</Badge>}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-xs text-ink-500">Atasan</dt>
+                        <dd className="mt-0.5 font-medium text-ink-800">{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">Belum ada</Badge>}</dd>
+                      </div>
+                    </dl>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="table">
+                  <thead><tr><th>Pengawas</th><th>Area</th><th>Atasan (Superintendent)</th></tr></thead>
+                  <tbody>
+                    {pengawasList.map((p) => (
+                      <tr key={p.id}>
+                        <td><div className="font-medium">{p.name ?? "-"}</div><div className="text-xs text-ink-500">{p.email}</div></td>
+                        <td>{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">Belum diatur</Badge>}</td>
+                        <td>{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">Belum ada atasan aktif</Badge>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardBody>
       </Card>

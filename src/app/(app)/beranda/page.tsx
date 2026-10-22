@@ -174,7 +174,7 @@ export default async function BerandaPage() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5 stagger [&>*:last-child]:col-span-2 md:[&>*:last-child]:col-span-1">
-            <Stat label="Laporan masuk" value={stats.summary.total} delta={stats.summary.deltaTotalPct != null ? `${stats.summary.deltaTotalPct > 0 ? "+" : ""}${stats.summary.deltaTotalPct}% dari bulan lalu` : "Belum ada pembanding"} tone={stats.summary.deltaTotalPct != null && stats.summary.deltaTotalPct >= 0 ? "good" : "neutral"} icon={<TrendingUp size={16} />} />
+            <Stat label="Laporan masuk" value={stats.summary.total} delta={stats.summary.deltaTotalPct != null ? `${stats.summary.deltaTotalPct > 0 ? "+" : ""}${fmtNumber(stats.summary.deltaTotalPct, 1)}% dari bulan lalu` : "Belum ada pembanding"} tone={stats.summary.deltaTotalPct != null && stats.summary.deltaTotalPct >= 0 ? "good" : "neutral"} icon={<TrendingUp size={16} />} />
             <Stat label="Partisipasi pelapor" value={`${fmtNumber(stats.summary.participation, 1)}%`} delta={`${stats.summary.reporters} dari ${stats.summary.activeUsers} pengguna`} icon={<Users size={16} />} />
             <Stat label="Waktu penutupan" value={`${fmtNumber(stats.summary.closureDays, 1)} hari`} delta={stats.summary.prevClosureDays ? `${fmtNumber(stats.summary.prevClosureDays, 1)} hari bulan lalu` : "rerata"} tone={stats.summary.closureDays <= stats.summary.prevClosureDays ? "good" : "warn"} icon={<Clock size={16} />} />
             <Stat label="Penutupan tepat waktu" value={`${fmtNumber(stats.summary.onTime, 1)}%`} delta={`${stats.summary.closedInPeriod} laporan ditutup`} tone={stats.summary.onTime >= 80 ? "good" : "warn"} icon={<FileCheck2 size={16} />} />

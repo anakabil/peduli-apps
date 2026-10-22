@@ -14,9 +14,9 @@ export function ProcessButtons({ id, status }: { id: string; status: string }) {
       router.refresh();
     });
   return (
-    <div className="flex flex-col gap-1.5 min-w-44">
-      <input className="input py-1.5 text-xs" placeholder="Catatan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
-      <div className="flex gap-1">
+    <div className="flex flex-col gap-2 md:min-w-52 md:gap-1.5">
+      <input className="input md:py-1.5 md:text-xs" placeholder="Catatan (opsional)" aria-label="Catatan penukaran" value={note} onChange={(e) => setNote(e.target.value)} />
+      <div className="flex gap-2 md:gap-1.5 [&>button]:min-h-11 [&>button]:flex-1 md:[&>button]:min-h-0 md:[&>button]:flex-none">
         {status === "DIAJUKAN" && <button disabled={pending} className="btn-secondary btn-sm" onClick={() => go("DIPROSES")}>Proses</button>}
         <button disabled={pending} className="btn-success btn-sm" onClick={() => go("SELESAI")}>Selesai</button>
         <button disabled={pending} className="btn-danger btn-sm" onClick={() => go("DITOLAK")}>Tolak</button>

@@ -68,7 +68,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
     const d = Math.round((cur - prev) * 10) / 10;
     if (!prev && !cur) return { text: "tidak ada data pembanding", tone: "neutral" as const };
     const good = invert ? d <= 0 : d >= 0;
-    return { text: `${d > 0 ? "+" : ""}${d}${unit} dari periode sebelumnya`, tone: good ? ("good" as const) : ("bad" as const) };
+    return { text: `${d > 0 ? "+" : ""}${fmtNumber(d, 1)}${unit} dari periode sebelumnya`, tone: good ? ("good" as const) : ("bad" as const) };
   };
   const dTotal = delta(s.total, s.prevTotal);
   const dPart = delta(s.participation, s.prevParticipation, "%");

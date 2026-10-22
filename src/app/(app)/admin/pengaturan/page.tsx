@@ -9,8 +9,8 @@ export default async function PengaturanPage() {
   const user = await requireUser(["ADMIN", "MANAGER"]);
   const settings = await getSettings();
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader eyebrow="Pengaturan alur" title="Manager mengatur urutan dan batas waktu" description="Jalur laporan, batas waktu tiap tahap, dan aturan eskalasi otomatis. Setiap perubahan tercatat pada jejak audit." />
+    <div className="max-w-3xl">
+      <PageHeader eyebrow="Administrasi" title="Pengaturan alur" description="Manager mengatur jalur laporan, batas waktu tiap tahap, dan aturan eskalasi otomatis. Setiap perubahan tercatat pada jejak audit." />
       <SettingsForm settings={settings} isAdmin={user.role === "ADMIN"} />
     </div>
   );

@@ -139,7 +139,7 @@ if (await tukar.count()) {
   ok(true, "Penukaran hadiah diajukan");
   redeemed = true;
 } else {
-  ok(await page.locator('button:has-text("Tukar poin")[disabled]').count(), "Tombol tukar nonaktif bila poin belum mencukupi");
+  ok(await page.locator("button[disabled]", { hasText: /Kurang \d+ poin/ }).count(), "Tombol tukar nonaktif dan menyebut kekurangan poin");
 }
 await page.goto(`${BASE}/notifikasi`, { waitUntil: "networkidle" });
 ok(await page.getByText(number).count(), "Notifikasi pelapor memuat nomor laporan");

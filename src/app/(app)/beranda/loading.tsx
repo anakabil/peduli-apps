@@ -1,3 +1,4 @@
+// Hanya di halaman tanpa aksi formulir: loading.tsx global menahan router.refresh() setelah server action
 // Kerangka pemuatan saat berpindah halaman di dalam kerangka aplikasi
 export default function Loading() {
   return (

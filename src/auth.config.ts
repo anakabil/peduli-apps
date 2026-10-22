@@ -5,7 +5,8 @@ import { authSecret, googleClientId, googleClientSecret } from "@/lib/env";
 // Konfigurasi ringan yang aman untuk middleware (tanpa Prisma)
 export const authConfig = {
   pages: { signIn: "/masuk", error: "/masuk" },
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 14 },
+  // Sesi tidak diperpanjang otomatis (middleware tidak menulis cookie), maka masa berlaku dibuat 30 hari
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
   trustHost: true,
   secret: authSecret() || undefined,
   providers: [
