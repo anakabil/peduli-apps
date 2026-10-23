@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { reportScope } from "@/lib/workflow";
 import { fmtDateTime, fmtDate } from "@/lib/format";
-import { CATEGORY_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, type Category, type Status, type Control, type Role } from "@/lib/constants";
+import { CATEGORY_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, EVENT_LABEL, COMPANY_NAME, type Category, type Status, type Control, type Role, HAZARD_TYPE_LABEL, REJECT_REASON_LABEL, type HazardType, type RejectReason } from "@/lib/constants";
 import { PrintButton } from "@/components/print-button";
 import { RiskBadge } from "@/components/report/badges";
 import { GysLogo, PeduliLogo } from "@/components/brand";
@@ -15,7 +15,7 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const r = await db.report.findFirst({
     where: { AND: [{ id }, reportScope(user)] },
-    include: { reporter: true, area: true, verifier: true, decider: true, pic: true, closer: true, photos: { select: { id: true, kind: true } }, events: { include: { actor: true }, orderBy: { createdAt: "asc" } } },
+    include: { reporter: true, area: true, proposedPic: { select: { name: true, jabatan: true } }, verifier: true, decider: true, pic: true, closer: true, photos: { select: { id: true, kind: true } }, events: { include: { actor: true }, orderBy: { createdAt: "asc" } } },
   });
   if (!r) notFound();
   const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
@@ -47,12 +47,16 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
         <tbody>
           <Row k="Pelapor" v={`${r.reporter.name} (${ROLE_LABEL[r.reporter.role as Role]}${r.reporter.jabatan ? `, ${r.reporter.jabatan}` : ""})`} />
           <Row k="Cap waktu server" v={fmtDateTime(r.createdAt)} />
-          <Row k="Area kerja" v={`${r.area?.name ?? "-"}${r.areaLabel ? ` - ${r.areaLabel}` : ""}`} />
+          <Row k="Lokasi" v={`${r.area?.name ?? "-"}${r.areaLabel ? ` - ${r.areaLabel}` : ""}`} />
           <Row k="Koordinat" v={r.lat != null ? `${r.lat.toFixed(5)}, ${r.lng?.toFixed(5)} (akurasi ${Math.round(r.accuracyM ?? 0)} m)` : "-"} />
           <Row k="Kategori" v={CATEGORY_LABEL[r.category as Category]} />
           <Row k="Risiko awal" v={<RiskBadge risk={r.riskLevel} />} />
+          <Row k="Jenis bahaya" v={r.hazardType ? HAZARD_TYPE_LABEL[r.hazardType as HazardType] : null} />
           <Row k="Uraian bahaya" v={r.description} />
-          <Row k="Usulan perbaikan" v={r.suggestion} />
+          <Row k="Dampak" v={r.impact} />
+          <Row k="Perbaikan cepat" v={r.immediateAction} />
+          <Row k="Tindakan pencegahan" v={r.suggestion} />
+          <Row k="Usulan penanggung jawab" v={r.proposedPic ? `${r.proposedPic.name ?? "-"}${r.proposedPic.jabatan ? `, ${r.proposedPic.jabatan}` : ""}` : null} />
         </tbody>
       </table>
       {r.photos.filter((p) => p.kind === "LAPORAN").length > 0 && (
@@ -68,6 +72,7 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
         <tbody>
           <Row k="Verifikasi" v={r.verifiedAt ? `${r.verificationResult === "VALID" ? "Valid" : r.verificationResult === "REVISI" ? "Perlu revisi" : "Ditolak"} oleh ${r.verifier?.name}, ${fmtDateTime(r.verifiedAt)}` : r.path === "B" ? "Tidak diperlukan (jalur B)" : "-"} />
           <Row k="Catatan verifikasi" v={r.verificationNote} />
+          {r.rejectReason && <Row k="Alasan penolakan" v={REJECT_REASON_LABEL[r.rejectReason as RejectReason] ?? r.rejectReason} />}
           <Row k="Keputusan" v={r.decidedAt ? `${r.decisionResult === "SETUJU" ? "Disetujui" : "Ditolak"} oleh ${r.decider?.name}, ${fmtDateTime(r.decidedAt)}` : "-"} />
           <Row k="Penanggung jawab" v={r.picName ?? r.pic?.name} />
           <Row k="Sumber daya" v={[r.resourceTenaga, r.resourceBiaya, r.resourceMaterial].filter(Boolean).join(" | ") || "-"} />

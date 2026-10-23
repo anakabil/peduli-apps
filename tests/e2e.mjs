@@ -37,14 +37,19 @@ async function logout() {
 // 1. Pengawas membuat laporan bahaya dengan foto dan GPS
 await login("Pengawas");
 await page.goto(`${BASE}/lapor`, { waitUntil: "networkidle" });
-await page.waitForSelector("text=GPS terkunci", { timeout: 15000 });
+await page.waitForSelector("text=akurasi", { timeout: 15000 });
 await page.locator('input[type="file"]').setInputFiles(photo);
 await page.waitForSelector('img[alt="Foto 1"]');
-await page.getByRole("radio", { name: "Nyaris celaka" }).click();
+ok((await page.locator("#lokasi option:checked").textContent()).includes("Produksi"), "Lokasi terisi otomatis dari GPS");
+await page.getByRole("radio", { name: "Near miss / nyaris celaka" }).click();
+await page.getByRole("radio", { name: "Peralatan" }).click();
+await page.locator("#uraian").fill("Forklift hampir menabrak pekerja di tikungan rak B karena cermin cembung pecah.");
+await page.locator("#dampak").fill("Pekerja tertabrak forklift.");
 await page.getByRole("radio", { name: /^Tinggi/ }).click();
-await page.locator('input[placeholder^="Contoh: Gudang"]').fill("Jalur forklift 2, dekat rak B");
-await page.locator('textarea[placeholder^="Tulis uraian"]').fill("Forklift hampir menabrak pekerja di tikungan rak B karena cermin cembung pecah.");
-await page.locator('textarea[placeholder^="Contoh: pasang"]').fill("Ganti cermin cembung dan pasang pembatas kecepatan.");
+await page.locator("#cepat").fill("Pasang rambu berhenti sementara.");
+await page.locator("#pencegahan").fill("Ganti cermin cembung dan pasang pembatas kecepatan.");
+await page.locator("#pic").selectOption({ index: 1 });
+ok(await page.getByText("bukan mencari kesalahan").count(), "Keterangan anti menyalahkan tampil di formulir");
 await page.screenshot({ path: `${S}/e2e-01-form.png`, fullPage: true });
 await page.getByRole("button", { name: "Kirim laporan" }).click();
 await page.waitForURL(/\/laporan\/[a-z0-9]+$/, { timeout: 30000 });
@@ -55,6 +60,7 @@ ok(await page.getByText("Menunggu verifikasi").count(), "Status awal menunggu ve
 ok(await page.getByText("Eskalasi Manager").count(), "Risiko Tinggi dieskalasi otomatis");
 ok(await page.getByText("Produksi").count(), "Area ditentukan dari koordinat GPS");
 ok(await page.getByText("Ganti cermin cembung dan pasang pembatas kecepatan.").count(), "Usulan perbaikan tampil di detail laporan");
+ok(await page.getByText("Pekerja tertabrak forklift.").count() && await page.getByText("Pasang rambu berhenti sementara.").count(), "Dampak dan perbaikan cepat tampil di detail laporan");
 await page.goto(`${BASE}/laporan`, { waitUntil: "networkidle" });
 const thumbSrc = await page.locator('img[src*="ukuran=kecil"]').first().getAttribute("src");
 const thumbRes = await page.request.get(`${BASE}${thumbSrc}`);
@@ -149,6 +155,7 @@ if (redeemed) {
 }
 await page.goto(`${BASE}/statistik`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
+ok(await page.getByRole("heading", { name: "Laporan ditolak" }).count() && await page.getByRole("heading", { name: "Jenis bahaya" }).count(), "Statistik memuat jenis bahaya dan laporan ditolak");
 for (const [label, ext] of [["PDF", "pdf"], ["PowerPoint", "pptx"], ["CSV", "csv"]]) {
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 60000 }), page.getByRole("button", { name: label }).click()]);
   const file = path.join(tmp, dl.suggestedFilename());
@@ -156,6 +163,8 @@ for (const [label, ext] of [["PDF", "pdf"], ["PowerPoint", "pptx"], ["CSV", "csv
   const size = fs.statSync(file).size;
   ok(size > 1000 && file.endsWith("." + ext), `Ekspor ${label} terunduh (${Math.round(size / 1024)} KB)`);
 }
+await page.goto(`${BASE}/laporan?tab=ditolak`, { waitUntil: "networkidle" });
+ok(await page.locator('a[aria-current="page"]', { hasText: "Ditolak" }).count(), "Daftar laporan memiliki tab Ditolak");
 for (const p of ["/admin/pengguna", "/admin/area", "/admin/reward", "/admin/pengaturan", "/admin/audit"]) {
   await page.goto(`${BASE}${p}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: `${S}/e2e-admin${p.replace(/\//g, "_")}.png`, fullPage: true });

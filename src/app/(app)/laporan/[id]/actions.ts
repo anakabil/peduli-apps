@@ -4,7 +4,7 @@ import { makeThumb } from "@/lib/image";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { verifyReport, decideReport, updateProgress, closeReport, resubmitReport, WorkflowError } from "@/lib/workflow";
-import { CATEGORIES, RISKS, CONTROLS, type Category, type Risk } from "@/lib/constants";
+import { CATEGORIES, RISKS, CONTROLS, type Category, type Risk, REJECT_REASONS, type RejectReason } from "@/lib/constants";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 import { db } from "@/lib/db";
@@ -28,7 +28,9 @@ export async function verifyAction(reportId: string, fd: FormData): Promise<Acti
   const result = String(fd.get("result"));
   if (!["VALID", "REVISI", "TOLAK"].includes(result)) return { ok: false, error: "Hasil verifikasi tidak valid." };
   const note = String(fd.get("note") ?? "");
-  const r = await run(() => verifyReport(user.id, reportId, result as "VALID" | "REVISI" | "TOLAK", note));
+  const reasonRaw = String(fd.get("rejectReason") ?? "");
+  if (reasonRaw && !(REJECT_REASONS as readonly string[]).includes(reasonRaw)) return { ok: false, error: "Alasan penolakan tidak valid." };
+  const r = await run(() => verifyReport(user.id, reportId, result as "VALID" | "REVISI" | "TOLAK", note, (reasonRaw || undefined) as RejectReason | undefined));
   revalidatePath(`/laporan/${reportId}`);
   revalidatePath("/verifikasi");
   return r;
@@ -41,7 +43,7 @@ export async function decideAction(reportId: string, fd: FormData): Promise<Acti
   const control = String(fd.get("controlHierarchy") ?? "");
   if (control && !(CONTROLS as readonly string[]).includes(control)) return { ok: false, error: "Hierarki pengendalian tidak valid." };
   const rejectRaw = String(fd.get("rejectReason") ?? "");
-  if (rejectRaw && !["GANDA", "TIDAK_BENAR", "TIDAK_PERLU_TINDAKAN"].includes(rejectRaw)) return { ok: false, error: "Alasan penolakan tidak valid." };
+  if (rejectRaw && !(REJECT_REASONS as readonly string[]).includes(rejectRaw)) return { ok: false, error: "Alasan penolakan tidak valid." };
   const targetRaw = String(fd.get("targetDate") ?? "");
   if (targetRaw && !/^\d{4}-\d{2}-\d{2}$/.test(targetRaw)) return { ok: false, error: "Format tanggal target tidak valid." };
   const r = await run(() =>
@@ -55,7 +57,7 @@ export async function decideAction(reportId: string, fd: FormData): Promise<Acti
       resourceMaterial: String(fd.get("resourceMaterial") ?? "") || null,
       targetDate: targetRaw ? new Date(targetRaw + "T17:00:00+07:00") : null,
       controlHierarchy: control || null,
-      rejectReason: (rejectRaw || undefined) as "GANDA" | "TIDAK_BENAR" | "TIDAK_PERLU_TINDAKAN" | undefined,
+      rejectReason: (rejectRaw || undefined) as RejectReason | undefined,
     })
   );
   revalidatePath(`/laporan/${reportId}`);

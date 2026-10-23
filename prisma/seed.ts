@@ -59,7 +59,7 @@ async function seedReports(ctx: {
 }) {
   const { manager, manager2, supt, supt2, pengawas, pengawas2, pengawas3, direksi, areaMap, areas } = ctx;
   const P = DEFAULT_SETTINGS.points;
-  const cats = ["KONDISI_TIDAK_AMAN", "TINDAKAN_TIDAK_AMAN", "NYARIS_CELAKA", "ERGONOMI", "LINGKUNGAN"];
+  const cats = ["KONDISI_TIDAK_AMAN", "TINDAKAN_TIDAK_AMAN", "NYARIS_CELAKA", "ERGONOMI", "LINGKUNGAN", "BENCANA_ALAM"];
   const risks = ["RENDAH", "SEDANG", "SEDANG", "TINGGI", "EKSTREM"];
   const descs = [
     "Kabel terkelupas dekat jalur forklift.",
@@ -72,6 +72,20 @@ async function seedReports(ctx: {
     "APAR terhalang tumpukan pallet.",
     "Tangga portabel retak pada anak tangga ketiga.",
     "Debu logam menumpuk di saluran ventilasi.",
+  ];
+  // Jenis bahaya dan dampak sejajar dengan urutan uraian di atas
+  const hazardTypes = ["PERALATAN", "MANUSIA", "PERALATAN", "METODE_KERJA", "MATERIAL_BERBAHAYA", "LINGKUNGAN_KERJA", "LINGKUNGAN_KERJA", "PERALATAN", "PERALATAN", "LINGKUNGAN_KERJA"];
+  const impacts = [
+    "Pekerja tersengat listrik atau kebakaran.",
+    "Mata terkena serpihan logam.",
+    "Pekerja tertimpa coil.",
+    "Nyeri punggung bawah.",
+    "Pekerja terpeleset.",
+    "Pekerja jatuh dari ketinggian.",
+    "Tertabrak kendaraan karena jarak pandang terbatas.",
+    "Pemadaman api terlambat saat kebakaran.",
+    "Pekerja jatuh dari tangga.",
+    "Gangguan pernapasan.",
   ];
   const reporters: U[] = [pengawas, pengawas2, pengawas3, pengawas, pengawas2, supt, manager2, pengawas3, pengawas, direksi];
   const areaCodes = ["PRD", "GDG", "UTL", "PRD", "GDG", "PRD", "LOG", "KTR", "PRD", "PRD"];
@@ -136,7 +150,7 @@ async function seedReports(ctx: {
     if (path === "A" && reached(verifiedAt)) {
       const res = rejectDup ? "TOLAK" : askRevision ? "REVISI" : "VALID";
       const to = res === "VALID" ? "MENUNGGU_KEPUTUSAN" : res === "REVISI" ? "PERLU_REVISI" : "DITOLAK";
-      Object.assign(r, { verifierId: verifier.id, verifiedAt, verificationResult: res, verificationNote: res === "VALID" ? "Foto sesuai lokasi dan waktu, uraian jelas." : res === "REVISI" ? "Foto kurang jelas, mohon ambil ulang dari sudut lain." : "Laporan ganda dengan laporan sebelumnya." });
+      Object.assign(r, { verifierId: verifier.id, verifiedAt, verificationResult: res, verificationNote: res === "VALID" ? "Foto sesuai lokasi dan waktu, uraian jelas." : res === "REVISI" ? "Foto kurang jelas, mohon ambil ulang dari sudut lain." : "Laporan ganda dengan laporan sebelumnya.", ...(res === "TOLAK" ? { rejectReason: "GANDA" } : {}) });
       if (res === "REVISI") r.revisionCount = 1;
       if (res === "TOLAK") r.isDuplicate = true;
       events.push({ type: res === "VALID" ? "DIVERIFIKASI" : res === "REVISI" ? "DIREVISI" : "DITOLAK", actorId: verifier.id, fromStatus: status, toStatus: to, note: String(r.verificationNote), createdAt: verifiedAt! });
@@ -146,7 +160,7 @@ async function seedReports(ctx: {
 
     if (status === "MENUNGGU_KEPUTUSAN" && reached(decidedAt)) {
       if (rejectDup) {
-        Object.assign(r, { deciderId: deciderFinal.id, decidedAt, decisionResult: "TOLAK", decisionNote: "Laporan ganda dengan laporan sebelumnya.", isDuplicate: true });
+        Object.assign(r, { deciderId: deciderFinal.id, decidedAt, decisionResult: "TOLAK", decisionNote: "Laporan ganda dengan laporan sebelumnya.", rejectReason: "GANDA", isDuplicate: true });
         events.push({ type: "DITOLAK", actorId: deciderFinal.id, fromStatus: status, toStatus: "DITOLAK", note: "Laporan ganda dengan laporan sebelumnya.", createdAt: decidedAt });
         status = "DITOLAK";
       } else {
@@ -198,8 +212,12 @@ async function seedReports(ctx: {
         areaLabel: `Titik ${1 + (i % 6)}`,
         category,
         riskLevel,
+        hazardType: hazardTypes[i % hazardTypes.length],
         description: descs[i % descs.length],
+        impact: impacts[i % impacts.length],
+        immediateAction: i % 2 === 0 ? "Area dipasang garis pembatas sementara." : null,
         suggestion: i % 3 === 0 ? "Pasang penutup pelindung dan beri tanda peringatan." : null,
+        proposedPicId: i % 4 === 0 ? picUser.id : null,
         suggestionApplied,
         lat: area.lat + ((i % 5) - 2) * 0.0004,
         lng: area.lng + ((i % 7) - 3) * 0.0004,

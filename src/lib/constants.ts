@@ -32,21 +32,45 @@ export const CATEGORIES = [
   "NYARIS_CELAKA",
   "ERGONOMI",
   "LINGKUNGAN",
+  "BENCANA_ALAM",
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
+// Kunci TINDAKAN_TIDAK_AMAN dipertahankan agar data lama tetap sah; labelnya "Perilaku tidak aman"
 export const CATEGORY_LABEL: Record<Category, string> = {
   KONDISI_TIDAK_AMAN: "Kondisi tidak aman",
-  TINDAKAN_TIDAK_AMAN: "Tindakan tidak aman",
-  NYARIS_CELAKA: "Nyaris celaka",
-  ERGONOMI: "Ergonomi",
-  LINGKUNGAN: "Lingkungan",
+  TINDAKAN_TIDAK_AMAN: "Perilaku tidak aman",
+  NYARIS_CELAKA: "Near miss / nyaris celaka",
+  ERGONOMI: "Bahaya ergonomi",
+  LINGKUNGAN: "Pencemaran lingkungan",
+  BENCANA_ALAM: "Bencana alam",
 };
 export const CATEGORY_SHORT: Record<Category, string> = {
   KONDISI_TIDAK_AMAN: "Kondisi",
-  TINDAKAN_TIDAK_AMAN: "Tindakan",
-  NYARIS_CELAKA: "Nyaris celaka",
+  TINDAKAN_TIDAK_AMAN: "Perilaku",
+  NYARIS_CELAKA: "Near miss",
   ERGONOMI: "Ergonomi",
   LINGKUNGAN: "Lingkungan",
+  BENCANA_ALAM: "Bencana",
+};
+
+export const HAZARD_TYPES = ["MANUSIA", "PERALATAN", "MATERIAL_BERBAHAYA", "METODE_KERJA", "LINGKUNGAN_KERJA", "KONDISI_ALAM"] as const;
+export type HazardType = (typeof HAZARD_TYPES)[number];
+export const HAZARD_TYPE_LABEL: Record<HazardType, string> = {
+  MANUSIA: "Manusia",
+  PERALATAN: "Peralatan",
+  MATERIAL_BERBAHAYA: "Material berbahaya",
+  METODE_KERJA: "Metode kerja",
+  LINGKUNGAN_KERJA: "Lingkungan kerja",
+  KONDISI_ALAM: "Kondisi alam",
+};
+
+/** Alasan penolakan laporan, dipakai pada verifikasi maupun keputusan agar penolakan dapat ditelusuri */
+export const REJECT_REASONS = ["TIDAK_PERLU_TINDAKAN", "GANDA", "TIDAK_BENAR"] as const;
+export type RejectReason = (typeof REJECT_REASONS)[number];
+export const REJECT_REASON_LABEL: Record<RejectReason, string> = {
+  TIDAK_PERLU_TINDAKAN: "Tidak memerlukan tindakan",
+  GANDA: "Laporan ganda",
+  TIDAK_BENAR: "Laporan tidak sesuai fakta",
 };
 
 export const RISKS = ["RENDAH", "SEDANG", "TINGGI", "EKSTREM"] as const;

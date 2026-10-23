@@ -66,10 +66,10 @@ export default async function PanduanPage() {
         <CardBody>
           <h3 className="font-bold">Dasar acuan</h3>
           <ul className="mt-2 space-y-1.5 text-sm text-ink-600">
-            <li>Undang-Undang Nomor 1 Tahun 1970 tentang Keselamatan Kerja: hak dan kewajiban atas bahaya kerja.</li>
-            <li>Peraturan Pemerintah Nomor 50 Tahun 2012 tentang Penerapan SMK3: identifikasi bahaya, penilaian, dan pengendalian risiko.</li>
-            <li>ISO 45001:2018: partisipasi pekerja (5.4), identifikasi bahaya (6.1.2), hierarki pengendalian (8.1.2), insiden dan tindakan korektif (10.2).</li>
-            <li>Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi: lokasi hanya diambil saat laporan dibuat.</li>
+            <li>UU No. 1 Tahun 1970 tentang Keselamatan Kerja.</li>
+            <li>PP No. 50 Tahun 2012 tentang SMK3.</li>
+            <li>ISO 45001:2018 Sistem Manajemen K3.</li>
+            <li>UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.</li>
           </ul>
         </CardBody>
       </Card>

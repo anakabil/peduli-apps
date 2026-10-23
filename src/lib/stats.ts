@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, type Category, type Risk, type Status } from "./constants";
+import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, HAZARD_TYPES, REJECT_REASONS, type Category, type Risk, type Status } from "./constants";
 import { daysBetween, hoursBetween, jktDate, jktParts } from "./format";
 
 export type Period = { from: Date; to: Date };
@@ -54,6 +54,10 @@ type Row = {
   outsideArea: boolean;
   suggestion: string | null;
   suggestionApplied: boolean;
+  hazardType: string | null;
+  rejectReason: string | null;
+  verifier: { name: string | null } | null;
+  decider: { name: string | null } | null;
   area: { id: string; name: string } | null;
   reporter: { id: string; name: string | null; role: string; departemen: string | null };
 };
@@ -61,7 +65,9 @@ type Row = {
 const select = {
   id: true, number: true, reporterId: true, areaId: true, category: true, riskLevel: true, status: true, path: true, createdAt: true,
   verifiedAt: true, verificationResult: true, decidedAt: true, decisionResult: true, targetDate: true, closedAt: true, closedOnTime: true, isDuplicate: true, controlHierarchy: true,
-  pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true,
+  pointsAwarded: true, escalated: true, outsideArea: true, suggestion: true, suggestionApplied: true, hazardType: true, rejectReason: true,
+  verifier: { select: { name: true } },
+  decider: { select: { name: true } },
   area: { select: { id: true, name: true } },
   reporter: { select: { id: true, name: true, role: true, departemen: true } },
 } as const;
@@ -191,6 +197,32 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
   const categoryDist = count(CATEGORIES, (r) => r.category);
   const statusDist = count(STATUSES, (r) => r.status);
   const controlDist = count(CONTROLS, (r) => r.controlHierarchy);
+  const hazardTypeDist = count(HAZARD_TYPES, (r) => r.hazardType);
+
+  // Laporan ditolak tetap dicatat terbuka: tahap penolakan, alasan, dan siapa yang menolak
+  const rejectedCur = cur.filter((r) => r.status === "DITOLAK");
+  const rejectStage = (r: Row) => (r.decisionResult === "TOLAK" ? "KEPUTUSAN" : "VERIFIKASI");
+  const rejectedByStage = [
+    { key: "VERIFIKASI", count: rejectedCur.filter((r) => rejectStage(r) === "VERIFIKASI").length },
+    { key: "KEPUTUSAN", count: rejectedCur.filter((r) => rejectStage(r) === "KEPUTUSAN").length },
+  ];
+  // Laporan lama tanpa alasan terstruktur dikelompokkan sebagai "Tanpa alasan"
+  const rejectedByReason = [...REJECT_REASONS, "LAINNYA" as const].map((k) => ({
+    key: k,
+    count: rejectedCur.filter((r) => (k === "LAINNYA" ? !r.rejectReason || !(REJECT_REASONS as readonly string[]).includes(r.rejectReason) : r.rejectReason === k)).length,
+  }));
+  const rejectedList = rejectedCur
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((r) => ({
+      id: r.id,
+      number: r.number,
+      area: r.area?.name ?? "-",
+      category: r.category as Category,
+      stage: rejectStage(r),
+      reason: r.rejectReason,
+      by: (rejectStage(r) === "KEPUTUSAN" ? r.decider?.name : r.verifier?.name) ?? "-",
+      at: rejectedAt(r),
+    }));
   const pathDist = [
     { key: "A", count: cur.filter((r) => r.path === "A").length },
     { key: "B", count: cur.filter((r) => r.path === "B").length },
@@ -290,6 +322,10 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     categoryDist,
     statusDist,
     controlDist,
+    hazardTypeDist,
+    rejectedByStage,
+    rejectedByReason,
+    rejectedList,
     pathDist,
     heatmap,
     heatMax,

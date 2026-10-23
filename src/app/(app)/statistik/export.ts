@@ -1,8 +1,8 @@
 "use client";
 
 import type { SerializedStats } from "./dashboard";
-import { INDICATORS } from "./dashboard";
-import { CATEGORIES, CATEGORY_SHORT, CATEGORY_LABEL, RISK_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, COMPANY_NAME, type Category, type Risk, type Status, type Control, type Role } from "@/lib/constants";
+import { INDICATORS, REJECT_STAGE_LABEL, REJECT_REASON_STAT_LABEL } from "./dashboard";
+import { CATEGORIES, CATEGORY_SHORT, CATEGORY_LABEL, RISK_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, HAZARD_TYPE_LABEL, COMPANY_NAME, type Category, type Risk, type Status, type Control, type Role, type HazardType } from "@/lib/constants";
 
 export type ExportCtx = { stats: SerializedStats; periodLabel: string; areaName: string | null; preparedBy: string; images: Record<string, string | null> };
 
@@ -47,6 +47,15 @@ function kpiRows(s: SerializedStats["summary"]) {
     ["Poin diberikan", `${s.pointsAwarded}`, `${s.suggestionApplied} dari ${s.withSuggestion} usulan diterapkan`],
   ];
 }
+
+const rejectRow = (r: SerializedStats["rejectedList"][number]) => [
+  r.number,
+  r.area,
+  REJECT_STAGE_LABEL[r.stage],
+  REJECT_REASON_STAT_LABEL[r.reason ?? "LAINNYA"] ?? REJECT_REASON_STAT_LABEL.LAINNYA,
+  r.by,
+  r.at ? new Date(r.at).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }) : "-",
+];
 
 // ---------------- PDF ----------------
 export async function exportPdf(ctx: ExportCtx) {
@@ -164,7 +173,7 @@ export async function exportPdf(ctx: ExportCtx) {
   });
   y = ((doc as DocWithTable).lastAutoTable?.finalY ?? y) + 8;
   if (stats.highOpenList.length) {
-    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text("Risiko Tinggi dan Ekstrem yang masih terbuka", M, y);
+    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text("Risiko tinggi terbuka", M, y);
     autoTable(doc, {
       startY: y + 3,
       margin: { left: M, right: M },
@@ -174,6 +183,35 @@ export async function exportPdf(ctx: ExportCtx) {
       headStyles: { fillColor: "#c8373b", textColor: "#ffffff" },
     });
   }
+
+  // Laporan ditolak tetap dilaporkan untuk menjaga objektivitas
+  header("Jenis bahaya dan laporan ditolak");
+  autoTable(doc, {
+    startY: 44,
+    margin: { left: M, right: W / 2 + 2 },
+    head: [["Jenis bahaya", "Jumlah"]],
+    body: stats.hazardTypeDist.map((c) => [HAZARD_TYPE_LABEL[c.key as HazardType], c.count]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: BRAND2, textColor: "#ffffff" },
+  });
+  autoTable(doc, {
+    startY: 44,
+    margin: { left: W / 2 + 2, right: M },
+    head: [["Ditolak menurut tahap dan alasan", "Jumlah"]],
+    body: [...stats.rejectedByStage.map((r) => [`Tahap ${REJECT_STAGE_LABEL[r.key]}`, r.count]), ...stats.rejectedByReason.map((r) => [REJECT_REASON_STAT_LABEL[r.key], r.count])],
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: "#c8373b", textColor: "#ffffff" },
+  });
+  y = ((doc as DocWithTable).lastAutoTable?.finalY ?? 80) + 8;
+  doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text(`Daftar laporan ditolak (${stats.rejectedList.length})`, M, y);
+  autoTable(doc, {
+    startY: y + 3,
+    margin: { left: M, right: M },
+    head: [["Nomor", "Area", "Tahap", "Alasan", "Oleh", "Tanggal"]],
+    body: stats.rejectedList.length ? stats.rejectedList.map(rejectRow) : [["Tidak ada laporan ditolak pada periode ini.", "", "", "", "", ""]],
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: BRAND2, textColor: "#ffffff" },
+  });
 
   // Halaman 3: partisipasi dan indikator
   header("Partisipasi, pengendalian, dan kamus indikator");
@@ -312,9 +350,22 @@ export async function exportPptx(ctx: ExportCtx) {
 
   // Slide 6: risiko tinggi terbuka
   if (stats.highOpenList.length) {
-    const s6 = master("Risiko Tinggi dan Ekstrem yang masih terbuka", "Prioritas eskalasi dan anggaran, diurutkan dari yang paling lama.");
+    const s6 = master("Risiko tinggi terbuka", "Diurutkan dari yang paling lama.");
     s6.addTable([[hdr("Nomor"), hdr("Area"), hdr("Kategori"), hdr("Risiko"), hdr("Status"), hdr("Umur (hari)")], ...stats.highOpenList.map((r) => [{ text: r.number }, { text: r.area }, { text: CATEGORY_LABEL[r.category] }, { text: RISK_LABEL[r.riskLevel], options: { bold: true, color: r.riskLevel === "EKSTREM" ? "C8373B" : "E07A1F" } }, { text: STATUS_LABEL[r.status as Status] }, { text: String(r.days), options: { bold: true, color: r.days > 14 ? "C8373B" : "14211C" } }])], { x: 0.35, y: 1.65, w: 9.3, fontSize: 9, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.6, 1.3, 2.0, 1.0, 2.2, 1.2], rowH: 0.3 });
   }
+
+  // Slide laporan ditolak: tetap ditampilkan agar keputusan penolakan dapat ditelaah
+  const sR = master("Jenis bahaya dan laporan ditolak", `${stats.summary.rejected} laporan ditolak dalam periode.`);
+  sR.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.hazardTypeDist.map((c) => HAZARD_TYPE_LABEL[c.key as HazardType]), values: stats.hazardTypeDist.map((c) => c.count) }], { x: 0.35, y: 1.65, w: 3.6, h: 3.4, barDir: "bar", chartColors: ["0A785B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Jenis bahaya", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
+  sR.addTable(
+    [
+      [hdr("Nomor"), hdr("Area"), hdr("Tahap"), hdr("Alasan"), hdr("Oleh")],
+      ...(stats.rejectedList.length
+        ? stats.rejectedList.slice(0, 10).map((r) => rejectRow(r).slice(0, 5).map((t) => ({ text: String(t) })))
+        : [[{ text: "Tidak ada laporan ditolak." }, { text: "" }, { text: "" }, { text: "" }, { text: "" }]]),
+    ],
+    { x: 4.15, y: 1.65, w: 5.5, fontSize: 8, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.3, 0.9, 0.9, 1.4, 1.0], rowH: 0.26 },
+  );
 
   // Slide 7: kamus indikator
   const s7 = master("Kamus indikator", "Indikator objektif untuk dasar kebijakan.");
@@ -352,6 +403,12 @@ export function exportCsv(ctx: ExportCtx) {
   rows.push([]);
   rows.push(["Status", "Jumlah"]);
   stats.statusDist.forEach((r) => rows.push([STATUS_LABEL[r.key as Status], String(r.count)]));
+  rows.push([]);
+  rows.push(["Jenis bahaya", "Jumlah"]);
+  stats.hazardTypeDist.forEach((r) => rows.push([HAZARD_TYPE_LABEL[r.key as HazardType], String(r.count)]));
+  rows.push([]);
+  rows.push(["Laporan ditolak", "Area", "Tahap", "Alasan", "Oleh", "Tanggal"]);
+  stats.rejectedList.forEach((r) => rows.push(rejectRow(r)));
   rows.push([]);
   rows.push(["Umur tindak lanjut terbuka", "Jumlah"]);
   stats.aging.forEach((a) => rows.push([a.label, String(a.count)]));

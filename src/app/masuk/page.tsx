@@ -57,7 +57,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Lapor, verifikasi, putuskan, perbaiki, ukur.
           </h1>
           <p className="mt-4 text-white/75 leading-relaxed">
-            PEDULI menyatukan UU No. 1 Tahun 1970, PP No. 50 Tahun 2012 tentang SMK3, dan ISO 45001:2018 dalam satu alur digital yang ringan bagi pelapor dan lengkap bagi pengambil keputusan.
+            Satu alur digital untuk melaporkan bahaya, menindaklanjuti, dan mengukur kinerja K3.
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3 [&>*]:h-full">
             {[

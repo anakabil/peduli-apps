@@ -10,7 +10,7 @@ export default async function PengaturanPage() {
   const settings = await getSettings();
   return (
     <div className="max-w-3xl">
-      <PageHeader eyebrow="Administrasi" title="Pengaturan alur" description="Manager mengatur jalur laporan, batas waktu tiap tahap, dan aturan eskalasi otomatis. Setiap perubahan tercatat pada jejak audit." />
+      <PageHeader eyebrow="Administrasi" title="Pengaturan alur" description="Jalur laporan, batas waktu, dan eskalasi. Setiap perubahan tercatat." />
       <SettingsForm settings={settings} isAdmin={user.role === "ADMIN"} />
     </div>
   );

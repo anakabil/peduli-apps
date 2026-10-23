@@ -2,68 +2,78 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, LocateFixed, Send, X, Lightbulb, AlertTriangle, CheckCircle2, Clock, WifiOff, TriangleAlert, UserX, Siren, PersonStanding, Leaf } from "lucide-react";
-import { CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, RISK_COLOR, type Category, type Risk } from "@/lib/constants";
+import { Camera, MapPin, RefreshCw, Send, X, AlertTriangle, CheckCircle2, WifiOff, ShieldCheck, TriangleAlert, UserX, Siren, PersonStanding, Droplets, CloudLightning, Users, Cog, FlaskConical, ListChecks, Factory } from "lucide-react";
+import { CATEGORIES, CATEGORY_LABEL, HAZARD_TYPES, HAZARD_TYPE_LABEL, RISKS, RISK_LABEL, RISK_COLOR, type Category, type HazardType, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
-import { cn } from "@/lib/format";
+import { cn, distanceM } from "@/lib/format";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
 
-const CATEGORY_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+type Icon = ComponentType<{ size?: number; className?: string }>;
+
+const CATEGORY_ICON: Record<Category, Icon> = {
   KONDISI_TIDAK_AMAN: TriangleAlert,
   TINDAKAN_TIDAK_AMAN: UserX,
   NYARIS_CELAKA: Siren,
   ERGONOMI: PersonStanding,
-  LINGKUNGAN: Leaf,
+  LINGKUNGAN: Droplets,
+  BENCANA_ALAM: CloudLightning,
 };
 
-type Area = { id: string; name: string; code: string };
-type Geo = { lat: number; lng: number; accuracy: number; at: Date };
+const HAZARD_ICON: Record<HazardType, Icon> = {
+  MANUSIA: Users,
+  PERALATAN: Cog,
+  MATERIAL_BERBAHAYA: FlaskConical,
+  METODE_KERJA: ListChecks,
+  LINGKUNGAN_KERJA: Factory,
+  KONDISI_ALAM: CloudLightning,
+};
 
 const RISK_HELP: Record<Risk, string> = {
-  RENDAH: "Cedera ringan, dapat ditangani dengan P3K.",
-  SEDANG: "Cedera memerlukan perawatan medis, kehilangan hari kerja.",
+  RENDAH: "Cedera ringan, cukup P3K.",
+  SEDANG: "Perlu perawatan medis, kehilangan hari kerja.",
   TINGGI: "Cedera serius atau cacat tetap, kerusakan besar.",
   EKSTREM: "Potensi fatalitas atau kecelakaan massal.",
 };
 
-function Section({ no, title, hint, aside, children, className = "" }: { no: number; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
+type Area = { id: string; name: string; lat: number | null; lng: number | null; radiusM: number };
+type Person = { id: string; name: string; jabatan: string | null };
+type Geo = { lat: number; lng: number; accuracy: number };
+
+function Section({ no, title, aside, children }: { no: number; title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className={cn("card p-4 sm:p-5", className)}>
-      <div className="flex items-start gap-3">
+    <section className="card p-4 sm:p-5">
+      <div className="flex items-center gap-3">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-700 text-xs font-bold tabular-nums text-white">{no}</span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-bold text-ink-900">{title}</h3>
-          {hint && <p className="mt-0.5 text-[13px] leading-snug text-ink-500">{hint}</p>}
-        </div>
-        {aside && <div className="shrink-0 pt-0.5 text-xs font-medium tabular-nums text-ink-500">{aside}</div>}
+        <h3 className="min-w-0 flex-1 text-[15px] font-bold text-ink-900">{title}</h3>
+        {aside && <div className="shrink-0 text-xs font-medium tabular-nums text-ink-500">{aside}</div>}
       </div>
       <div className="mt-4">{children}</div>
     </section>
   );
 }
 
-export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAreaId: string | null; path: "A" | "B" }) {
+const Req = () => <span className="text-red">*</span>;
+
+export function ReportForm({ areas, personnel, userAreaId, path }: { areas: Area[]; personnel: Person[]; userAreaId: string | null; path: "A" | "B" }) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Array<{ blob: Blob; url: string; name: string }>>([]);
+  const [areaId, setAreaId] = useState<string>(userAreaId && areas.some((a) => a.id === userAreaId) ? userAreaId : "");
+  const [areaTouched, setAreaTouched] = useState(false);
   const [category, setCategory] = useState<Category | "">("");
-  const [risk, setRisk] = useState<Risk | "">("");
+  const [hazardType, setHazardType] = useState<HazardType | "">("");
   const [description, setDescription] = useState("");
+  const [impact, setImpact] = useState("");
+  const [risk, setRisk] = useState<Risk | "">("");
+  const [immediateAction, setImmediateAction] = useState("");
   const [suggestion, setSuggestion] = useState("");
-  const [areaLabel, setAreaLabel] = useState("");
+  const [picId, setPicId] = useState("");
   const [geo, setGeo] = useState<Geo | null>(null);
   const [geoState, setGeoState] = useState<"idle" | "locating" | "locked" | "denied" | "unsupported">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ number?: string; offline?: boolean } | null>(null);
-  const [now, setNow] = useState<Date | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(t);
-  }, []);
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
@@ -73,7 +83,7 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
     setGeoState("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, at: new Date() });
+        setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
         setGeoState("locked");
       },
       () => setGeoState("denied"),
@@ -84,6 +94,21 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
   useEffect(() => {
     locate();
   }, []);
+
+  // Lokasi diisi otomatis dari area terdekat selama pelapor belum memilih sendiri
+  useEffect(() => {
+    if (!geo || areaTouched) return;
+    let best: { id: string; d: number } | null = null;
+    for (const a of areas) {
+      if (a.lat == null || a.lng == null) continue;
+      const d = distanceM(geo.lat, geo.lng, a.lat, a.lng);
+      if (d <= a.radiusM && (!best || d < best.d)) best = { id: a.id, d };
+    }
+    if (best) setAreaId(best.id);
+  }, [geo, areaTouched, areas]);
+
+  const chosen = areas.find((a) => a.id === areaId);
+  const outside = !!(geo && chosen && chosen.lat != null && chosen.lng != null && distanceM(geo.lat, geo.lng, chosen.lat, chosen.lng) > chosen.radiusM);
 
   const addPhoto = async (files: FileList | null) => {
     if (!files) return;
@@ -105,9 +130,12 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
 
   const validate = () => {
     if (photos.length === 0) return "Ambil minimal satu foto dari kamera.";
+    if (!areaId) return "Pilih lokasi temuan.";
     if (!category) return "Pilih kategori bahaya.";
-    if (!risk) return "Pilih tingkat risiko awal.";
+    if (!hazardType) return "Pilih jenis bahaya.";
     if (description.trim().length < 10) return "Uraikan bahaya minimal 10 karakter.";
+    if (impact.trim().length < 5) return "Tuliskan dampak yang dapat ditimbulkan.";
+    if (!risk) return "Pilih tingkat risiko awal.";
     return null;
   };
 
@@ -120,11 +148,15 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
     setBusy(true);
     setError(null);
     const fields: Record<string, string> = {
+      areaId,
       category,
+      hazardType,
       riskLevel: risk,
       description: description.trim(),
+      impact: impact.trim(),
+      immediateAction: immediateAction.trim(),
       suggestion: suggestion.trim(),
-      areaLabel: areaLabel.trim(),
+      proposedPicId: picId,
       lat: geo ? String(geo.lat) : "",
       lng: geo ? String(geo.lng) : "",
       accuracyM: geo ? String(Math.round(geo.accuracy)) : "",
@@ -165,8 +197,8 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Laporan terkirim"}</h2>
         <p className="mt-2 text-sm text-ink-500">
           {done.offline
-            ? "Tidak ada sinyal. Laporan akan dikirim otomatis dengan penanda waktu sinkronisasi saat jaringan tersedia."
-            : `Nomor laporan ${done.number}. ${path === "A" ? "Superintendent akan memverifikasi." : "Manager akan memutuskan."}`}
+            ? "Tidak ada sinyal. Laporan dikirim otomatis saat jaringan tersedia."
+            : `Nomor laporan ${done.number}. ${path === "A" ? "Superintendent akan memverifikasi." : "Manager akan meninjau."}`}
         </p>
         {done.offline && (
           <button className="btn-primary mt-6" onClick={() => router.push("/laporan")}>
@@ -177,11 +209,9 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
     );
   }
 
-  const fmt = (d: Date) => new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(d) + " WIB";
-
   return (
     <div className="space-y-4 stagger">
-      <Section no={1} title="Foto dari kamera" hint="Foto diambil langsung dari kamera untuk menjaga akurasi bukti." aside={`${photos.length}/3`}>
+      <Section no={1} title="Foto dan lokasi" aside={`${photos.length}/3 foto`}>
         <div className="grid grid-cols-3 gap-2">
           {photos.map((p, i) => (
             <div key={p.url} className="relative aspect-square overflow-hidden rounded-xl border border-ink-200 anim-scale-in">
@@ -200,19 +230,70 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
           )}
         </div>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => addPhoto(e.target.files)} />
+
+        <label className="label mt-5" htmlFor="lokasi">
+          Lokasi <Req />
+        </label>
+        <select
+          id="lokasi"
+          className="input min-h-11"
+          value={areaId}
+          onChange={(e) => {
+            setAreaId(e.target.value);
+            setAreaTouched(true);
+          }}
+        >
+          <option value="">Pilih lokasi</option>
+          {areas.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+
+        <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-ink-50 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-ink-600">
+            <MapPin size={14} className="shrink-0 text-brand-600" />
+            {geoState === "locked" && geo ? (
+              <span className="truncate tabular-nums">
+                GPS {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}, akurasi {Math.round(geo.accuracy)} m
+              </span>
+            ) : geoState === "locating" ? (
+              <span>Mencari posisi GPS...</span>
+            ) : geoState === "denied" ? (
+              <span>Izin lokasi ditolak. Laporan tetap dapat dikirim.</span>
+            ) : (
+              <span>GPS tidak tersedia di perangkat ini.</span>
+            )}
+          </div>
+          <button type="button" onClick={locate} disabled={geoState === "locating"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-600 hover:bg-white disabled:opacity-50" aria-label="Perbarui GPS" title="Perbarui GPS">
+            <RefreshCw size={16} className={geoState === "locating" ? "animate-spin" : ""} />
+          </button>
+        </div>
+        {outside && <p className="mt-2 text-xs text-[#7a5c06]">Posisi GPS berada di luar radius {chosen?.name}. Pastikan lokasi yang dipilih sudah benar.</p>}
       </Section>
 
-      <Section no={2} title="Kategori dan tingkat risiko">
-        <label className="label">Kategori bahaya <span className="text-red">*</span></label>
-        <ChoiceGrid
-          multiple={false}
-          ariaLabel="Kategori bahaya"
-          options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], icon: CATEGORY_ICON[c] }))}
-          selected={category ? [category] : []}
-          onToggle={(k) => setCategory(k as Category)}
-        />
-        <label className="label mt-5">Tingkat risiko awal <span className="text-red">*</span></label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <Section no={2} title="Kategori bahaya">
+        <ChoiceGrid multiple={false} ariaLabel="Kategori bahaya" options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], icon: CATEGORY_ICON[c] }))} selected={category ? [category] : []} onToggle={(k) => setCategory(k as Category)} />
+        <div className="label mt-5">
+          Jenis bahaya <Req />
+        </div>
+        <ChoiceGrid multiple={false} ariaLabel="Jenis bahaya" options={HAZARD_TYPES.map((h) => ({ key: h, label: HAZARD_TYPE_LABEL[h], icon: HAZARD_ICON[h] }))} selected={hazardType ? [hazardType] : []} onToggle={(k) => setHazardType(k as HazardType)} />
+      </Section>
+
+      <Section no={3} title="Uraian bahaya">
+        <label className="label" htmlFor="uraian">
+          Uraian bahaya <Req />
+        </label>
+        <textarea id="uraian" className="input min-h-24" placeholder="Apa bahayanya dan di mana tepatnya." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <label className="label mt-4" htmlFor="dampak">
+          Dampak yang dapat ditimbulkan <Req />
+        </label>
+        <textarea id="dampak" className="input min-h-20" placeholder="Contoh: pekerja tersengat listrik, forklift tergelincir." value={impact} onChange={(e) => setImpact(e.target.value)} maxLength={2000} />
+        <div className="label mt-4">
+          Tingkat risiko awal <Req />
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Tingkat risiko awal">
           {RISKS.map((r) => (
             <button key={r} type="button" role="radio" aria-checked={risk === r} onClick={() => setRisk(r)} className={cn("flex h-full flex-col justify-start rounded-xl border bg-white px-3 py-2.5 text-left transition-colors", risk === r ? "ring-1" : "border-ink-200 hover:border-ink-300")} style={risk === r ? { borderColor: RISK_COLOR[r], background: `${RISK_COLOR[r]}14`, ["--tw-ring-color" as string]: RISK_COLOR[r] } : undefined}>
               <span className="flex items-center gap-2 text-sm font-bold text-ink-900">
@@ -226,64 +307,59 @@ export function ReportForm({ areas, userAreaId, path }: { areas: Area[]; userAre
         {(risk === "TINGGI" || risk === "EKSTREM") && (
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-orange/10 px-3 py-2 text-xs text-ink-800 anim-fade-in">
             <AlertTriangle size={14} className="mt-0.5 shrink-0 text-orange" />
-            Risiko Tinggi dan Ekstrem dieskalasi langsung ke Manager dan memperoleh bonus poin bila terverifikasi.
+            Risiko Tinggi dan Ekstrem langsung diteruskan ke Manager.
           </div>
         )}
       </Section>
 
-      <Section no={3} title="Uraian bahaya" hint="Jelaskan apa bahayanya, di mana, dan siapa yang dapat terpapar.">
-        <label className="label">Uraian bahaya <span className="text-red">*</span></label>
-        <textarea className="input min-h-28" placeholder="Tulis uraian singkat: apa bahayanya, di mana, siapa yang terpapar." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        <label className="label mt-4 flex items-start gap-1.5"><Lightbulb size={14} className="mt-0.5 shrink-0 text-ink-400" /> <span>Usulan perbaikan <span className="font-normal text-ink-500">(opsional, bonus poin bila diterapkan)</span></span></label>
-        <textarea className="input min-h-20" placeholder="Contoh: pasang penutup kabel permanen dan tambahkan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
+      <Section no={4} title="Usulan perbaikan">
+        <label className="label" htmlFor="cepat">
+          Tindakan perbaikan cepat
+        </label>
+        <textarea id="cepat" className="input min-h-20" placeholder="Contoh: area diberi barikade, pekerjaan dihentikan sementara." value={immediateAction} onChange={(e) => setImmediateAction(e.target.value)} maxLength={2000} />
+        <label className="label mt-4" htmlFor="pencegahan">
+          Tindakan pencegahan
+        </label>
+        <textarea id="pencegahan" className="input min-h-20" placeholder="Contoh: pasang penutup kabel permanen dan rambu peringatan." value={suggestion} onChange={(e) => setSuggestion(e.target.value)} maxLength={2000} />
+        <label className="label mt-4" htmlFor="pic">
+          Penanggung jawab
+        </label>
+        <select id="pic" className="input min-h-11" value={picId} onChange={(e) => setPicId(e.target.value)}>
+          <option value="">Pilih personel</option>
+          {personnel.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.jabatan ? `, ${p.jabatan}` : ""}
+            </option>
+          ))}
+        </select>
       </Section>
 
-      <Section no={4} title="Lokasi dan waktu" hint="Terekam otomatis saat laporan dibuat." className={geoState === "locked" ? "border-l-4 border-l-brand-500" : "border-l-4 border-l-amber"}>
-        <div className="space-y-2.5 text-sm">
-          <div className="flex items-start gap-2.5 text-ink-800">
-            <MapPin size={16} className="mt-0.5 shrink-0 text-brand-600" />
-            {geoState === "locked" && geo ? (
-              <span>
-                GPS terkunci, akurasi {Math.round(geo.accuracy)} m
-                <span className="block text-xs tabular-nums text-ink-500">{geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}</span>
-              </span>
-            ) : geoState === "locating" ? (
-              <span className="text-ink-500">Mengunci posisi GPS...</span>
-            ) : geoState === "denied" ? (
-              <span className="text-[#7a5c06]">Izin lokasi ditolak. Laporan tetap bisa dikirim dan akan ditandai untuk ditinjau.</span>
-            ) : (
-              <span className="text-ink-500">GPS tidak tersedia di perangkat ini.</span>
-            )}
-          </div>
-          <div className="flex items-start gap-2.5 text-ink-800">
-            <Clock size={16} className="mt-0.5 shrink-0 text-brand-600" />
-            <span>
-              {now ? fmt(now) : "-"}
-              <span className="block text-xs text-ink-500">Cap waktu final dicatat oleh server</span>
-            </span>
-          </div>
-          <button type="button" onClick={locate} className="btn-secondary btn-sm min-h-9">
-            <LocateFixed size={14} /> {geoState === "locating" ? "Mencari posisi..." : "Perbarui lokasi"}
-          </button>
+      <aside className="rounded-2xl border border-brand-200 bg-brand-50/70 p-4 sm:p-5" aria-label="Keterangan">
+        <div className="flex items-center gap-2 text-sm font-bold text-brand-800">
+          <ShieldCheck size={18} /> Keterangan
         </div>
-        <div className="mt-4">
-          <label className="label">Keterangan lokasi (opsional)</label>
-          <input className="input" placeholder="Contoh: Gudang bahan baku, dekat jalur forklift 2" value={areaLabel} onChange={(e) => setAreaLabel(e.target.value)} list="area-list" />
-          <datalist id="area-list">
-            {areas.map((a) => (
-              <option key={a.id} value={a.name} />
-            ))}
-          </datalist>
-          <p className="help">Area kerja ditentukan otomatis dari koordinat GPS{userAreaId ? ", cadangan dari area profil Anda" : ""}. Nama pelapor dan departemen diambil dari akun Anda.</p>
-        </div>
-      </Section>
+        <ul className="mt-2.5 space-y-1.5 text-[13px] leading-snug text-ink-700">
+          <li className="flex gap-2">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />
+            Laporan ditinjau dan disetujui Manager sebelum ditindaklanjuti.
+          </li>
+          <li className="flex gap-2">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />
+            Pelaporan bertujuan memperbaiki kondisi kerja, bukan mencari kesalahan seseorang.
+          </li>
+          <li className="flex gap-2">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />
+            Laporan Anda dijaga kerahasiaannya dan hanya dibuka oleh pihak yang menindaklanjuti.
+          </li>
+        </ul>
+      </aside>
 
       {error && <div className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red anim-fade-in">{error}</div>}
 
       <button type="button" onClick={submit} disabled={busy} className="btn-primary btn-lg w-full">
         <Send size={18} /> {busy ? "Mengirim..." : "Kirim laporan"}
       </button>
-      <p className="text-center text-xs text-ink-500">Nomor laporan unik, identitas, dan peran pelapor terekam otomatis.</p>
     </div>
   );
 }

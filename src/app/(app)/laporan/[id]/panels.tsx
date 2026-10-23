@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, RotateCcw, XCircle, ThumbsUp, ThumbsDown, Wrench, Flag, Camera, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { verifyAction, decideAction, progressAction, closeAction, resubmitAction, auditSampleAction, type ActionResult } from "./actions";
-import { CONTROLS, CONTROL_LABEL, CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL } from "@/lib/constants";
+import { CONTROLS, CONTROL_LABEL, CATEGORIES, CATEGORY_LABEL, RISKS, RISK_LABEL, REJECT_REASONS, REJECT_REASON_LABEL } from "@/lib/constants";
 import { Field } from "@/components/ui";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
 
@@ -45,6 +45,19 @@ const CONTROL_HINT: Record<string, string> = {
   APD: "Alat pelindung diri sebagai lapis terakhir",
 };
 
+/** Alasan penolakan yang sama untuk verifikasi dan keputusan, agar penolakan dapat ditelusuri di statistik */
+function RejectReasonSelect() {
+  return (
+    <select name="rejectReason" className="input" defaultValue="TIDAK_PERLU_TINDAKAN">
+      {REJECT_REASONS.map((r) => (
+        <option key={r} value={r}>
+          {REJECT_REASON_LABEL[r]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function Feedback({ msg }: { msg: ActionResult | null }) {
   if (!msg) return null;
   return msg.ok ? (
@@ -82,9 +95,16 @@ export function VerifyPanel({ reportId }: { reportId: string }) {
           <XCircle size={16} /> Tolak
         </Outcome>
       </div>
+      {result === "TOLAK" && (
+        <div className="mt-4 anim-fade-in">
+          <Field label="Alasan penolakan" required>
+            <RejectReasonSelect />
+          </Field>
+        </div>
+      )}
       <div className="mt-4">
-        <Field label={result === "VALID" ? "Catatan (opsional)" : "Catatan untuk pelapor"} required={result !== "VALID"}>
-          <textarea name="note" className="input min-h-20" placeholder={result === "TOLAK" ? "Contoh: laporan ganda dengan PDL-..., atau foto tidak sesuai." : "Tulis catatan."} />
+        <Field label={result === "VALID" ? "Catatan" : "Penjelasan untuk pelapor"} required={result !== "VALID"}>
+          <textarea name="note" className="input min-h-20" placeholder={result === "TOLAK" ? "Contoh: sama dengan laporan PDL-..., atau foto tidak sesuai lokasi." : "Tulis catatan."} />
         </Field>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -157,7 +177,7 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
           <Field label="Target selesai" required>
             <input type="date" name="targetDate" className="input" min={minDate} required />
           </Field>
-          <Field label="Hierarki pengendalian (ISO 45001:2018 klausul 8.1.2)" required help="Urut dari paling efektif ke paling lemah. Pilih tingkat tertinggi yang dapat diterapkan.">
+          <Field label="Hierarki pengendalian" required help="Urut dari yang paling efektif.">
             <ChoiceGrid
               multiple={false}
               className="grid-cols-1 sm:grid-cols-1"
@@ -167,18 +187,14 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
               onToggle={(k) => setControl(k)}
             />
           </Field>
-          <Field label="Catatan keputusan (opsional)">
+          <Field label="Catatan keputusan">
             <textarea name="note" className="input min-h-16" />
           </Field>
         </div>
       ) : (
         <div className="mt-4 space-y-4 anim-fade-in">
           <Field label="Alasan penolakan" required>
-            <select name="rejectReason" className="input">
-              <option value="TIDAK_PERLU_TINDAKAN">Tidak memerlukan tindakan (poin tetap diberikan)</option>
-              <option value="GANDA">Laporan ganda (poin dibatalkan)</option>
-              <option value="TIDAK_BENAR">Laporan tidak benar (poin dibatalkan)</option>
-            </select>
+            <RejectReasonSelect />
           </Field>
           <Field label="Penjelasan untuk pelapor" required>
             <textarea name="note" className="input min-h-20" required />
@@ -187,7 +203,7 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
       )}
       {hasSuggestion && result === "SETUJU" && (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-500">
-          <Sparkles size={13} className="text-gold" /> Laporan ini memuat usulan perbaikan. Tandai sebagai diterapkan saat penutupan untuk memberikan bonus poin.
+          <Sparkles size={13} className="text-gold" /> Pelapor menyertakan tindakan pencegahan.
         </p>
       )}
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -229,7 +245,7 @@ export function ProgressPanel({ reportId, current }: { reportId: string; current
         </Field>
       </div>
       <div className="mt-3">
-        <Field label="Foto bukti perbaikan (opsional)">
+        <Field label="Foto bukti perbaikan">
           <label className="btn-secondary cursor-pointer">
             <Camera size={16} /> Ambil foto
             <input type="file" name="photo" accept="image/*" capture="environment" className="hidden" />
@@ -267,7 +283,7 @@ export function ClosePanel({ reportId, hasSuggestion }: { reportId: string; hasS
       {hasSuggestion && accepted && (
         <label className="mt-4 flex items-center gap-2 rounded-xl border border-gold/40 bg-gold/5 px-3 py-2.5 text-sm">
           <input type="checkbox" name="suggestionApplied" className="size-5 accent-[var(--brand-600)]" />
-          Usulan perbaikan dari pelapor diterapkan (bonus poin)
+          Tindakan pencegahan dari pelapor diterapkan
         </label>
       )}
       <div className="mt-4">

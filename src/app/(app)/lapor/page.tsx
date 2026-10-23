@@ -8,7 +8,11 @@ export const metadata = { title: "Lapor bahaya" };
 
 export default async function LaporPage() {
   const user = await requireUser();
-  const areas = await db.area.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, code: true } });
+  const [areas, personnel] = await Promise.all([
+    db.area.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, lat: true, lng: true, radiusM: true } }),
+    // Personel yang dapat diusulkan sebagai penanggung jawab perbaikan
+    db.user.findMany({ where: { status: "ACTIVE", role: { in: ["MANAGER", "SUPERINTENDENT", "PENGAWAS"] } }, select: { id: true, name: true, jabatan: true }, orderBy: { name: "asc" } }),
+  ]);
   const path = user.role === "PENGAWAS" ? "A" : "B";
   return (
     <div className="mx-auto max-w-2xl">
@@ -17,11 +21,11 @@ export default async function LaporPage() {
         title="Lapor bahaya"
         description={
           path === "A"
-            ? "Laporan Anda akan diverifikasi Superintendent lebih dahulu, lalu diputuskan Manager."
-            : `Sebagai ${ROLE_LABEL[user.role as Role]}, laporan Anda langsung diteruskan ke Manager tanpa verifikasi Superintendent.`
+            ? "Diverifikasi Superintendent, lalu diputuskan Manager."
+            : `Sebagai ${ROLE_LABEL[user.role as Role]}, laporan Anda langsung diteruskan ke Manager.`
         }
       />
-      <ReportForm areas={areas} userAreaId={user.areaId} path={path} />
+      <ReportForm areas={areas} personnel={personnel.map((p) => ({ id: p.id, name: p.name ?? "-", jabatan: p.jabatan }))} userAreaId={user.areaId} path={path} />
     </div>
   );
 }

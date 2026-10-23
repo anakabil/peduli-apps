@@ -40,18 +40,19 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  reports       Report[]       @relation("Reporter")
-  verifications Report[]       @relation("Verifier")
-  decisions     Report[]       @relation("Decider")
-  picReports    Report[]       @relation("Pic")
-  closures      Report[]       @relation("Closer")
-  events        ReportEvent[]
-  pointLedger   PointLedger[]
-  redemptions   Redemption[]   @relation("Redeemer")
-  processed     Redemption[]   @relation("Processor")
-  auditLogs     AuditLog[]
-  notifications Notification[]
-  managedAreas  Area[]         @relation("AreaManager")
+  reports            Report[]       @relation("Reporter")
+  verifications      Report[]       @relation("Verifier")
+  decisions          Report[]       @relation("Decider")
+  picReports         Report[]       @relation("Pic")
+  proposedPicReports Report[]       @relation("ProposedPic")
+  closures           Report[]       @relation("Closer")
+  events             ReportEvent[]
+  pointLedger        PointLedger[]
+  redemptions        Redemption[]   @relation("Redeemer")
+  processed          Redemption[]   @relation("Processor")
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  managedAreas       Area[]         @relation("AreaManager")
 }
 
 model Account {
@@ -122,16 +123,22 @@ model Report {
 
   category    String // KONDISI_TIDAK_AMAN | TINDAKAN_TIDAK_AMAN | NYARIS_CELAKA | ERGONOMI | LINGKUNGAN
   riskLevel   String // RENDAH | SEDANG | TINGGI | EKSTREM
+  hazardType  String? // MANUSIA | PERALATAN | MATERIAL_BERBAHAYA | METODE_KERJA | LINGKUNGAN_KERJA | KONDISI_ALAM
   description String  @db.Text
-  suggestion  String? @db.Text // usulan perbaikan, bonus poin bila diterapkan
+  impact      String? @db.Text // dampak yang ditimbulkan
+
+  // Usulan perbaikan dari pelapor
+  immediateAction String? @db.Text // tindakan perbaikan cepat
+  suggestion      String? @db.Text // tindakan pencegahan
+  proposedPicId   String?
+  proposedPic     User?   @relation("ProposedPic", fields: [proposedPicId], references: [id])
 
   // Kolom bekas uji coba kartu STOP. Tidak dipakai lagi; dapat dihapus lewat migrasi tersendiri
   // setelah dipastikan tidak ada data yang perlu disimpan.
-  stopItems       String[] @default([])
-  activities      String[] @default([])
-  safeActs        String?  @db.Text
-  safeEncourage   String?  @db.Text
-  immediateAction String?  @db.Text
+  stopItems     String[] @default([])
+  activities    String[] @default([])
+  safeActs      String?  @db.Text
+  safeEncourage String?  @db.Text
 
   lat          Float?
   lng          Float?
@@ -165,6 +172,7 @@ model Report {
   decidedAt         DateTime?
   decisionResult    String? // SETUJU | TOLAK
   decisionNote      String?
+  rejectReason      String? // TIDAK_PERLU_TINDAKAN | GANDA | TIDAK_BENAR (verifikasi atau keputusan)
   picId             String?
   pic               User?     @relation("Pic", fields: [picId], references: [id])
   picName           String?

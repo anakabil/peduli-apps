@@ -44,13 +44,13 @@ export function SettingsForm({ settings: s, isAdmin }: { settings: AppSettings; 
       <div className="card overflow-hidden anim-fade-up">
         <CardHeader title="Alur pelaporan" subtitle="Urutan tahap, batas waktu, dan eskalasi otomatis." />
         <div className="mt-4 border-t border-ink-100">
-          <Row label="Verifikasi Superintendent atas laporan Pengawas" help="Bersifat wajib dan terkunci."><span className="badge badge-warn"><Lock size={11} /> Wajib</span></Row>
+          <Row label="Verifikasi Superintendent" help="Wajib untuk laporan Pengawas."><span className="badge badge-warn"><Lock size={11} /> Wajib</span></Row>
           <Row label="Batas waktu verifikasi" help="Hari kerja sejak laporan dikirim."><NumberWithSuffix name="verifyDeadlineDays" min={1} max={30} defaultValue={s.verifyDeadlineDays} suffix="hari kerja" /></Row>
-          <Row label="Eskalasi langsung risiko Tinggi dan Ekstrem" help="Manager diberi tahu seketika, verifikasi tetap berjalan."><Toggle name="escalateHighRisk" defaultChecked={s.escalateHighRisk} /></Row>
-          <Row label="Batas waktu keputusan Manager" help="Hari kerja sejak laporan terverifikasi."><NumberWithSuffix name="decideDeadlineDays" min={1} max={30} defaultValue={s.decideDeadlineDays} suffix="hari kerja" /></Row>
-          <Row label="Pengingat otomatis bila melewati batas waktu" help="Dikirim oleh penjadwal harian ke penanggung jawab tahap."><Toggle name="reminders" defaultChecked={s.reminders} /></Row>
-          <Row label="Penugasan penanggung jawab berdasarkan area" help="Manager area menjadi usulan bawaan penanggung jawab."><Toggle name="picByArea" defaultChecked={s.picByArea} /></Row>
-          <Row label="Laporan buatan Manager ditinjau Manager lain" help="Manager tidak menilai laporannya sendiri."><Toggle name="managerPeerReview" defaultChecked={s.managerPeerReview} /></Row>
+          <Row label="Eskalasi risiko tinggi" help="Manager diberi tahu seketika, verifikasi tetap berjalan."><Toggle name="escalateHighRisk" defaultChecked={s.escalateHighRisk} /></Row>
+          <Row label="Batas waktu keputusan" help="Hari kerja sejak laporan terverifikasi."><NumberWithSuffix name="decideDeadlineDays" min={1} max={30} defaultValue={s.decideDeadlineDays} suffix="hari kerja" /></Row>
+          <Row label="Pengingat otomatis" help="Dikirim harian bila tahap melewati batas waktu."><Toggle name="reminders" defaultChecked={s.reminders} /></Row>
+          <Row label="Penanggung jawab per area" help="Manager area menjadi usulan bawaan penanggung jawab."><Toggle name="picByArea" defaultChecked={s.picByArea} /></Row>
+          <Row label="Tinjauan sesama Manager" help="Laporan Manager diputuskan Manager lain."><Toggle name="managerPeerReview" defaultChecked={s.managerPeerReview} /></Row>
         </div>
       </div>
 
@@ -72,7 +72,7 @@ export function SettingsForm({ settings: s, isAdmin }: { settings: AppSettings; 
           ))}
           <Row label="Ambang level Perak" help="Akumulasi poin yang diperoleh."><NumberWithSuffix name="l_perak" min={1} defaultValue={s.levels.perak} suffix="poin" width="w-24" /></Row>
           <Row label="Ambang level Emas"><NumberWithSuffix name="l_emas" min={1} defaultValue={s.levels.emas} suffix="poin" width="w-24" /></Row>
-          <Row label="Peran yang berhak menerima poin" help="Keputusan awal: apakah Manager dan Direksi ikut memperoleh poin." stacked>
+          <Row label="Penerima poin" help="Apakah Manager dan Direksi ikut memperoleh poin." stacked>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {ROLES.filter((r) => r !== "ADMIN").map((r) => (
                 <label key={r} className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink-800 sm:min-h-0">

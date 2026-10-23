@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowDown, MapPin, Clock, User, Zap, AlertTriangle, ExternalLink, Award, Lightbulb, Printer } from "lucide-react";
+import { ArrowLeft, ArrowDown, MapPin, Clock, User, Zap, AlertTriangle, ExternalLink, Award, Printer } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -10,7 +10,7 @@ import { Card, CardBody, CardHeader, KeyValue, Badge } from "@/components/ui";
 import { StatusBadge, RiskBadge, CategoryBadge } from "@/components/report/badges";
 import { VerifyPanel, DecidePanel, ProgressPanel, ClosePanel, ResubmitPanel, AuditButton } from "./panels";
 import { Timeline } from "./timeline";
-import { CONTROL_LABEL, ROLE_LABEL, type Control, type Role } from "@/lib/constants";
+import { CONTROL_LABEL, ROLE_LABEL, type Control, type Role, HAZARD_TYPE_LABEL, REJECT_REASON_LABEL, type HazardType, type RejectReason } from "@/lib/constants";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,6 +29,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       verifier: { select: { name: true } },
       decider: { select: { name: true } },
       pic: { select: { name: true } },
+      proposedPic: { select: { id: true, name: true, jabatan: true } },
       closer: { select: { name: true } },
       photos: { select: { id: true, kind: true, createdAt: true } },
       events: { include: { actor: { select: { name: true, role: true } } }, orderBy: { createdAt: "asc" } },
@@ -45,7 +46,8 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   const candidates = showDecide
     ? await db.user.findMany({ where: { status: "ACTIVE", role: { in: ["MANAGER", "SUPERINTENDENT", "PENGAWAS"] } }, select: { id: true, name: true, role: true, jabatan: true }, orderBy: { name: "asc" } })
     : [];
-  const defaultPic = settings.picByArea && report.area?.managerId ? report.area.managerId : null;
+  // Usulan pelapor didahulukan; bila tidak ada, Manager area (bila diaktifkan di pengaturan)
+  const defaultPic = report.proposedPicId ?? (settings.picByArea && report.area?.managerId ? report.area.managerId : null);
 
   const reportPhotos = report.photos.filter((p) => p.kind === "LAPORAN");
   const fixPhotos = report.photos.filter((p) => p.kind === "PERBAIKAN");
@@ -99,15 +101,6 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             {report.auditSampled && <Badge tone="neutral">Diaudit</Badge>}
           </div>
           <h1 className="mt-2 text-lg font-bold text-ink-900 md:text-xl">{report.description}</h1>
-          {report.suggestion && (
-            <div className="mt-3 flex items-start gap-2 rounded-xl border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
-              <Lightbulb size={16} className="mt-0.5 shrink-0 text-gold" />
-              <div>
-                <span className="font-semibold">Usulan perbaikan:</span> {report.suggestion}
-                {report.suggestionApplied && <Badge tone="success" className="ml-2">Diterapkan</Badge>}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-5">
@@ -126,6 +119,31 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
               </div>
             </div>
 
+            {/* Rincian bahaya dan usulan perbaikan dari pelapor */}
+            <div>
+              <div className="section-title mb-2">Rincian bahaya</div>
+              <KeyValue
+                hideEmpty
+                items={[
+                  { k: "Jenis bahaya", v: report.hazardType ? HAZARD_TYPE_LABEL[report.hazardType as HazardType] : null },
+                  { k: "Dampak yang dapat ditimbulkan", v: report.impact },
+                ]}
+              />
+            </div>
+            {(report.immediateAction || report.suggestion || report.proposedPic) && (
+              <div>
+                <div className="section-title mb-2">Usulan perbaikan</div>
+                <KeyValue
+                  hideEmpty
+                  items={[
+                    { k: "Tindakan perbaikan cepat", v: report.immediateAction },
+                    { k: "Tindakan pencegahan", v: report.suggestion ? <>{report.suggestion}{report.suggestionApplied && <Badge tone="success" className="ml-2">Diterapkan</Badge>}</> : null },
+                    { k: "Penanggung jawab", v: report.proposedPic ? `${report.proposedPic.name ?? "-"}${report.proposedPic.jabatan ? `, ${report.proposedPic.jabatan}` : ""}` : null },
+                  ]}
+                />
+              </div>
+            )}
+
             {/* Terekam otomatis */}
             <div>
               <div className="section-title mb-2">Terekam otomatis</div>
@@ -133,7 +151,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                 items={[
                   { k: "Pelapor", v: <span className="flex items-start gap-1.5"><User size={14} className="mt-0.5 shrink-0 text-ink-400" /><span><span className="block font-medium">{report.reporter.name}</span><span className="block text-xs text-ink-500">{ROLE_LABEL[report.reporter.role as Role]}{report.reporter.jabatan ? `, ${report.reporter.jabatan}` : ""}</span></span></span> },
                   { k: "Cap waktu server", v: <span className="inline-flex items-center gap-1.5"><Clock size={14} className="text-ink-400" /> {fmtDateTime(report.createdAt)}</span> },
-                  { k: "Area kerja (dari koordinat)", v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel && !report.areaLabel.startsWith(report.area?.name ?? "\u0000") ? ` · ${report.areaLabel}` : ""}</span> },
+                  { k: "Lokasi", v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel && !report.areaLabel.startsWith(report.area?.name ?? "\u0000") ? ` · ${report.areaLabel}` : ""}</span> },
                   {
                     k: "Koordinat GPS",
                     v: mapsUrl ? (
@@ -162,6 +180,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   <KeyValue
                     items={[
                       { k: "Hasil", v: <Badge tone={report.verificationResult === "VALID" ? "success" : report.verificationResult === "REVISI" ? "warn" : "danger"}>{report.verificationResult === "VALID" ? "Valid" : report.verificationResult === "REVISI" ? "Perlu revisi" : "Ditolak"}</Badge> },
+                      ...(report.verificationResult === "TOLAK" && report.rejectReason ? [{ k: "Alasan", v: REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason }] : []),
                       { k: "Oleh", v: report.verifier?.name },
                       { k: "Waktu", v: fmtDateTime(report.verifiedAt) },
                       { k: "Catatan", v: report.verificationNote },
@@ -181,6 +200,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                   hideEmpty
                   items={[
                     { k: "Hasil", v: <Badge tone={report.decisionResult === "SETUJU" ? "success" : "danger"}>{report.decisionResult === "SETUJU" ? "Disetujui" : "Ditolak"}</Badge> },
+                    { k: "Alasan", v: report.decisionResult === "TOLAK" && report.rejectReason ? REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason : null },
                     { k: "Oleh", v: report.decider?.name },
                     { k: "Waktu", v: fmtDateTime(report.decidedAt) },
                     { k: "Penanggung jawab", v: report.picName ?? report.pic?.name },

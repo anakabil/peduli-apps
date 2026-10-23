@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { createReport, WorkflowError } from "@/lib/workflow";
-import { CATEGORIES, RISKS } from "@/lib/constants";
+import { CATEGORIES, RISKS, HAZARD_TYPES } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -12,8 +12,14 @@ export const maxDuration = 30;
 const schema = z.object({
   category: z.enum(CATEGORIES),
   riskLevel: z.enum(RISKS),
+  // Jenis bahaya, dampak, dan lokasi diwajibkan di formulir; di sini opsional agar antrean luring versi lama tetap terkirim
+  hazardType: z.enum(HAZARD_TYPES).optional().nullable(),
   description: z.string().trim().min(10, "Uraian minimal 10 karakter").max(2000),
+  impact: z.string().trim().max(2000).optional().nullable(),
+  immediateAction: z.string().trim().max(2000).optional().nullable(),
   suggestion: z.string().trim().max(2000).optional().nullable(),
+  proposedPicId: z.string().max(64).optional().nullable(),
+  areaId: z.string().max(64).optional().nullable(),
   areaLabel: z.string().trim().max(200).optional().nullable(),
   lat: z.coerce.number().min(-90).max(90).optional().nullable(),
   lng: z.coerce.number().min(-180).max(180).optional().nullable(),
@@ -61,8 +67,13 @@ export async function POST(req: Request) {
       reporterId: user.id,
       category: parsed.data.category,
       riskLevel: parsed.data.riskLevel,
+      hazardType: parsed.data.hazardType ?? null,
       description: parsed.data.description,
+      impact: parsed.data.impact ?? null,
+      immediateAction: parsed.data.immediateAction ?? null,
       suggestion: parsed.data.suggestion ?? null,
+      proposedPicId: parsed.data.proposedPicId ?? null,
+      areaId: parsed.data.areaId ?? null,
       areaLabel: parsed.data.areaLabel ?? null,
       lat: parsed.data.lat ?? null,
       lng: parsed.data.lng ?? null,

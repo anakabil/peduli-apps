@@ -4,7 +4,7 @@ import { notify, audit } from "./notify";
 import { awardValidationPoints, awardSuggestionBonus, revokePoints } from "./points";
 import { addBusinessDays, distanceM, jktParts } from "./format";
 import { Prisma } from "@prisma/client";
-import { CATEGORY_LABEL, RISK_LABEL, type Category, type Risk } from "./constants";
+import { CATEGORY_LABEL, RISK_LABEL, type Category, type Risk, type HazardType, type RejectReason } from "./constants";
 
 export class WorkflowError extends Error {}
 
@@ -53,6 +53,20 @@ export async function resolveArea(lat: number | null, lng: number | null, fallba
     outsideArea: true,
     flag: `Lokasi ${Math.round(best.dist)} m dari pusat area terdekat (${best.name}), di luar radius ${best.radius} m. Perlu ditinjau.`,
   };
+}
+
+/**
+ * Lokasi dipilih pelapor dari daftar area; koordinat GPS hanya pelengkap untuk memeriksa kesesuaian.
+ * Bila area tidak dikirim (antrean luring versi lama), area ditentukan dari koordinat seperti sebelumnya.
+ */
+export async function checkChosenArea(areaId: string | null | undefined, lat: number | null, lng: number | null, fallbackAreaId?: string | null) {
+  if (!areaId) return resolveArea(lat, lng, fallbackAreaId);
+  const area = await db.area.findFirst({ where: { id: areaId, active: true } });
+  if (!area) throw new WorkflowError("Lokasi yang dipilih tidak ditemukan atau tidak aktif.");
+  if (lat == null || lng == null || area.lat == null || area.lng == null) return { areaId: area.id, outsideArea: false, flag: null as string | null };
+  const dist = distanceM(lat, lng, area.lat, area.lng);
+  if (dist <= area.radiusM) return { areaId: area.id, outsideArea: false, flag: null as string | null };
+  return { areaId: area.id, outsideArea: true, flag: `Koordinat GPS ${Math.round(dist)} m dari pusat ${area.name}, di luar radius ${area.radiusM} m. Perlu ditinjau.` };
 }
 
 /** Manager aktif yang menangani area; cadangan: seluruh Manager aktif */
@@ -108,8 +122,13 @@ export type NewReportInput = {
   reporterId: string;
   category: Category;
   riskLevel: Risk;
+  hazardType?: HazardType | null;
   description: string;
+  impact?: string | null;
+  immediateAction?: string | null;
   suggestion?: string | null;
+  proposedPicId?: string | null;
+  areaId?: string | null;
   areaLabel?: string | null;
   lat?: number | null;
   lng?: number | null;
@@ -126,7 +145,11 @@ export async function createReport(input: NewReportInput) {
   const settings = await getSettings();
   const now = new Date();
   const path = reporter.role === "PENGAWAS" ? "A" : "B";
-  const { areaId, outsideArea, flag } = await resolveArea(input.lat ?? null, input.lng ?? null, reporter.areaId);
+  const { areaId, outsideArea, flag } = await checkChosenArea(input.areaId, input.lat ?? null, input.lng ?? null, reporter.areaId);
+  if (input.proposedPicId) {
+    const pic = await db.user.findUnique({ where: { id: input.proposedPicId }, select: { status: true } });
+    if (!pic || pic.status !== "ACTIVE") throw new WorkflowError("Penanggung jawab yang diusulkan tidak ditemukan atau tidak aktif.");
+  }
   const highRisk = input.riskLevel === "TINGGI" || input.riskLevel === "EKSTREM";
   const status = path === "A" ? "MENUNGGU_VERIFIKASI" : "MENUNGGU_KEPUTUSAN";
 
@@ -153,8 +176,12 @@ export async function createReport(input: NewReportInput) {
           areaLabel: input.areaLabel ?? null,
           category: input.category,
           riskLevel: input.riskLevel,
+          hazardType: input.hazardType ?? null,
           description: input.description,
+          impact: input.impact || null,
+          immediateAction: input.immediateAction || null,
           suggestion: input.suggestion || null,
+          proposedPicId: input.proposedPicId || null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
           accuracyM: input.accuracyM ?? null,
@@ -217,7 +244,7 @@ export async function canVerify(user: { id: string; role: string; areaId: string
   return n === 1;
 }
 
-export async function verifyReport(actorId: string, reportId: string, result: "VALID" | "REVISI" | "TOLAK", note: string) {
+export async function verifyReport(actorId: string, reportId: string, result: "VALID" | "REVISI" | "TOLAK", note: string, rejectReason?: RejectReason) {
   const actor = await db.user.findUnique({ where: { id: actorId } });
   const report = await loadReport(reportId);
   if (!actor || !(await canVerify(actor, report))) throw new WorkflowError("Anda tidak berwenang memverifikasi laporan ini.");
@@ -234,7 +261,8 @@ export async function verifyReport(actorId: string, reportId: string, result: "V
       verificationNote: note || null,
       revisionCount: result === "REVISI" ? { increment: 1 } : undefined,
       dueDecideAt: result === "VALID" ? addBusinessDays(now, settings.decideDeadlineDays) : undefined,
-      isDuplicate: result === "TOLAK" && /ganda|duplikat/i.test(note) ? true : undefined,
+      isDuplicate: result === "TOLAK" && (rejectReason === "GANDA" || /ganda|duplikat/i.test(note)) ? true : undefined,
+      rejectReason: result === "TOLAK" ? rejectReason ?? "TIDAK_PERLU_TINDAKAN" : undefined,
     });
     await tx.reportEvent.create({ data: { reportId, type: result === "VALID" ? "DIVERIFIKASI" : result === "REVISI" ? "DIREVISI" : "DITOLAK", actorId, fromStatus: "MENUNGGU_VERIFIKASI", toStatus, note } });
     return result === "VALID" ? awardValidationPoints(tx, reportId, settings) : 0;
@@ -299,7 +327,7 @@ export type DecisionInput = {
   resourceMaterial?: string | null;
   targetDate?: Date | null;
   controlHierarchy?: string | null;
-  rejectReason?: "GANDA" | "TIDAK_BENAR" | "TIDAK_PERLU_TINDAKAN";
+  rejectReason?: RejectReason;
 };
 
 export async function decideReport(actorId: string, reportId: string, input: DecisionInput) {
@@ -341,7 +369,7 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
     const reason = input.rejectReason ?? "TIDAK_PERLU_TINDAKAN";
     const note = input.note;
     await inTx(async (tx) => {
-      await transition(tx, reportId, "MENUNGGU_KEPUTUSAN", { status: "DITOLAK", deciderId: actorId, decidedAt: now, decisionResult: "TOLAK", decisionNote: note, isDuplicate: reason === "GANDA" });
+      await transition(tx, reportId, "MENUNGGU_KEPUTUSAN", { status: "DITOLAK", deciderId: actorId, decidedAt: now, decisionResult: "TOLAK", decisionNote: note, isDuplicate: reason === "GANDA", rejectReason: reason });
       await tx.reportEvent.create({ data: { reportId, type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note } });
       if (reason === "GANDA" || reason === "TIDAK_BENAR") await revokePoints(tx, reportId, reason === "GANDA" ? "laporan ganda" : "laporan tidak benar");
     });

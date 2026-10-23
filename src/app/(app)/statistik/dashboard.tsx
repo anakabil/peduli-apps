@@ -8,11 +8,14 @@ import type { Stats } from "@/lib/stats";
 import { LineChart, BarChart, DoughnutChart, PALETTE, GREEN_RAMP, RISK_COLORS } from "@/components/charts/charts";
 import { RiskBadge } from "@/components/report/badges";
 import { Stat, Card, CardHeader, CardBody } from "@/components/ui";
-import { CATEGORIES, CATEGORY_SHORT, CATEGORY_LABEL, RISK_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, type Category, type Risk, type Status, type Control, type Role } from "@/lib/constants";
-import { cn, fmtNumber } from "@/lib/format";
+import { CATEGORIES, CATEGORY_SHORT, CATEGORY_LABEL, RISK_LABEL, STATUS_LABEL, CONTROL_LABEL, ROLE_LABEL, HAZARD_TYPE_LABEL, type Category, type Risk, type Status, type Control, type Role, type HazardType } from "@/lib/constants";
+import { cn, fmtNumber, fmtDate } from "@/lib/format";
 
 type Json<T> = T extends Date ? string : T extends object ? { [K in keyof T]: Json<T[K]> } : T;
 export type SerializedStats = Json<Stats>;
+
+export const REJECT_STAGE_LABEL: Record<string, string> = { VERIFIKASI: "Verifikasi", KEPUTUSAN: "Keputusan Manager" };
+export const REJECT_REASON_STAT_LABEL: Record<string, string> = { TIDAK_PERLU_TINDAKAN: "Tidak memerlukan tindakan", GANDA: "Laporan ganda", TIDAK_BENAR: "Tidak sesuai fakta", LAINNYA: "Tanpa alasan terstruktur" };
 
 export const INDICATORS = [
   { k: "Partisipasi pelapor", f: "Pengguna yang melapor dibagi pengguna aktif, dikali 100%", d: "Arah sosialisasi dan penguatan budaya melapor" },
@@ -42,6 +45,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
     onTime: useRef<Chart<"bar"> | undefined>(null),
     status: useRef<Chart<"bar"> | undefined>(null),
     control: useRef<Chart<"doughnut"> | undefined>(null),
+    hazard: useRef<Chart<"bar"> | undefined>(null),
   };
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -120,7 +124,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       {/* Tren dan sebaran risiko */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 [&>*]:min-w-0">
         <Card className="lg:col-span-3 anim-fade-up">
-          <CardHeader title="Tren laporan masuk dan ditutup" subtitle="12 bulan hingga akhir periode" />
+          <CardHeader title="Tren laporan" subtitle="12 bulan hingga akhir periode" />
           <CardBody className="min-w-0 overflow-x-auto pt-3">
             <div className="h-64">
               <LineChart
@@ -156,7 +160,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       {/* Peta panas dan umur tindak lanjut */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 [&>*]:min-w-0">
         <Card className="lg:col-span-3 anim-fade-up">
-          <CardHeader title="Peta panas: area dan kategori bahaya" subtitle="Warna makin hangat menandakan jumlah laporan makin banyak." />
+          <CardHeader title="Peta panas area" subtitle="Area dan kategori bahaya." />
           <CardBody className="overflow-x-auto pt-3">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
@@ -189,7 +193,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
         </Card>
         <div className="lg:col-span-2 space-y-4">
           <Card className="anim-fade-up">
-            <CardHeader title="Umur tindak lanjut yang masih terbuka" subtitle={`${s.openTotal} laporan terbuka seluruh waktu`} />
+            <CardHeader title="Umur tindak lanjut" subtitle={`${s.openTotal} laporan terbuka seluruh waktu`} />
             <CardBody className="min-w-0 overflow-x-auto pt-3">
               <div className="h-40">
                 <BarChart ref={refs.aging} horizontal data={{ labels: stats.aging.map((a) => a.label), datasets: [{ label: "Laporan", data: stats.aging.map((a) => a.count), backgroundColor: ["#35a885", "#d9a520", "#e07a1f", "#c8373b"], borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } } }} />
@@ -197,7 +201,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
             </CardBody>
           </Card>
           <Card className="anim-fade-up">
-            <CardHeader title="Penutupan tepat waktu per area" subtitle="12 bulan terakhir" />
+            <CardHeader title="Tepat waktu per area" subtitle="12 bulan terakhir" />
             <CardBody className="min-w-0 overflow-x-auto pt-3">
               <div className="h-44">
                 <BarChart ref={refs.onTime} horizontal data={{ labels: stats.onTimeByArea.map((a) => a.area), datasets: [{ label: "% tepat waktu", data: stats.onTimeByArea.map((a) => a.pct), backgroundColor: stats.onTimeByArea.map((a) => (a.pct >= 85 ? "#0a785b" : a.pct >= 70 ? "#d9a520" : "#c8373b")), borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } }, scales: { x: { max: 100, beginAtZero: true, grid: { color: "#eef2ef" } }, y: { grid: { display: false } } } }} />
@@ -231,6 +235,51 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
             <div className="h-56">
               <DoughnutChart ref={refs.control} data={{ labels: stats.controlDist.map((c) => CONTROL_LABEL[c.key as Control]), datasets: [{ data: stats.controlDist.map((c) => c.count), backgroundColor: GREEN_RAMP, borderWidth: 2, borderColor: "#fff" }] }} />
             </div>
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* Jenis bahaya dan laporan ditolak */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 [&>*]:min-w-0">
+        <Card className="lg:col-span-2 anim-fade-up">
+          <CardHeader title="Jenis bahaya" />
+          <CardBody className="min-w-0 overflow-x-auto pt-3">
+            <div className="h-56">
+              <BarChart ref={refs.hazard} horizontal data={{ labels: stats.hazardTypeDist.map((c) => HAZARD_TYPE_LABEL[c.key as HazardType]), datasets: [{ label: "Laporan", data: stats.hazardTypeDist.map((c) => c.count), backgroundColor: PALETTE[1], borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } } }} />
+            </div>
+          </CardBody>
+        </Card>
+        <Card className="lg:col-span-3 anim-fade-up">
+          <CardHeader
+            title="Laporan ditolak"
+            subtitle={`${s.rejected} laporan dalam periode`}
+            action={s.rejected > 0 ? <Link href="/laporan?tab=ditolak" className="no-print text-sm font-semibold text-brand-700 hover:underline">Lihat semua</Link> : undefined}
+          />
+          <CardBody className="min-w-0 overflow-x-auto pt-3">
+            <div className="mb-3 flex flex-wrap gap-2 text-xs">
+              {stats.rejectedByStage.map((r) => (
+                <span key={r.key} className="rounded-full bg-ink-50 px-2.5 py-1 font-medium text-ink-700 ring-1 ring-ink-100">{REJECT_STAGE_LABEL[r.key]}: <b className="tabular-nums">{r.count}</b></span>
+              ))}
+              {stats.rejectedByReason.filter((r) => r.count > 0).map((r) => (
+                <span key={r.key} className="rounded-full bg-red/5 px-2.5 py-1 font-medium text-ink-800 ring-1 ring-red/20">{REJECT_REASON_STAT_LABEL[r.key]}: <b className="tabular-nums">{r.count}</b></span>
+              ))}
+            </div>
+            {stats.rejectedList.length === 0 ? <p className="text-sm text-ink-500">Tidak ada laporan ditolak pada periode ini.</p> : (
+              <table className="table">
+                <thead><tr><th>Nomor</th><th>Area</th><th className="hidden sm:table-cell">Tahap</th><th>Alasan</th><th className="hidden md:table-cell">Oleh</th></tr></thead>
+                <tbody>
+                  {stats.rejectedList.slice(0, 10).map((r) => (
+                    <tr key={r.id}>
+                      <td><Link href={`/laporan/${r.id}`} className="whitespace-nowrap text-xs font-semibold tabular-nums text-brand-700 hover:underline">{r.number}</Link><div className="text-xs text-ink-500">{fmtDate(r.at)}</div></td>
+                      <td>{r.area}</td>
+                      <td className="hidden sm:table-cell">{REJECT_STAGE_LABEL[r.stage]}</td>
+                      <td>{REJECT_REASON_STAT_LABEL[r.reason ?? "LAINNYA"] ?? REJECT_REASON_STAT_LABEL.LAINNYA}</td>
+                      <td className="hidden md:table-cell">{r.by}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </CardBody>
         </Card>
       </div>
@@ -283,7 +332,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
 
       {/* Risiko tinggi terbuka */}
       <Card className="anim-fade-up">
-        <CardHeader title="Risiko Tinggi dan Ekstrem yang masih terbuka" subtitle="Prioritas eskalasi dan anggaran, diurutkan dari yang paling lama." />
+        <CardHeader title="Risiko tinggi terbuka" subtitle="Diurutkan dari yang paling lama." />
         <CardBody className="min-w-0 overflow-x-auto pt-3">
           {stats.highOpenList.length === 0 ? <p className="text-sm text-brand-700">Tidak ada. Seluruh risiko tinggi telah ditutup.</p> : (
             <table className="table">
@@ -307,7 +356,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
 
       {/* Kamus indikator */}
       <Card className="anim-fade-up">
-        <CardHeader title="Kamus indikator" subtitle="Indikator objektif sebagai dasar kebijakan." />
+        <CardHeader title="Kamus indikator" />
         <CardBody className="overflow-x-auto pt-3">
           <dl className="divide-y divide-ink-100 md:hidden">
             {INDICATORS.map((i) => (
