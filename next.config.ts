@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "google-auth-library"],
+  // Foto hadiah dikirim lewat server action (sudah dikompres di peramban, batas ini sebagai pengaman)
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   images: { remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }] },
   webpack(config, { isServer, webpack }) {
     if (!isServer) {

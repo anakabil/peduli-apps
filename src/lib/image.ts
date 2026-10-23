@@ -9,3 +9,9 @@ export async function makeThumb(data: Uint8Array): Promise<Uint8Array<ArrayBuffe
     return null;
   }
 }
+
+/** Foto hadiah: sisi terpanjang 800 px, WebP (transparansi PNG tetap terjaga) */
+export async function normalizeRewardPhoto(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+  const buf = await sharp(data).rotate().resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+  return new Uint8Array(buf);
+}

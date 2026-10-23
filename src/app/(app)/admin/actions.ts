@@ -7,6 +7,8 @@ import { audit, notify } from "@/lib/notify";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { ROLES, USER_STATUS, ROLE_LABEL, type AppSettings, type Role } from "@/lib/constants";
 import { Prisma } from "@prisma/client";
+import { isRewardIcon } from "@/lib/reward-icons";
+import { normalizeRewardPhoto } from "@/lib/image";
 
 /** Peran atasan yang sah untuk tiap peran (menentukan jalur verifikasi) */
 const ATASAN_ROLES: Record<Role, Role[]> = {
@@ -162,24 +164,51 @@ export async function saveAreaAction(areaId: string | null, fd: FormData): Promi
   return { ok: true, message: "Area tersimpan." };
 }
 
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO = 4 * 1024 * 1024;
+
 export async function saveRewardAction(rewardId: string | null, fd: FormData): Promise<Result> {
   const admin = await requireUser(["ADMIN"]);
   const name = String(fd.get("name") ?? "").trim();
   const pointsCost = Number(fd.get("pointsCost"));
   if (!name || !(pointsCost > 0)) return { ok: false, message: "Nama dan nilai poin wajib diisi." };
   const stockInput = Math.max(0, Math.round(Number(fd.get("stock") || 0)));
-  const base = { name, description: String(fd.get("description") ?? "").trim() || null, pointsCost: Math.round(pointsCost), tier: String(fd.get("tier") || "AWAL"), icon: String(fd.get("icon") || "Package"), active: fd.get("active") !== "false" };
+  const iconIn = String(fd.get("icon") || "gift");
+  const icon = isRewardIcon(iconIn) ? iconIn : "gift";
+
+  // Foto opsional: diunggah baru, dipertahankan, atau dihapus untuk kembali memakai ikon
+  const file = fd.get("photo");
+  let photo: Uint8Array<ArrayBuffer> | null = null;
+  if (file instanceof File && file.size > 0) {
+    if (!PHOTO_TYPES.includes(file.type)) return { ok: false, message: "Format foto harus JPEG, PNG, atau WebP." };
+    if (file.size > MAX_PHOTO) return { ok: false, message: "Ukuran foto maksimal 4 MB." };
+    try {
+      photo = await normalizeRewardPhoto(new Uint8Array(await file.arrayBuffer()));
+    } catch {
+      return { ok: false, message: "Foto tidak dapat dibaca. Coba berkas lain." };
+    }
+  }
+  const removePhoto = !photo && fd.get("removePhoto") === "1";
+
+  const base = { name, description: String(fd.get("description") ?? "").trim() || null, pointsCost: Math.round(pointsCost), tier: String(fd.get("tier") || "AWAL"), icon, active: fd.get("active") !== "false" };
   const data = { ...base, stock: stockInput };
+  const imageAt = photo ? new Date() : removePhoto ? null : undefined;
+  let id = rewardId;
   if (rewardId) {
     // Stok diubah sebagai selisih terhadap nilai yang dilihat admin, agar penukaran yang terjadi bersamaan tidak tertimpa
     const seen = Number(fd.get("stockOriginal"));
     const delta = Number.isFinite(seen) ? stockInput - seen : null;
     await db.$transaction(async (tx) => {
-      await tx.reward.update({ where: { id: rewardId }, data: delta === null ? data : { ...base, stock: { increment: delta } } });
+      await tx.reward.update({ where: { id: rewardId }, data: { ...(delta === null ? data : { ...base, stock: { increment: delta } }), ...(imageAt !== undefined ? { imageAt } : {}) } });
       await tx.reward.updateMany({ where: { id: rewardId, stock: { lt: 0 } }, data: { stock: 0 } });
+      if (photo) await tx.rewardImage.upsert({ where: { rewardId }, create: { rewardId, mime: "image/webp", data: photo }, update: { mime: "image/webp", data: photo } });
+      if (removePhoto) await tx.rewardImage.deleteMany({ where: { rewardId } });
     });
-  } else await db.reward.create({ data });
-  await audit(admin.id, rewardId ? "REWARD_DIPERBARUI" : "REWARD_DIBUAT", "Reward", rewardId ?? name, data);
+  } else {
+    const created = await db.reward.create({ data: { ...data, imageAt: imageAt ?? null, ...(photo ? { image: { create: { mime: "image/webp", data: photo } } } : {}) } });
+    id = created.id;
+  }
+  await audit(admin.id, rewardId ? "REWARD_DIPERBARUI" : "REWARD_DIBUAT", "Reward", id ?? name, { ...data, ...(photo ? { foto: "diunggah" } : removePhoto ? { foto: "dihapus" } : {}) });
   revalidatePath("/admin/reward");
   revalidatePath("/poin");
   return { ok: true, message: "Katalog tersimpan." };

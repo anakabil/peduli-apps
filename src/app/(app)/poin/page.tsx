@@ -1,4 +1,4 @@
-import { Award, Gift, History, Trophy, Umbrella, CupSoda, Footprints, Ticket, Package } from "lucide-react";
+import { Award, Gift, History, Trophy } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -7,10 +7,10 @@ import { PageHeader, Card, CardBody, CardHeader, Badge } from "@/components/ui";
 import { LEDGER_LABEL, REDEMPTION_LABEL } from "@/lib/constants";
 import { fmtDateTime, fmtDate, jktDate, jktParts, cn } from "@/lib/format";
 import { RedeemButton } from "./redeem-button";
+import { RewardVisual } from "@/components/reward/reward-visual";
 
 export const metadata = { title: "Poin dan reward" };
 
-const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = { Umbrella, CupSoda, Footprints, Ticket, Package };
 const STEPS = ["Kumpulkan poin", "Pilih hadiah", "Ajukan penukaran", "Tim pengelola memproses"];
 const num = (n: number) => n.toLocaleString("id-ID");
 const signed = (n: number) => (n > 0 ? `+${num(n)}` : num(n));
@@ -23,7 +23,7 @@ export default async function PoinPage() {
     pointEarned(user.id),
     db.pointLedger.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 30, include: { report: { select: { id: true, number: true } } } }),
     db.reward.findMany({ where: { active: true }, orderBy: { pointsCost: "asc" } }),
-    db.redemption.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 10, include: { reward: true } }),
+    db.redemption.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 10, include: { reward: { select: { name: true } } } }),
     db.pointLedger.groupBy({ by: ["userId"], where: { ...EARN_LEDGER_FILTER, createdAt: { gte: jktDate(jktParts().y, 0, 1) } }, _sum: { points: true }, orderBy: { _sum: { points: "desc" } }, take: 5 }),
   ]);
   const level = levelFor(earned, settings.levels);
@@ -68,16 +68,13 @@ export default async function PoinPage() {
           <CardBody className="pt-3">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {rewards.map((r) => {
-                const Icon = ICONS[r.icon ?? "Package"] ?? Package;
                 const short = r.pointsCost - balance;
                 const outOfStock = r.stock <= 0;
                 const affordable = short <= 0 && !outOfStock;
                 const reason = outOfStock ? "Stok habis" : short > 0 ? `Kurang ${num(short)} poin` : !eligible ? "Tidak berlaku" : undefined;
                 return (
-                  <div key={r.id} className="card card-hover flex flex-col p-3">
-                    <div className="flex aspect-[4/3] items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                      <Icon size={40} />
-                    </div>
+                  <div key={r.id} className="group card card-hover flex flex-col p-3">
+                    <RewardVisual id={r.id} icon={r.icon} imageAt={r.imageAt} name={r.name} />
                     <div className="mt-2.5 text-sm font-bold leading-snug text-ink-900">{r.name}</div>
                     {r.description && <div className="mt-0.5 line-clamp-2 text-xs text-ink-500">{r.description}</div>}
                     {/* Blok harga dan tombol selalu rata bawah meski nama hadiah membungkus */}

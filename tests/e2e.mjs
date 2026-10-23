@@ -153,6 +153,37 @@ if (redeemed) {
   await page.waitForTimeout(1500);
   ok(await page.getByText("Riwayat").count(), "Penukaran diproses admin");
 }
+// Katalog reward: hadiah baru dengan foto dan ikon 3D
+await page.goto(`${BASE}/admin/reward`, { waitUntil: "networkidle" });
+ok(await page.locator('img[src^="/rewards/"]').count() > 30, "Katalog dan pilihan ikon memakai ikon 3D berwarna");
+const addReward = page.locator("form").last();
+await addReward.locator('input[name="name"]').fill("Piala apresiasi uji");
+await addReward.locator('input[name="pointsCost"]').fill("15");
+await addReward.locator('input[name="stock"]').fill("3");
+await addReward.getByRole("radio", { name: "Piala" }).check({ force: true });
+await addReward.locator('input[type="file"][name="photo"]').setInputFiles(photo);
+await addReward.locator('img[alt="Pratinjau foto hadiah"]').waitFor();
+await addReward.getByRole("button", { name: "Tambah" }).click();
+await page.getByText("Katalog tersimpan.").waitFor({ timeout: 20000 });
+await page.waitForLoadState("networkidle");
+const rewardImg = page.locator('img[alt="Piala apresiasi uji"]').first();
+await rewardImg.waitFor();
+const rewardImgRes = await page.request.get(`${BASE}${await rewardImg.getAttribute("src")}`);
+ok(rewardImgRes.ok() && /image\/webp/.test(rewardImgRes.headers()["content-type"] ?? ""), "Foto hadiah tersimpan dan tampil di katalog (WebP)");
+
+// Area kerja: titik ditetapkan lewat peta dan tautan Google Maps
+await page.goto(`${BASE}/admin/area`, { waitUntil: "networkidle" });
+const addArea = page.locator("form").last();
+const mapBox = addArea.getByRole("application");
+await mapBox.waitFor();
+await page.waitForTimeout(800);
+await mapBox.click({ position: { x: 120, y: 90 } });
+const pickedLat = await addArea.locator('input[name="lat"]').inputValue();
+ok(pickedLat !== "" && Number.isFinite(Number(pickedLat)), `Klik peta mengisi koordinat (${pickedLat})`);
+await addArea.getByLabel("Tempel tautan Google Maps atau koordinat").fill("https://www.google.com/maps/place/Pabrik/@-5.98765,106.04321,17z/data=!3m1!4b1!4m6!3m5!8m2!3d-5.987654!4d106.043219");
+ok((await addArea.locator('input[name="lat"]').inputValue()) === "-5.987654" && (await addArea.locator('input[name="lng"]').inputValue()) === "106.043219", "Tautan Google Maps terbaca menjadi koordinat titik");
+await page.screenshot({ path: `${S}/e2e-area-peta.png`, fullPage: true });
+
 await page.goto(`${BASE}/statistik`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 ok(await page.getByRole("heading", { name: "Laporan ditolak" }).count() && await page.getByRole("heading", { name: "Jenis bahaya" }).count(), "Statistik memuat jenis bahaya dan laporan ditolak");

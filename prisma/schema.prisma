@@ -265,10 +265,21 @@ model Reward {
   pointsCost  Int
   stock       Int          @default(0)
   tier        String       @default("AWAL") // AWAL | MENENGAH | LANJUT
-  icon        String? // nama ikon lucide
+  icon        String? // kunci ikon 3D (lihat src/lib/reward-icons.ts); data lama berupa nama ikon lucide
   active      Boolean      @default(true)
   createdAt   DateTime     @default(now())
+  imageAt     DateTime? // waktu foto terakhir diunggah; null bila memakai ikon
+  image       RewardImage?
   redemptions Redemption[]
+}
+
+/// Foto hadiah dipisah agar kueri katalog tidak memuat data gambar
+model RewardImage {
+  rewardId  String   @id
+  reward    Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  updatedAt DateTime @updatedAt
 }
 
 model Redemption {

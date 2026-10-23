@@ -63,6 +63,7 @@ Panduan langkah demi langkah untuk penerapan manual ada di [docs/DEPLOY-VERCEL.m
 | `AUTH_SECRET` | ya | `openssl rand -base64 32` |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | ya (kecuali demo) | Google OAuth, redirect URI `https://DOMAIN/api/auth/callback/google` |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | disarankan | sama dengan `AUTH_GOOGLE_ID`, untuk One Tap di smartphone |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | opsional | kunci Maps JavaScript API untuk peta titik area kerja; tanpa kunci dipakai peta terbuka (OpenStreetMap dan citra satelit Esri). Batasi kunci ke domain aplikasi (HTTP referrer). |
 | `ADMIN_EMAILS` | ya | email Google yang otomatis menjadi Admin |
 | `ALLOWED_EMAIL_DOMAINS` | opsional | misal `gys.co.id` |
 | `DEMO_MODE` | opsional | `true` hanya saat uji coba, lalu `false` |

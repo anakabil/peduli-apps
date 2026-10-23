@@ -12,6 +12,10 @@ export default async function AreaPage() {
     db.area.findMany({ orderBy: { name: "asc" }, include: { manager: { select: { name: true } }, _count: { select: { reports: true, users: true } } } }),
     db.user.findMany({ where: { role: "MANAGER", status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
+  // Lingkaran area lain ditampilkan samar pada peta agar radius tidak saling tumpang tindih
+  const others = areas.filter((a) => a.lat != null && a.lng != null).map((a) => ({ id: a.id, name: a.name, lat: a.lat!, lng: a.lng!, radiusM: a.radiusM }));
+  const center = others[0] ? { lat: others[0].lat, lng: others[0].lng } : { lat: -5.9955, lng: 106.0152 };
+  const mgr = managers.map((m) => ({ id: m.id, name: m.name ?? "-" }));
   return (
     <div>
       <PageHeader eyebrow="Administrasi" title="Area kerja" description="Area ditentukan otomatis dari koordinat GPS laporan: titik pusat dan radius. Laporan di luar radius ditandai untuk ditinjau. Penanggung jawab bawaan mengikuti Manager area." />
@@ -38,15 +42,15 @@ export default async function AreaPage() {
                   <span className="group-open:hidden">Ubah</span>
                   <span className="hidden group-open:inline">Tutup</span>
                 </summary>
-                <div className="mt-4 border-t border-ink-100 pt-4"><AreaForm area={{ id: a.id, code: a.code, name: a.name, lat: a.lat, lng: a.lng, radiusM: a.radiusM, managerId: a.managerId, active: a.active }} managers={managers.map((m) => ({ id: m.id, name: m.name ?? "-" }))} /></div>
+                <div className="mt-4 border-t border-ink-100 pt-4"><AreaForm area={{ id: a.id, code: a.code, name: a.name, lat: a.lat, lng: a.lng, radiusM: a.radiusM, managerId: a.managerId, active: a.active }} managers={mgr} center={center} others={others} /></div>
               </details>
             </Card>
           ))}
         </div>
         <Card className="h-fit anim-fade-up">
-          <CardHeader title="Tambah area" subtitle="Ambil koordinat pusat area dari Google Maps (klik kanan, salin koordinat)." />
+          <CardHeader title="Tambah area" subtitle="Tetapkan titik pusat pada peta." />
           <CardBody className="pt-4">
-            <AreaForm managers={managers.map((m) => ({ id: m.id, name: m.name ?? "-" }))} />
+            <AreaForm managers={mgr} center={center} others={others} />
           </CardBody>
         </Card>
       </div>

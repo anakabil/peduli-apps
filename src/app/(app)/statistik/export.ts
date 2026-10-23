@@ -87,7 +87,8 @@ export async function exportPdf(ctx: ExportCtx) {
     for (let i = 1; i <= n; i++) {
       doc.setPage(i);
       doc.setFontSize(7.5).setTextColor(MUTED);
-      doc.text(`Disusun oleh ${preparedBy} pada ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB. Data dihitung langsung dari basis data PEDULI Apps.`, M, H - 8);
+      // Teks kiri dibatasi lebarnya agar tidak menimpa nomor halaman di kanan
+      doc.text(`Disusun oleh ${preparedBy}, ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" })} WIB.`, M, H - 8, { maxWidth: W - 2 * M - 62 });
       doc.text(`Developed by Nusa Safety | Halaman ${i} dari ${n}`, W - M, H - 8, { align: "right" });
     }
   };
@@ -291,6 +292,8 @@ export async function exportPptx(ctx: ExportCtx) {
   cover.addText("STATISTIK PROGRAM PEDULI", { x: 0.6, y: 2.0, w: 8.5, h: 0.4, fontSize: 12, color: "BFE3D4", bold: true, charSpacing: 3, fontFace: "Calibri" });
   cover.addText(`Kondisi aktual pelaporan bahaya\n${periodLabel}`, { x: 0.6, y: 2.4, w: 8.5, h: 1.3, fontSize: 30, bold: true, color: "FFFFFF", fontFace: "Calibri" });
   cover.addText(`${COMPANY_NAME} | ${scope}`, { x: 0.6, y: 3.8, w: 8.5, h: 0.35, fontSize: 13, color: "E3F3EC", fontFace: "Calibri" });
+  // Logo GYS transparan, diberi kartu putih agar tulisan abu-abunya terbaca di latar hijau
+  cover.addShape(pptx.ShapeType.roundRect, { x: 0.55, y: 4.35, w: 0.7, h: 0.7, fill: { color: "FFFFFF" }, rectRadius: 0.08, line: { color: "FFFFFF" } });
   cover.addImage({ data: gys.data, x: 0.6, y: 4.4, w: 0.6, h: 0.6 });
   cover.addText(`Disusun oleh ${preparedBy}, ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\nDeveloped by Nusa Safety`, { x: 1.3, y: 4.4, w: 7, h: 0.6, fontSize: 9, color: "BFE3D4", fontFace: "Calibri" });
 

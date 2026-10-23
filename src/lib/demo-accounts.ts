@@ -35,10 +35,10 @@ const SPECS: Spec[] = [
 const AREA_MANAGER: Record<string, string> = { PRD: "manager", UTL: "manager", KTR: "manager", GDG: "manager2", LOG: "manager2" };
 
 export const SAMPLE_REWARDS = [
-  { name: "Payung", description: "Contoh hadiah tingkat awal", pointsCost: 10, stock: 50, tier: "AWAL", icon: "Umbrella" },
-  { name: "Tumbler", description: "Contoh hadiah tingkat lanjut", pointsCost: 200, stock: 20, tier: "LANJUT", icon: "CupSoda" },
-  { name: "Sepatu keselamatan", description: "Contoh hadiah tingkat menengah", pointsCost: 100, stock: 15, tier: "MENENGAH", icon: "Footprints" },
-  { name: "Voucher belanja", description: "Senilai Rp100.000", pointsCost: 60, stock: 30, tier: "MENENGAH", icon: "Ticket" },
+  { name: "Payung", description: "Contoh hadiah tingkat awal", pointsCost: 10, stock: 50, tier: "AWAL", icon: "umbrella" },
+  { name: "Tumbler", description: "Contoh hadiah tingkat lanjut", pointsCost: 200, stock: 20, tier: "LANJUT", icon: "tumbler" },
+  { name: "Sepatu keselamatan", description: "Contoh hadiah tingkat menengah", pointsCost: 100, stock: 15, tier: "MENENGAH", icon: "boots" },
+  { name: "Voucher belanja", description: "Senilai Rp100.000", pointsCost: 60, stock: 30, tier: "MENENGAH", icon: "voucher" },
 ];
 
 /** Katalog reward contoh, hanya diisi bila katalog masih kosong */
