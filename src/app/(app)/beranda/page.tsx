@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PlusCircle, ShieldCheck, Gavel, Wrench, Award, BarChart3, Users, Star, ArrowRight, AlertTriangle, Clock, TrendingUp, FileCheck2, Bell } from "lucide-react";
+import { PlusCircle, ShieldCheck, Gavel, Wrench, Award, BarChart3, Users, Star, ArrowRight, AlertTriangle, Clock, TrendingUp, FileCheck2 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -12,6 +12,7 @@ import { RiskBadge } from "@/components/report/badges";
 import { fmtNumber, fmtMonthLong, cn } from "@/lib/format";
 import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "@/lib/constants";
 import { MiniTrend } from "@/components/charts/mini-trend";
+import { ILLUSTRATION, levelImg } from "@/lib/icons";
 
 export const metadata = { title: "Beranda" };
 
@@ -138,7 +139,11 @@ export default async function BerandaPage() {
           <Link href="/poin" className="card card-hover p-4 md:p-5">
             <div className="flex items-center justify-between">
               <div className="rounded-lg bg-gold/10 p-2 text-gold"><Award size={20} /></div>
-              <span className="badge" style={{ background: `${level.color}22`, color: level.color }}>{level.name}</span>
+              <span className="badge gap-1" style={{ background: `${level.color}22`, color: level.color }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={levelImg(level.name)} alt="" aria-hidden width={18} height={18} className="-my-1 size-[18px]" />
+                {level.name}
+              </span>
             </div>
             <div className="mt-3 text-3xl font-bold tabular-nums">{fmtNumber(balance)}</div>
             <div className="text-sm font-semibold text-ink-700">Saldo poin</div>
@@ -230,7 +235,8 @@ export default async function BerandaPage() {
           <Card>
             {notifs.length === 0 ? (
               <CardBody className="flex flex-col items-center py-8 text-center">
-                <div className="rounded-xl bg-ink-100 p-2.5 text-ink-500"><Bell size={18} /></div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ILLUSTRATION.kosongNotifikasi} alt="" aria-hidden width={128} height={96} className="h-auto w-28" />
                 <p className="mt-2 text-sm font-medium text-ink-700">Belum ada notifikasi</p>
                 <p className="text-xs text-ink-500">Kabar verifikasi dan keputusan akan muncul di sini.</p>
               </CardBody>

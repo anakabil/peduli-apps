@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { Hourglass, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { getCurrentUser } from "@/lib/session";
 import { signOut } from "@/auth";
 import { PeduliLogo, Credit } from "@/components/brand";
+import { ILLUSTRATION } from "@/lib/icons";
 
 export const metadata = { title: "Menunggu persetujuan" };
 
@@ -16,9 +17,8 @@ export default async function PendingPage() {
         <div className="flex justify-center">
           <PeduliLogo height={52} />
         </div>
-        <div className="mx-auto mt-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber/15 text-[#8a6a0a] anim-float">
-          <Hourglass size={30} />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={ILLUSTRATION.menungguPersetujuan} alt="" aria-hidden width={240} height={180} className="mx-auto mt-4 h-auto w-52 anim-float" />
         <h1 className="mt-5 text-xl font-bold">{user.status === "INACTIVE" ? "Akun dinonaktifkan" : "Menunggu persetujuan admin"}</h1>
         <p className="mt-2 text-sm text-ink-500">
           {user.status === "INACTIVE"

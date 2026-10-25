@@ -9,6 +9,7 @@ import { PageHeader, Card, CardBody, CardHeader, Avatar, Field, Badge } from "@/
 import { ROLE_LABEL, ROLE_DESC, type Role } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { InstallButton } from "@/components/pwa/install-prompt";
+import { levelImg } from "@/lib/icons";
 
 export const metadata = { title: "Profil" };
 
@@ -38,7 +39,13 @@ export default async function ProfilPage() {
             <div className="mt-1.5 flex flex-wrap justify-center gap-2 sm:justify-start">
               <Badge tone="brand">{ROLE_LABEL[role]}</Badge>
               <Badge tone="success">Aktif</Badge>
-              {eligible && <span className="badge" style={{ background: `${level.color}22`, color: level.color }}>Level {level.name}</span>}
+              {eligible && (
+                <span className="badge gap-1" style={{ background: `${level.color}22`, color: level.color }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={levelImg(level.name)} alt="" aria-hidden width={18} height={18} className="-my-1 size-[18px]" />
+                  Level {level.name}
+                </span>
+              )}
             </div>
             <p className="mt-2 text-sm text-ink-500">{ROLE_DESC[role]}</p>
             <dl className="mt-4 grid grid-cols-1 gap-2.5 text-left text-sm sm:grid-cols-2">

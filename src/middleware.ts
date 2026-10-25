@@ -7,7 +7,7 @@ import { authSecret } from "@/lib/env";
  * cookie sesi pada setiap respons, sehingga prefetch yang masih berjalan saat pengguna menekan Keluar dapat
  * menghidupkan kembali sesi yang baru dihapus. Halaman (requireUser) dan API tetap memeriksa sesi sendiri.
  */
-const PUBLIC = ["/masuk", "/api/auth", "/api/cron", "/manifest", "/sw.js", "/offline", "/brand", "/icons"];
+const PUBLIC = ["/masuk", "/api/auth", "/api/cron", "/manifest", "/sw.js", "/offline", "/brand", "/icons", "/ikon/", "/rewards/"];
 const COOKIES = ["__Secure-authjs.session-token", "authjs.session-token"];
 
 async function hasSession(req: NextRequest, secret: string) {
@@ -37,5 +37,6 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|brand|sw.js|manifest.webmanifest|offline.html).*)"],
+  // Aset statis publik (ikon, logo, gambar hadiah bawaan) tidak melewati pemeriksaan sesi
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|brand/|ikon/|rewards/|sw.js|manifest.webmanifest|offline.html).*)"],
 };

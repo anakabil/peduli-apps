@@ -1,6 +1,6 @@
 /* Service worker PEDULI Apps: cache app shell, fallback luring, antrean laporan. */
-const VERSION = "peduli-v2";
-const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/peduli-logo.png", "/brand/gys-logo.png", "/brand/peduli-mark.png"];
+const VERSION = "peduli-v4";
+const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/peduli-logo.png", "/brand/gys-logo.png", "/brand/peduli-mark.png", "/ikon/ilustrasi/luring.webp"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -27,14 +27,17 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Aset statis: cache dahulu
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/brand/")) {
+  if (/^\/(_next\/static|icons|brand|ikon|rewards)\//.test(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
           hit ||
           fetch(req).then((res) => {
-            const copy = res.clone();
-            caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => {});
+            // Hanya respons sukses yang disimpan; pengalihan (mis. ke halaman masuk) tidak pernah di-cache
+            if (res.ok && !res.redirected) {
+              const copy = res.clone();
+              caches.open(VERSION).then((c) => c.put(req, copy)).catch(() => {});
+            }
             return res;
           })
       )

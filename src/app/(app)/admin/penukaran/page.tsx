@@ -1,7 +1,8 @@
-import { Inbox } from "lucide-react";
+
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader, Card, CardHeader, CardBody, Badge, EmptyState } from "@/components/ui";
+import { ILLUSTRATION } from "@/lib/icons";
 import { REDEMPTION_LABEL } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { ProcessButtons } from "./buttons";
@@ -78,7 +79,7 @@ export default async function PenukaranPage() {
         <CardHeader title="Menunggu diproses" subtitle={open.length ? `${open.length} pengajuan perlu ditindaklanjuti` : "Semua pengajuan sudah diproses"} />
         <CardBody className="pt-4">
           {open.length === 0 ? (
-            <EmptyState icon={<Inbox size={22} />} title="Tidak ada pengajuan yang menunggu" description="Pengajuan penukaran baru dari pengguna akan muncul di sini." />
+            <EmptyState image={ILLUSTRATION.kosongPenukaran} title="Tidak ada pengajuan yang menunggu" description="Pengajuan penukaran baru dari pengguna akan muncul di sini." />
           ) : (
             <>
               <ul className="space-y-2.5 md:hidden">{open.map(renderItem)}</ul>

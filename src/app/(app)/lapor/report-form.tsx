@@ -1,33 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, RefreshCw, Send, X, AlertTriangle, CheckCircle2, WifiOff, ShieldCheck, TriangleAlert, UserX, Siren, PersonStanding, Droplets, CloudLightning, Users, Cog, FlaskConical, ListChecks, Factory } from "lucide-react";
+import { Camera, MapPin, RefreshCw, Send, X, AlertTriangle, ShieldCheck } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL, HAZARD_TYPES, HAZARD_TYPE_LABEL, RISKS, RISK_LABEL, RISK_COLOR, type Category, type HazardType, type Risk } from "@/lib/constants";
 import { compressImage } from "@/lib/client/image";
 import { enqueueReport } from "@/lib/client/offline-queue";
 import { cn, distanceM } from "@/lib/format";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
+import { CATEGORY_IMG, HAZARD_IMG, ILLUSTRATION } from "@/lib/icons";
 
-type Icon = ComponentType<{ size?: number; className?: string }>;
-
-const CATEGORY_ICON: Record<Category, Icon> = {
-  KONDISI_TIDAK_AMAN: TriangleAlert,
-  TINDAKAN_TIDAK_AMAN: UserX,
-  NYARIS_CELAKA: Siren,
-  ERGONOMI: PersonStanding,
-  LINGKUNGAN: Droplets,
-  BENCANA_ALAM: CloudLightning,
-};
-
-const HAZARD_ICON: Record<HazardType, Icon> = {
-  MANUSIA: Users,
-  PERALATAN: Cog,
-  MATERIAL_BERBAHAYA: FlaskConical,
-  METODE_KERJA: ListChecks,
-  LINGKUNGAN_KERJA: Factory,
-  KONDISI_ALAM: CloudLightning,
-};
 
 const RISK_HELP: Record<Risk, string> = {
   RENDAH: "Cedera ringan, cukup P3K.",
@@ -191,9 +173,8 @@ export function ReportForm({ areas, personnel, userAreaId, path }: { areas: Area
   if (done) {
     return (
       <div className="card p-8 text-center anim-scale-in">
-        <div className={cn("mx-auto flex h-16 w-16 items-center justify-center rounded-full", done.offline ? "bg-amber/15 text-[#8a6a0a]" : "bg-brand-100 text-brand-700")}>
-          {done.offline ? <WifiOff size={30} /> : <CheckCircle2 size={32} />}
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={done.offline ? ILLUSTRATION.luring : ILLUSTRATION.laporanTerkirim} alt="" aria-hidden width={240} height={180} className="mx-auto h-auto w-56 max-w-full" />
         <h2 className="mt-4 text-xl font-bold">{done.offline ? "Tersimpan di perangkat" : "Laporan terkirim"}</h2>
         <p className="mt-2 text-sm text-ink-500">
           {done.offline
@@ -274,11 +255,11 @@ export function ReportForm({ areas, personnel, userAreaId, path }: { areas: Area
       </Section>
 
       <Section no={2} title="Kategori bahaya">
-        <ChoiceGrid multiple={false} ariaLabel="Kategori bahaya" options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], icon: CATEGORY_ICON[c] }))} selected={category ? [category] : []} onToggle={(k) => setCategory(k as Category)} />
+        <ChoiceGrid multiple={false} ariaLabel="Kategori bahaya" options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], image: CATEGORY_IMG[c] }))} selected={category ? [category] : []} onToggle={(k) => setCategory(k as Category)} />
         <div className="label mt-5">
           Jenis bahaya <Req />
         </div>
-        <ChoiceGrid multiple={false} ariaLabel="Jenis bahaya" options={HAZARD_TYPES.map((h) => ({ key: h, label: HAZARD_TYPE_LABEL[h], icon: HAZARD_ICON[h] }))} selected={hazardType ? [hazardType] : []} onToggle={(k) => setHazardType(k as HazardType)} />
+        <ChoiceGrid multiple={false} ariaLabel="Jenis bahaya" options={HAZARD_TYPES.map((h) => ({ key: h, label: HAZARD_TYPE_LABEL[h], image: HAZARD_IMG[h] }))} selected={hazardType ? [hazardType] : []} onToggle={(k) => setHazardType(k as HazardType)} />
       </Section>
 
       <Section no={3} title="Uraian bahaya">

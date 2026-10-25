@@ -2,7 +2,7 @@
 
 Dokumen ini berisi daftar ikon yang dibutuhkan aplikasi, lengkap dengan nama berkas dan prompt untuk dibuat di AI generator gambar. Nama berkas sudah disesuaikan dengan kode aplikasi, sehingga hasilnya dapat langsung dipasang tanpa penyesuaian.
 
-Total 66 ikon dalam enam kelompok. Kelompok A dan B adalah prioritas pertama karena tampil di formulir lapor bahaya, halaman yang paling sering dibuka pengguna.
+Total 66 ikon dalam enam kelompok, ditambah satu ikon menu Jejak audit yang dibuat saat pemasangan. Kelompok A dan B adalah prioritas pertama karena tampil di formulir lapor bahaya, halaman yang paling sering dibuka pengguna.
 
 | Kelompok | Jumlah | Prioritas | Tampil di |
 |---|---|---|---|
@@ -155,6 +155,7 @@ Pakai prompt gaya kelompok F (datar dua warna). Ikon garis yang dipakai sekarang
 | F13 | menu-katalog.png | Katalog reward | a package box with a tag |
 | F14 | menu-penukaran.png | Penukaran poin | two arrows exchanging around a coin |
 | F15 | menu-pengaturan.png | Pengaturan alur | a gear with a flow arrow |
+| F16 | menu-audit.svg | Jejak audit | a document with a magnifying glass (ditambahkan saat pemasangan, digambar langsung sebagai SVG dengan gaya yang sama) |
 
 ## 8. Penyerahan berkas
 
@@ -163,3 +164,18 @@ Pakai prompt gaya kelompok F (datar dua warna). Ikon garis yang dipakai sekarang
 3. Saya akan merapikan latar, menyeragamkan ukuran dan ruang tepi, mengonversi ke WebP agar ringan, lalu memasangnya di aplikasi dan menguji tampilannya di ponsel dan desktop.
 
 Bila hasil dari AI lain dipakai, pastikan ketentuan layanannya mengizinkan penggunaan komersial, karena ikon akan dipakai di aplikasi klien (PT Garuda Yamato Steel).
+
+## 9. Status pemasangan
+
+Pustaka 66 ikon telah dipasang di aplikasi. Lokasi berkas hasil konversi:
+
+| Kelompok | Lokasi | Format |
+|---|---|---|
+| A. Kategori bahaya | public/ikon/kategori | WebP 192 px |
+| B. Jenis bahaya | public/ikon/jenis | WebP 192 px |
+| C. Katalog reward | public/rewards | WebP 256 px |
+| D. Level poin | public/ikon/level | WebP 192 px |
+| E. Ilustrasi keadaan | public/ikon/ilustrasi | WebP 640 x 480 px |
+| F. Menu navigasi | public/ikon/menu | SVG |
+
+Pemetaan ke kode ada di src/lib/icons.ts dan src/lib/reward-icons.ts.

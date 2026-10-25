@@ -3,36 +3,21 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  PlusCircle,
-  ClipboardList,
-  ShieldCheck,
-  Gavel,
-  Wrench,
-  Gift,
-  BarChart3,
-  Users,
-  MapPin,
-  Settings,
-  ScrollText,
-  Bell,
-  Package,
-  Star,
-  UserCircle,
-  BookOpen,
-  Network,
-  Menu,
-  X,
-  ChevronRight,
-} from "lucide-react";
+import { PlusCircle, Bell, UserCircle, Menu, X, ChevronRight } from "lucide-react";
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/format";
+import { menuIcon } from "@/lib/icons";
 import { PeduliMark } from "@/components/brand";
 import type { CurrentUser } from "@/lib/session";
 import { Avatar } from "@/components/ui";
 
-type Item = { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; roles: Role[] };
+type Item = { href: string; label: string; icon: string; roles: Role[] };
+
+/** Ikon menu dua warna; yang tidak aktif sedikit diredam agar menu aktif tetap menonjol */
+function NavIcon({ name, size, active }: { name: string; size: number; active: boolean }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={menuIcon(name)} alt="" aria-hidden width={size} height={size} className={cn("shrink-0 transition-[filter,opacity]", !active && "opacity-80 saturate-[.8]")} />;
+}
 
 const ALL: Role[] = ["ADMIN", "DIREKSI", "MANAGER", "SUPERINTENDENT", "PENGAWAS"];
 
@@ -40,37 +25,37 @@ export const NAV: Array<{ group: string; items: Item[] }> = [
   {
     group: "Utama",
     items: [
-      { href: "/beranda", label: "Beranda", icon: LayoutDashboard, roles: ALL },
-      { href: "/lapor", label: "Lapor bahaya", icon: PlusCircle, roles: ALL },
-      { href: "/laporan", label: "Laporan", icon: ClipboardList, roles: ALL },
+      { href: "/beranda", label: "Beranda", icon: "beranda", roles: ALL },
+      { href: "/lapor", label: "Lapor bahaya", icon: "lapor", roles: ALL },
+      { href: "/laporan", label: "Laporan", icon: "laporan", roles: ALL },
     ],
   },
   {
     group: "Tugas",
     items: [
-      { href: "/verifikasi", label: "Verifikasi", icon: ShieldCheck, roles: ["SUPERINTENDENT", "ADMIN"] },
-      { href: "/keputusan", label: "Keputusan", icon: Gavel, roles: ["MANAGER", "ADMIN"] },
-      { href: "/tindak-lanjut", label: "Tindak lanjut", icon: Wrench, roles: ["MANAGER", "SUPERINTENDENT", "PENGAWAS", "ADMIN"] },
+      { href: "/verifikasi", label: "Verifikasi", icon: "verifikasi", roles: ["SUPERINTENDENT", "ADMIN"] },
+      { href: "/keputusan", label: "Keputusan", icon: "keputusan", roles: ["MANAGER", "ADMIN"] },
+      { href: "/tindak-lanjut", label: "Tindak lanjut", icon: "tindak-lanjut", roles: ["MANAGER", "SUPERINTENDENT", "PENGAWAS", "ADMIN"] },
     ],
   },
   {
     group: "Program",
     items: [
-      { href: "/poin", label: "Poin dan reward", icon: Gift, roles: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"] },
-      { href: "/statistik", label: "Statistik", icon: BarChart3, roles: ["DIREKSI", "MANAGER", "ADMIN"] },
-      { href: "/panduan", label: "Panduan", icon: BookOpen, roles: ALL },
+      { href: "/poin", label: "Poin dan reward", icon: "poin", roles: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"] },
+      { href: "/statistik", label: "Statistik", icon: "statistik", roles: ["DIREKSI", "MANAGER", "ADMIN"] },
+      { href: "/panduan", label: "Panduan", icon: "panduan", roles: ALL },
     ],
   },
   {
     group: "Administrasi",
     items: [
-      { href: "/admin/pengguna", label: "Pengguna", icon: Users, roles: ["ADMIN"] },
-      { href: "/admin/area", label: "Area kerja", icon: MapPin, roles: ["ADMIN", "MANAGER"] },
-      { href: "/admin/akuntabilitas", label: "Akuntabilitas", icon: Network, roles: ["ADMIN", "MANAGER"] },
-      { href: "/admin/reward", label: "Katalog reward", icon: Package, roles: ["ADMIN"] },
-      { href: "/admin/penukaran", label: "Penukaran poin", icon: Star, roles: ["ADMIN"] },
-      { href: "/admin/pengaturan", label: "Pengaturan alur", icon: Settings, roles: ["ADMIN", "MANAGER"] },
-      { href: "/admin/audit", label: "Jejak audit", icon: ScrollText, roles: ["ADMIN"] },
+      { href: "/admin/pengguna", label: "Pengguna", icon: "pengguna", roles: ["ADMIN"] },
+      { href: "/admin/area", label: "Area kerja", icon: "area", roles: ["ADMIN", "MANAGER"] },
+      { href: "/admin/akuntabilitas", label: "Akuntabilitas", icon: "akuntabilitas", roles: ["ADMIN", "MANAGER"] },
+      { href: "/admin/reward", label: "Katalog reward", icon: "katalog", roles: ["ADMIN"] },
+      { href: "/admin/penukaran", label: "Penukaran poin", icon: "penukaran", roles: ["ADMIN"] },
+      { href: "/admin/pengaturan", label: "Pengaturan alur", icon: "pengaturan", roles: ["ADMIN", "MANAGER"] },
+      { href: "/admin/audit", label: "Jejak audit", icon: "audit", roles: ["ADMIN"] },
     ],
   },
 ];
@@ -90,7 +75,7 @@ export function Sidebar({ role }: { role: Role }) {
                 const active = pathname === i.href || pathname.startsWith(i.href + "/");
                 return (
                   <Link key={i.href} href={i.href} aria-current={active ? "page" : undefined} className={cn("nav-item", active && "nav-item-active")}>
-                    <i.icon size={18} className={active ? "text-brand-700" : "text-ink-400"} />
+                    <NavIcon name={i.icon} size={20} active={active} />
                     {i.label}
                   </Link>
                 );
@@ -108,34 +93,34 @@ type MobileItem = { href: string; label: string; icon: Item["icon"] };
 // Empat pintasan per peran; menu lengkap (termasuk administrasi) dibuka lewat tombol Menu
 const MOBILE: Record<Role, MobileItem[]> = {
   PENGAWAS: [
-    { href: "/beranda", label: "Beranda", icon: LayoutDashboard },
-    { href: "/laporan", label: "Laporan", icon: ClipboardList },
-    { href: "/lapor", label: "Lapor", icon: PlusCircle },
-    { href: "/poin", label: "Poin", icon: Gift },
+    { href: "/beranda", label: "Beranda", icon: "beranda" },
+    { href: "/laporan", label: "Laporan", icon: "laporan" },
+    { href: "/lapor", label: "Lapor", icon: "lapor" },
+    { href: "/poin", label: "Poin", icon: "poin" },
   ],
   SUPERINTENDENT: [
-    { href: "/beranda", label: "Beranda", icon: LayoutDashboard },
-    { href: "/verifikasi", label: "Verifikasi", icon: ShieldCheck },
-    { href: "/lapor", label: "Lapor", icon: PlusCircle },
-    { href: "/tindak-lanjut", label: "Tindak lanjut", icon: Wrench },
+    { href: "/beranda", label: "Beranda", icon: "beranda" },
+    { href: "/verifikasi", label: "Verifikasi", icon: "verifikasi" },
+    { href: "/lapor", label: "Lapor", icon: "lapor" },
+    { href: "/tindak-lanjut", label: "Tindak lanjut", icon: "tindak-lanjut" },
   ],
   MANAGER: [
-    { href: "/beranda", label: "Beranda", icon: LayoutDashboard },
-    { href: "/keputusan", label: "Keputusan", icon: Gavel },
-    { href: "/lapor", label: "Lapor", icon: PlusCircle },
-    { href: "/tindak-lanjut", label: "Tindak lanjut", icon: Wrench },
+    { href: "/beranda", label: "Beranda", icon: "beranda" },
+    { href: "/keputusan", label: "Keputusan", icon: "keputusan" },
+    { href: "/lapor", label: "Lapor", icon: "lapor" },
+    { href: "/tindak-lanjut", label: "Tindak lanjut", icon: "tindak-lanjut" },
   ],
   DIREKSI: [
-    { href: "/beranda", label: "Beranda", icon: LayoutDashboard },
-    { href: "/statistik", label: "Statistik", icon: BarChart3 },
-    { href: "/lapor", label: "Lapor", icon: PlusCircle },
-    { href: "/laporan", label: "Laporan", icon: ClipboardList },
+    { href: "/beranda", label: "Beranda", icon: "beranda" },
+    { href: "/statistik", label: "Statistik", icon: "statistik" },
+    { href: "/lapor", label: "Lapor", icon: "lapor" },
+    { href: "/laporan", label: "Laporan", icon: "laporan" },
   ],
   ADMIN: [
-    { href: "/beranda", label: "Beranda", icon: LayoutDashboard },
-    { href: "/laporan", label: "Laporan", icon: ClipboardList },
-    { href: "/lapor", label: "Lapor", icon: PlusCircle },
-    { href: "/statistik", label: "Statistik", icon: BarChart3 },
+    { href: "/beranda", label: "Beranda", icon: "beranda" },
+    { href: "/laporan", label: "Laporan", icon: "laporan" },
+    { href: "/lapor", label: "Lapor", icon: "lapor" },
+    { href: "/statistik", label: "Statistik", icon: "statistik" },
   ],
 };
 
@@ -172,7 +157,7 @@ export function BottomNav({ role }: { role: Role }) {
               return (
                 <Link key={i.href} href={i.href} className={cell(active)} aria-current={active ? "page" : undefined}>
                   <span className="absolute -top-4 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-2xl bg-brand-700 text-white shadow-[0_8px_20px_-8px_rgba(0,96,66,0.6)] ring-4 ring-white">
-                    <i.icon size={22} />
+                    <PlusCircle size={22} />
                   </span>
                   <span className={active ? "font-semibold" : ""}>{i.label}</span>
                 </Link>
@@ -181,7 +166,7 @@ export function BottomNav({ role }: { role: Role }) {
             return (
               <Link key={i.href} href={i.href} className={cell(active)} aria-current={active ? "page" : undefined}>
                 {bar(active)}
-                <i.icon size={21} />
+                <NavIcon name={i.icon} size={22} active={active} />
                 <span className={active ? "font-semibold" : ""}>{i.label}</span>
               </Link>
             );
@@ -217,7 +202,7 @@ export function BottomNav({ role }: { role: Role }) {
                         const active = isActive(pathname, i.href);
                         return (
                           <Link key={i.href} href={i.href} className={cn("flex min-h-12 items-center gap-3 border-b border-ink-100 px-4 text-[15px] last:border-b-0", active ? "bg-brand-50 font-semibold text-brand-800" : "text-ink-800")}>
-                            <i.icon size={19} className={active ? "text-brand-700" : "text-ink-400"} />
+                            <NavIcon name={i.icon} size={21} active={active} />
                             <span className="flex-1">{i.label}</span>
                             <ChevronRight size={16} className="text-ink-300" />
                           </Link>

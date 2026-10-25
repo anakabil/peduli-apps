@@ -41,6 +41,8 @@ await page.waitForSelector("text=akurasi", { timeout: 15000 });
 await page.locator('input[type="file"]').setInputFiles(photo);
 await page.waitForSelector('img[alt="Foto 1"]');
 ok((await page.locator("#lokasi option:checked").textContent()).includes("Produksi"), "Lokasi terisi otomatis dari GPS");
+ok((await page.locator('img[src^="/ikon/kategori/"]').count()) === 6 && (await page.locator('img[src^="/ikon/jenis/"]').count()) === 6, "Kategori dan jenis bahaya memakai ikon 3D");
+ok((await page.locator('img[src^="/ikon/menu/"]').count()) >= 4, "Menu memakai ikon dua warna");
 await page.getByRole("radio", { name: "Near miss / nyaris celaka" }).click();
 await page.getByRole("radio", { name: "Peralatan" }).click();
 await page.locator("#uraian").fill("Forklift hampir menabrak pekerja di tikungan rak B karena cermin cembung pecah.");

@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/format";
 
-export type ChoiceOption = { key: string; label: string; hint?: string; icon?: ComponentType<{ size?: number; className?: string }> };
+export type ChoiceOption = { key: string; label: string; hint?: string; icon?: ComponentType<{ size?: number; className?: string }>; image?: string };
 
 /**
  * Pilihan berbentuk petak seragam: lebar sama, tinggi sama, label dibatasi dua baris.
@@ -34,7 +34,7 @@ export function ChoiceGrid({
         const on = selected.includes(o.key);
         const Icon = o.icon;
         // Ponsel: ikon dan centang di baris atas, label selebar petak di bawahnya
-        const stack = !!Icon && layout === "stack";
+        const stack = !!(Icon || o.image) && layout === "stack";
         return (
           <button
             key={o.key}
@@ -42,12 +42,18 @@ export function ChoiceGrid({
             role={multiple ? "checkbox" : "radio"}
             aria-checked={on}
             onClick={() => onToggle(o.key)}
-            className={cn("choice-tile", stack && "min-h-[92px] flex-wrap content-start items-start gap-y-2 sm:min-h-[60px] sm:flex-nowrap sm:items-center", on && "choice-tile-active")}
+            className={cn("choice-tile group", stack && "min-h-[92px] flex-wrap content-start items-start gap-y-2 sm:min-h-[60px] sm:flex-nowrap sm:items-center", on && "choice-tile-active")}
           >
-            {Icon && (
-              <span className="choice-tile-icon">
-                <Icon size={17} />
-              </span>
+            {o.image ? (
+              // Ikon 3D berwarna; bila dipilih sedikit membesar
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={o.image} alt="" aria-hidden width={48} height={48} className={cn("size-12 shrink-0 object-contain transition-transform duration-200", on ? "scale-110" : "group-hover:scale-105")} />
+            ) : (
+              Icon && (
+                <span className="choice-tile-icon">
+                  <Icon size={17} />
+                </span>
+              )
             )}
             <span className={cn("min-w-0 text-left", stack ? "order-last basis-full sm:order-none sm:basis-0 sm:flex-1" : "flex-1")}>
               <span className="line-clamp-2 block text-[13px] font-semibold leading-snug">{o.label}</span>

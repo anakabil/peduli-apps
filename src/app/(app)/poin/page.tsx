@@ -8,6 +8,7 @@ import { LEDGER_LABEL, REDEMPTION_LABEL } from "@/lib/constants";
 import { fmtDateTime, fmtDate, jktDate, jktParts, cn } from "@/lib/format";
 import { RedeemButton } from "./redeem-button";
 import { RewardVisual } from "@/components/reward/reward-visual";
+import { ILLUSTRATION, levelImg } from "@/lib/icons";
 
 export const metadata = { title: "Poin dan reward" };
 
@@ -49,7 +50,8 @@ export default async function PoinPage() {
           </div>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
             <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: level.color === "#8a9199" ? "#d7dce1" : level.color }}>
-              <Trophy size={16} /> Level {level.name}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={levelImg(level.name)} alt="" aria-hidden width={28} height={28} className="-my-1 size-7 drop-shadow" /> Level {level.name}
             </span>
             {level.next && (
               <span className="text-white/70">
@@ -162,7 +164,11 @@ export default async function PoinPage() {
             <CardHeader title="Penukaran saya" />
             <CardBody className="pt-3">
               {redemptions.length === 0 ? (
-                <p className="text-sm text-ink-500">Belum ada penukaran.</p>
+                <div className="flex flex-col items-center py-2 text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ILLUSTRATION.kosongPenukaran} alt="" aria-hidden width={128} height={96} className="h-auto w-28" />
+                  <p className="mt-1 text-sm text-ink-500">Belum ada penukaran.</p>
+                </div>
               ) : (
                 <ul className="-my-1 divide-y divide-ink-100">
                   {redemptions.map((r) => (

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui";
 import { STATUS_LABEL, STATUS_TONE, RISK_LABEL, RISK_COLOR, CATEGORY_LABEL, type Status, type Risk, type Category } from "@/lib/constants";
+import { CATEGORY_IMG } from "@/lib/icons";
 
 export function StatusBadge({ status }: { status: string }) {
   const s = status as Status;
@@ -21,5 +22,12 @@ export function RiskBadge({ risk, className = "" }: { risk: string; className?: 
 }
 
 export function CategoryBadge({ category }: { category: string }) {
-  return <Badge tone="neutral">{CATEGORY_LABEL[category as Category] ?? category}</Badge>;
+  const img = CATEGORY_IMG[category as Category];
+  return (
+    <Badge tone="neutral" className="gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {img && <img src={img} alt="" aria-hidden width={16} height={16} className="-my-0.5 size-4" />}
+      {CATEGORY_LABEL[category as Category] ?? category}
+    </Badge>
+  );
 }

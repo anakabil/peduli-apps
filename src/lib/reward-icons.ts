@@ -1,5 +1,5 @@
 /**
- * Ikon reward bergaya 3D (Fluent Emoji, Microsoft, lisensi MIT) di /public/rewards.
+ * Ikon reward 3D dari pustaka ikon PEDULI (docs/daftar-ikon-peduli.md, kelompok C) di /public/rewards.
  * Nilai yang disimpan di kolom Reward.icon adalah kunci di bawah ini.
  */
 export const REWARD_ICONS = [
@@ -19,7 +19,7 @@ export const REWARD_ICONS = [
   { key: "cap", label: "Topi" },
   { key: "backpack", label: "Tas ransel" },
   { key: "boots", label: "Sepatu keselamatan" },
-  { key: "helmet", label: "Helm" },
+  { key: "helmet", label: "Helm keselamatan" },
   { key: "goggles", label: "Kacamata pelindung" },
   { key: "gloves", label: "Sarung tangan" },
   { key: "watch", label: "Jam tangan" },

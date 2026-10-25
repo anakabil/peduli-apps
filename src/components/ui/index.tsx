@@ -55,10 +55,15 @@ export function Stat({ label, value, delta, tone = "neutral", icon, hint }: { la
   );
 }
 
-export function EmptyState({ icon, title, description, action }: { icon?: ReactNode; title: string; description?: string; action?: ReactNode }) {
+export function EmptyState({ icon, image, title, description, action }: { icon?: ReactNode; image?: string; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-ink-200 bg-white/60 px-6 py-12 text-center anim-fade-in">
-      {icon && <div className="mb-3 rounded-2xl bg-brand-50 p-3 text-brand-600">{icon}</div>}
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" aria-hidden width={200} height={150} className="mb-2 h-auto w-44 max-w-full" />
+      ) : (
+        icon && <div className="mb-3 rounded-2xl bg-brand-50 p-3 text-brand-600">{icon}</div>
+      )}
       <h3 className="text-base font-bold text-ink-800">{title}</h3>
       {description && <p className="mt-1 max-w-sm text-sm text-ink-500">{description}</p>}
       {action && <div className="mt-4">{action}</div>}

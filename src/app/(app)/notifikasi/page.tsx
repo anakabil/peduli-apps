@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Bell, CheckCheck, ChevronRight } from "lucide-react";
+import { CheckCheck, ChevronRight } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { relTime, fmtDateTime, cn } from "@/lib/format";
+import { ILLUSTRATION } from "@/lib/icons";
 
 export const metadata = { title: "Notifikasi" };
 
@@ -46,9 +47,8 @@ export default async function NotifikasiPage() {
       />
       {items.length === 0 ? (
         <div className="card flex flex-col items-center px-6 py-12 text-center anim-fade-in">
-          <div className="mb-3 rounded-full bg-brand-50 p-3 text-brand-600">
-            <Bell size={24} />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={ILLUSTRATION.kosongNotifikasi} alt="" aria-hidden width={200} height={150} className="mb-2 h-auto w-44 max-w-full" />
           <h2 className="text-base font-bold text-ink-900">Belum ada notifikasi</h2>
           <p className="mt-1 max-w-sm text-sm text-ink-500">Pemberitahuan verifikasi, keputusan, dan penutupan akan tampil di sini.</p>
         </div>
