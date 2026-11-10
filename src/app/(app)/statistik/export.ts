@@ -121,7 +121,7 @@ export async function exportPdf(ctx: ExportCtx) {
   img("trend", M, 72, W - 2 * M, 70, "Tren laporan masuk, valid, dan ditutup (12 bulan)");
   const half = (W - 2 * M - 4) / 2;
   img("risk", M, 152, half, 62, "Sebaran tingkat risiko");
-  img("category", M + half + 4, 152, half, 62, "Kategori bahaya");
+  img("category", M + half + 4, 152, half, 62, "Jenis bahaya");
   autoTable(doc, {
     startY: 224,
     margin: { left: M, right: M },
@@ -178,7 +178,7 @@ export async function exportPdf(ctx: ExportCtx) {
     autoTable(doc, {
       startY: y + 3,
       margin: { left: M, right: M },
-      head: [["Nomor", "Area", "Kategori", "Risiko", "Status", "Umur (hari)"]],
+      head: [["Nomor", "Area", "Jenis bahaya", "Risiko", "Status", "Umur (hari)"]],
       body: stats.highOpenList.map((r) => [r.number, r.area, CATEGORY_LABEL[r.category], RISK_LABEL[r.riskLevel], STATUS_LABEL[r.status as Status], r.days]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: "#c8373b", textColor: "#ffffff" },
@@ -186,11 +186,11 @@ export async function exportPdf(ctx: ExportCtx) {
   }
 
   // Laporan ditolak tetap dilaporkan untuk menjaga objektivitas
-  header("Jenis bahaya dan laporan ditolak");
+  header("Sumber bahaya dan laporan ditolak");
   autoTable(doc, {
     startY: 44,
     margin: { left: M, right: W / 2 + 2 },
-    head: [["Jenis bahaya", "Jumlah"]],
+    head: [["Sumber bahaya", "Jumlah"]],
     body: stats.hazardTypeDist.map((c) => [HAZARD_TYPE_LABEL[c.key as HazardType], c.count]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: BRAND2, textColor: "#ffffff" },
@@ -339,8 +339,8 @@ export async function exportPptx(ctx: ExportCtx) {
   s3.addChart(pptx.ChartType.bar, [{ name: "% tepat waktu", labels: stats.onTimeByArea.map((a) => a.area), values: stats.onTimeByArea.map((a) => a.pct) }], { x: 5.85, y: 3.4, w: 3.8, h: 1.8, barDir: "bar", chartColors: ["C9A227"], showValue: true, dataLabelFontSize: 8, dataLabelFormatCode: '0"%"', valAxisMaxVal: 100, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Penutupan tepat waktu per area", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
 
   // Slide 4: kategori, status, hierarki
-  const s4 = master("Kategori, status, dan hierarki pengendalian");
-  s4.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.categoryDist.map((c) => CATEGORY_SHORT[c.key as Category]), values: stats.categoryDist.map((c) => c.count) }], { x: 0.35, y: 1.65, w: 3.1, h: 3.4, chartColors: ["0A785B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Kategori bahaya", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
+  const s4 = master("Jenis bahaya, status, dan hierarki pengendalian");
+  s4.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.categoryDist.map((c) => CATEGORY_SHORT[c.key as Category]), values: stats.categoryDist.map((c) => c.count) }], { x: 0.35, y: 1.65, w: 3.1, h: 3.4, chartColors: ["0A785B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Jenis bahaya", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
   s4.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.statusDist.map((c) => STATUS_LABEL[c.key as Status]), values: stats.statusDist.map((c) => c.count) }], { x: 3.55, y: 1.65, w: 3.1, h: 3.4, barDir: "bar", chartColors: ["2B6CB0"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 7, valAxisLabelFontSize: 8, showTitle: true, title: "Status laporan", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
   s4.addChart(pptx.ChartType.doughnut, [{ name: "Pengendalian", labels: stats.controlDist.map((c) => CONTROL_LABEL[c.key as Control]), values: stats.controlDist.map((c) => c.count) }], { x: 6.75, y: 1.65, w: 2.9, h: 3.4, chartColors: ["0A785B", "C9A227", "2B6CB0", "E07A1F", "7C3AED"], holeSize: 55, showPercent: true, showLegend: true, legendPos: "b", legendFontSize: 8, dataLabelFontSize: 8, showTitle: true, title: "Hierarki pengendalian", titleFontSize: 10, titleColor: "14211C" });
 
@@ -354,12 +354,12 @@ export async function exportPptx(ctx: ExportCtx) {
   // Slide 6: risiko tinggi terbuka
   if (stats.highOpenList.length) {
     const s6 = master("Risiko tinggi terbuka", "Diurutkan dari yang paling lama.");
-    s6.addTable([[hdr("Nomor"), hdr("Area"), hdr("Kategori"), hdr("Risiko"), hdr("Status"), hdr("Umur (hari)")], ...stats.highOpenList.map((r) => [{ text: r.number }, { text: r.area }, { text: CATEGORY_LABEL[r.category] }, { text: RISK_LABEL[r.riskLevel], options: { bold: true, color: r.riskLevel === "EKSTREM" ? "C8373B" : "E07A1F" } }, { text: STATUS_LABEL[r.status as Status] }, { text: String(r.days), options: { bold: true, color: r.days > 14 ? "C8373B" : "14211C" } }])], { x: 0.35, y: 1.65, w: 9.3, fontSize: 9, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.6, 1.3, 2.0, 1.0, 2.2, 1.2], rowH: 0.3 });
+    s6.addTable([[hdr("Nomor"), hdr("Area"), hdr("Jenis bahaya"), hdr("Risiko"), hdr("Status"), hdr("Umur (hari)")], ...stats.highOpenList.map((r) => [{ text: r.number }, { text: r.area }, { text: CATEGORY_LABEL[r.category] }, { text: RISK_LABEL[r.riskLevel], options: { bold: true, color: r.riskLevel === "EKSTREM" ? "C8373B" : "E07A1F" } }, { text: STATUS_LABEL[r.status as Status] }, { text: String(r.days), options: { bold: true, color: r.days > 14 ? "C8373B" : "14211C" } }])], { x: 0.35, y: 1.65, w: 9.3, fontSize: 9, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.6, 1.3, 2.0, 1.0, 2.2, 1.2], rowH: 0.3 });
   }
 
   // Slide laporan ditolak: tetap ditampilkan agar keputusan penolakan dapat ditelaah
-  const sR = master("Jenis bahaya dan laporan ditolak", `${stats.summary.rejected} laporan ditolak dalam periode.`);
-  sR.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.hazardTypeDist.map((c) => HAZARD_TYPE_LABEL[c.key as HazardType]), values: stats.hazardTypeDist.map((c) => c.count) }], { x: 0.35, y: 1.65, w: 3.6, h: 3.4, barDir: "bar", chartColors: ["0A785B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Jenis bahaya", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
+  const sR = master("Sumber bahaya dan laporan ditolak", `${stats.summary.rejected} laporan ditolak dalam periode.`);
+  sR.addChart(pptx.ChartType.bar, [{ name: "Laporan", labels: stats.hazardTypeDist.map((c) => HAZARD_TYPE_LABEL[c.key as HazardType]), values: stats.hazardTypeDist.map((c) => c.count) }], { x: 0.35, y: 1.65, w: 3.6, h: 3.4, barDir: "bar", chartColors: ["0A785B"], showValue: true, dataLabelFontSize: 8, catAxisLabelFontSize: 8, valAxisLabelFontSize: 8, showTitle: true, title: "Sumber bahaya", titleFontSize: 10, titleColor: "14211C", valGridLine: { color: "E3E9E5", size: 0.5 } });
   sR.addTable(
     [
       [hdr("Nomor"), hdr("Area"), hdr("Tahap"), hdr("Alasan"), hdr("Oleh")],
@@ -407,7 +407,7 @@ export function exportCsv(ctx: ExportCtx) {
   rows.push(["Status", "Jumlah"]);
   stats.statusDist.forEach((r) => rows.push([STATUS_LABEL[r.key as Status], String(r.count)]));
   rows.push([]);
-  rows.push(["Jenis bahaya", "Jumlah"]);
+  rows.push(["Sumber bahaya", "Jumlah"]);
   stats.hazardTypeDist.forEach((r) => rows.push([HAZARD_TYPE_LABEL[r.key as HazardType], String(r.count)]));
   rows.push([]);
   rows.push(["Laporan ditolak", "Area", "Tahap", "Alasan", "Oleh", "Tanggal"]);

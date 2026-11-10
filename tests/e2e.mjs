@@ -41,7 +41,7 @@ await page.waitForSelector("text=akurasi", { timeout: 15000 });
 await page.locator('input[type="file"]').setInputFiles(photo);
 await page.waitForSelector('img[alt="Foto 1"]');
 ok((await page.locator("#lokasi option:checked").textContent()).includes("Produksi"), "Lokasi terisi otomatis dari GPS");
-ok((await page.locator('img[src^="/ikon/kategori/"]').count()) === 6 && (await page.locator('img[src^="/ikon/jenis/"]').count()) === 6, "Kategori dan jenis bahaya memakai ikon 3D");
+ok((await page.locator('img[src^="/ikon/kategori/"]').count()) === 6 && (await page.locator('img[src^="/ikon/jenis/"]').count()) === 6, "Jenis dan sumber bahaya memakai ikon 3D");
 ok((await page.locator('img[src^="/ikon/menu/"]').count()) >= 4, "Menu memakai ikon dua warna");
 await page.getByRole("radio", { name: "Near miss / nyaris celaka" }).click();
 await page.getByRole("radio", { name: "Peralatan" }).click();
@@ -188,7 +188,7 @@ await page.screenshot({ path: `${S}/e2e-area-peta.png`, fullPage: true });
 
 await page.goto(`${BASE}/statistik`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
-ok(await page.getByRole("heading", { name: "Laporan ditolak" }).count() && await page.getByRole("heading", { name: "Jenis bahaya" }).count(), "Statistik memuat jenis bahaya dan laporan ditolak");
+ok(await page.getByRole("heading", { name: "Laporan ditolak" }).count() && await page.getByRole("heading", { name: "Sumber bahaya" }).count(), "Statistik memuat sumber bahaya dan laporan ditolak");
 for (const [label, ext] of [["PDF", "pdf"], ["PowerPoint", "pptx"], ["CSV", "csv"]]) {
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 60000 }), page.getByRole("button", { name: label }).click()]);
   const file = path.join(tmp, dl.suggestedFilename());
@@ -198,6 +198,8 @@ for (const [label, ext] of [["PDF", "pdf"], ["PowerPoint", "pptx"], ["CSV", "csv
 }
 await page.goto(`${BASE}/laporan?tab=ditolak`, { waitUntil: "networkidle" });
 ok(await page.locator('a[aria-current="page"]', { hasText: "Ditolak" }).count(), "Daftar laporan memiliki tab Ditolak");
+await page.goto(`${BASE}/admin/data-uji`, { waitUntil: "networkidle" });
+ok((await page.getByText("Anda masuk dengan akun demo").count()) && (await page.getByRole("button", { name: "Hapus data" }).isDisabled()), "Pembersihan data uji terkunci bagi akun demo");
 for (const p of ["/admin/pengguna", "/admin/area", "/admin/reward", "/admin/pengaturan", "/admin/audit"]) {
   await page.goto(`${BASE}${p}`, { waitUntil: "networkidle" });
   await page.screenshot({ path: `${S}/e2e-admin${p.replace(/\//g, "_")}.png`, fullPage: true });

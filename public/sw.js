@@ -1,5 +1,5 @@
 /* Service worker PEDULI Apps: cache app shell, fallback luring, antrean laporan. */
-const VERSION = "peduli-v4";
+const VERSION = "peduli-v5";
 const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/peduli-logo.png", "/brand/gys-logo.png", "/brand/peduli-mark.png", "/ikon/ilustrasi/luring.webp"];
 
 self.addEventListener("install", (event) => {
@@ -43,6 +43,40 @@ self.addEventListener("fetch", (event) => {
       )
     );
   }
+});
+
+// Notifikasi ponsel (Web Push): tampilkan, lalu buka halaman terkait saat diketuk
+self.addEventListener("push", (event) => {
+  let d = {};
+  try {
+    d = event.data ? event.data.json() : {};
+  } catch (e) {
+    d = { body: event.data ? event.data.text() : "" };
+  }
+  const title = d.title || "PEDULI";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: d.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-96.png",
+      tag: d.tag || undefined,
+      renotify: !!d.tag,
+      lang: "id",
+      data: { url: d.url || "/notifikasi" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/notifikasi", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+      if (open) return open.focus().then((c) => (c && "navigate" in c ? c.navigate(target) : null));
+      return self.clients.openWindow(target);
+    })
+  );
 });
 
 self.addEventListener("message", (event) => {

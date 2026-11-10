@@ -64,6 +64,7 @@ Panduan langkah demi langkah untuk penerapan manual ada di [docs/DEPLOY-VERCEL.m
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | ya (kecuali demo) | Google OAuth, redirect URI `https://DOMAIN/api/auth/callback/google` |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | disarankan | sama dengan `AUTH_GOOGLE_ID`, untuk One Tap di smartphone |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | opsional | kunci Maps JavaScript API untuk peta titik area kerja; tanpa kunci dipakai peta terbuka (OpenStreetMap dan citra satelit Esri). Batasi kunci ke domain aplikasi (HTTP referrer). |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | opsional | kunci Web Push untuk notifikasi ponsel. Tanpa keduanya, kunci dibuat otomatis sekali dan disimpan di basis data. |
 | `ADMIN_EMAILS` | ya | email Google yang otomatis menjadi Admin |
 | `ALLOWED_EMAIL_DOMAINS` | opsional | misal `gys.co.id` |
 | `DEMO_MODE` | opsional | `true` hanya saat uji coba, lalu `false` |
@@ -82,6 +83,22 @@ SEED_DEMO=false DATABASE_URL="<nilai DATABASE_URL produksi>" npm run db:seed
 Area dan katalog dapat diubah kapan saja lewat menu Admin, sehingga langkah ini opsional. Admin pertama cukup masuk dengan email yang tercantum di `ADMIN_EMAILS`.
 
 Foto disimpan di basis data (dikompresi di perangkat, maksimal 2 MB per foto, hanya JPEG, PNG, WebP). Untuk skala penuh, foto dapat dipindahkan ke penyimpanan objek tanpa mengubah alur.
+
+## Notifikasi ponsel
+
+Notifikasi dikirim melalui Web Push ke aplikasi yang terpasang di ponsel, juga saat aplikasi tertutup.
+
+1. Pengguna mengaktifkan notifikasi di Profil (atau dari ajakan di Beranda) pada setiap perangkat.
+2. Di iPhone, PEDULI harus ditambahkan ke Layar Utama terlebih dahulu (iOS 16.4 atau lebih baru).
+3. Admin atau Manager memilih jenis notifikasi yang dikirim di Pengaturan alur, kartu Notifikasi ponsel.
+4. Setiap pengguna dapat mematikan jenis tertentu untuk dirinya di Profil.
+5. Saat keluar, perangkat dilepas dari akun agar notifikasi tidak sampai ke pengguna berikutnya.
+
+Uji otomatis dengan layanan push tiruan: jalankan server dengan `NODE_TLS_REJECT_UNAUTHORIZED=0`, lalu `PUSH_CERT_DIR=<folder cert.pem dan key.pem> node tests/push.mjs`.
+
+## Pembersihan data uji coba
+
+Sebelum uji coba lapangan, Admin membuka Pengaturan alur, Data uji coba (`/admin/data-uji`), dengan akun Google admin (bukan akun demo). Halaman ini menampilkan jumlah data yang akan dihapus dan meminta konfirmasi. Matikan `DEMO_MODE` agar akun dan area contoh tidak dibuat ulang.
 
 ## Uji ujung ke ujung
 

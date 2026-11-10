@@ -49,9 +49,9 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
           <Row k="Cap waktu server" v={fmtDateTime(r.createdAt)} />
           <Row k="Lokasi" v={`${r.area?.name ?? "-"}${r.areaLabel ? ` - ${r.areaLabel}` : ""}`} />
           <Row k="Koordinat" v={r.lat != null ? `${r.lat.toFixed(5)}, ${r.lng?.toFixed(5)} (akurasi ${Math.round(r.accuracyM ?? 0)} m)` : "-"} />
-          <Row k="Kategori" v={CATEGORY_LABEL[r.category as Category]} />
+          <Row k="Jenis bahaya" v={CATEGORY_LABEL[r.category as Category]} />
           <Row k="Risiko awal" v={<RiskBadge risk={r.riskLevel} />} />
-          <Row k="Jenis bahaya" v={r.hazardType ? HAZARD_TYPE_LABEL[r.hazardType as HazardType] : null} />
+          <Row k="Sumber bahaya" v={r.hazardType ? HAZARD_TYPE_LABEL[r.hazardType as HazardType] : null} />
           <Row k="Uraian bahaya" v={r.description} />
           <Row k="Dampak" v={r.impact} />
           <Row k="Perbaikan cepat" v={r.immediateAction} />

@@ -57,8 +57,8 @@ export const HAZARD_TYPES = ["MANUSIA", "PERALATAN", "MATERIAL_BERBAHAYA", "METO
 export type HazardType = (typeof HAZARD_TYPES)[number];
 export const HAZARD_TYPE_LABEL: Record<HazardType, string> = {
   MANUSIA: "Manusia",
-  PERALATAN: "Peralatan",
-  MATERIAL_BERBAHAYA: "Material berbahaya",
+  PERALATAN: "Peralatan / mesin",
+  MATERIAL_BERBAHAYA: "Material",
   METODE_KERJA: "Metode kerja",
   LINGKUNGAN_KERJA: "Lingkungan kerja",
   KONDISI_ALAM: "Kondisi alam",
@@ -167,6 +167,45 @@ export const EVENT_LABEL: Record<string, string> = {
   AUDIT: "Audit acak",
 };
 
+/** Jenis notifikasi; menentukan notifikasi ponsel mana yang dikirim (Pengaturan alur) dan yang dimatikan pengguna (Profil) */
+export const NOTIF_TYPES = ["TUGAS_VERIFIKASI", "TUGAS_KEPUTUSAN", "ESKALASI", "PENUGASAN", "TINDAK_LANJUT", "STATUS_LAPORAN", "PENGINGAT", "POIN", "ADMINISTRASI"] as const;
+export type NotifType = (typeof NOTIF_TYPES)[number];
+export const NOTIF_TYPE_LABEL: Record<NotifType, string> = {
+  TUGAS_VERIFIKASI: "Laporan perlu verifikasi",
+  TUGAS_KEPUTUSAN: "Laporan perlu keputusan",
+  ESKALASI: "Eskalasi risiko tinggi",
+  PENUGASAN: "Penugasan tindak lanjut",
+  TINDAK_LANJUT: "Perkembangan tindak lanjut",
+  STATUS_LAPORAN: "Status laporan saya",
+  PENGINGAT: "Pengingat batas waktu",
+  POIN: "Poin dan penukaran",
+  ADMINISTRASI: "Administrasi",
+};
+export const NOTIF_TYPE_DESC: Record<NotifType, string> = {
+  TUGAS_VERIFIKASI: "Laporan baru atau revisi yang menunggu verifikasi.",
+  TUGAS_KEPUTUSAN: "Laporan yang menunggu keputusan Manager.",
+  ESKALASI: "Laporan risiko Tinggi atau Ekstrem di area Anda.",
+  PENUGASAN: "Anda ditunjuk sebagai penanggung jawab perbaikan.",
+  TINDAK_LANJUT: "Perbaikan dilaporkan selesai atau perlu disempurnakan.",
+  STATUS_LAPORAN: "Laporan Anda diverifikasi, disetujui, ditolak, atau ditutup.",
+  PENGINGAT: "Tahap yang melewati batas waktu.",
+  POIN: "Penyesuaian poin dan status penukaran hadiah.",
+  ADMINISTRASI: "Pengajuan penukaran dan aktivasi akun.",
+};
+
+/** Jenis notifikasi yang relevan bagi tiap peran (pilihan yang tampil di Profil) */
+export const NOTIF_TYPE_ROLES: Record<NotifType, Role[]> = {
+  TUGAS_VERIFIKASI: ["SUPERINTENDENT", "MANAGER", "ADMIN"],
+  TUGAS_KEPUTUSAN: ["MANAGER", "ADMIN"],
+  ESKALASI: ["MANAGER", "ADMIN"],
+  PENUGASAN: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "ADMIN"],
+  TINDAK_LANJUT: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "ADMIN"],
+  STATUS_LAPORAN: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI", "ADMIN"],
+  PENGINGAT: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "ADMIN"],
+  POIN: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"],
+  ADMINISTRASI: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI", "ADMIN"],
+};
+
 export type AppSettings = {
   verificationRequired: boolean; // terkunci: true
   verifyDeadlineDays: number;
@@ -184,6 +223,7 @@ export type AppSettings = {
   };
   levels: { perak: number; emas: number };
   eligibleRoles: Role[]; // peran yang berhak menerima poin
+  push: Record<NotifType, boolean>; // jenis notifikasi yang dikirim ke ponsel
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -197,6 +237,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   points: { valid: 2, nearMiss: 3, highRiskBonus: 3, suggestionBonus: 3, streakBonus: 5 },
   levels: { perak: 50, emas: 150 },
   eligibleRoles: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"],
+  push: { TUGAS_VERIFIKASI: true, TUGAS_KEPUTUSAN: true, ESKALASI: true, PENUGASAN: true, TINDAK_LANJUT: true, STATUS_LAPORAN: true, PENGINGAT: true, POIN: true, ADMINISTRASI: true },
 };
 
 export const APP_NAME = "PEDULI Apps";

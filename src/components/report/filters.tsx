@@ -77,8 +77,8 @@ export function ReportFilters({ areas }: { areas: Array<{ id: string; name: stri
               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
             ))}
           </select>
-          <select className={cn("input min-h-11 md:min-h-0", sp.get("category") && "border-brand-400")} aria-label="Kategori" value={sp.get("category") ?? ""} onChange={(e) => setParam("category", e.target.value)}>
-            <option value="">Semua kategori</option>
+          <select className={cn("input min-h-11 md:min-h-0", sp.get("category") && "border-brand-400")} aria-label="Jenis bahaya" value={sp.get("category") ?? ""} onChange={(e) => setParam("category", e.target.value)}>
+            <option value="">Semua jenis bahaya</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
             ))}

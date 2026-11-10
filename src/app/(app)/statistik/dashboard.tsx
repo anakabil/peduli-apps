@@ -23,7 +23,7 @@ export const INDICATORS = [
   { k: "Waktu penutupan", f: "Rerata hari dari persetujuan hingga verifikasi penutupan", d: "Kecukupan sumber daya perbaikan" },
   { k: "Penutupan tepat waktu", f: "Tindak lanjut selesai sesuai target dibagi seluruh tindak lanjut", d: "Akuntabilitas penanggung jawab" },
   { k: "Risiko tinggi terbuka", f: "Jumlah tindak lanjut risiko Tinggi dan Ekstrem yang belum tuntas", d: "Prioritas eskalasi dan anggaran" },
-  { k: "Laporan berulang", f: "Laporan dengan lokasi dan kategori sama dibagi seluruh laporan", d: "Efektivitas pengendalian, akar masalah belum tertangani" },
+  { k: "Laporan berulang", f: "Laporan dengan lokasi dan jenis bahaya sama dibagi seluruh laporan", d: "Efektivitas pengendalian, akar masalah belum tertangani" },
 ];
 
 function heatColor(v: number, max: number) {
@@ -115,7 +115,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       <div className="grid grid-cols-2 gap-3 md:grid-cols-6 stagger">
         <Stat label="Respons verifikasi" value={`${fmtNumber(s.verifyHours, 1)} jam`} hint="rerata jalur A" />
         <Stat label="Waktu keputusan" value={`${fmtNumber(s.decideHours, 1)} jam`} hint="rerata hingga Manager" />
-        <Stat label="Laporan berulang" value={`${fmtNumber(s.recurringPct, 1)}%`} hint={`${s.recurring} laporan, lokasi dan kategori sama`} tone={s.recurringPct > 30 ? "warn" : "neutral"} />
+        <Stat label="Laporan berulang" value={`${fmtNumber(s.recurringPct, 1)}%`} hint={`${s.recurring} laporan, lokasi dan jenis bahaya sama`} tone={s.recurringPct > 30 ? "warn" : "neutral"} />
         <Stat label="Eskalasi otomatis" value={s.escalated} hint="risiko Tinggi/Ekstrem jalur A" />
         <Stat label="Di luar area kerja" value={s.outsideArea} hint="perlu tinjauan lokasi" tone={s.outsideArea > 0 ? "warn" : "neutral"} />
         <Stat label="Poin diberikan" value={s.pointsAwarded} hint={`${s.suggestionApplied} dari ${s.withSuggestion} usulan diterapkan`} />
@@ -160,7 +160,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       {/* Peta panas dan umur tindak lanjut */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 [&>*]:min-w-0">
         <Card className="lg:col-span-3 anim-fade-up">
-          <CardHeader title="Peta panas area" subtitle="Area dan kategori bahaya." />
+          <CardHeader title="Peta panas area" subtitle="Area dan jenis bahaya." />
           <CardBody className="overflow-x-auto pt-3">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
@@ -214,7 +214,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       {/* Kategori, status, hierarki */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 [&>*]:min-w-0">
         <Card className="anim-fade-up">
-          <CardHeader title="Kategori bahaya" />
+          <CardHeader title="Jenis bahaya" />
           <CardBody className="min-w-0 overflow-x-auto pt-3">
             <div className="h-56">
               <BarChart ref={refs.category} data={{ labels: stats.categoryDist.map((c) => CATEGORY_SHORT[c.key as Category]), datasets: [{ label: "Laporan", data: stats.categoryDist.map((c) => c.count), backgroundColor: PALETTE[0], borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } } }} />
@@ -239,10 +239,10 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
         </Card>
       </div>
 
-      {/* Jenis bahaya dan laporan ditolak */}
+      {/* Sumber bahaya dan laporan ditolak */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 [&>*]:min-w-0">
         <Card className="lg:col-span-2 anim-fade-up">
-          <CardHeader title="Jenis bahaya" />
+          <CardHeader title="Sumber bahaya" />
           <CardBody className="min-w-0 overflow-x-auto pt-3">
             <div className="h-56">
               <BarChart ref={refs.hazard} horizontal data={{ labels: stats.hazardTypeDist.map((c) => HAZARD_TYPE_LABEL[c.key as HazardType]), datasets: [{ label: "Laporan", data: stats.hazardTypeDist.map((c) => c.count), backgroundColor: PALETTE[1], borderRadius: 6 }] }} options={{ plugins: { legend: { display: false } } }} />
@@ -336,7 +336,7 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
         <CardBody className="min-w-0 overflow-x-auto pt-3">
           {stats.highOpenList.length === 0 ? <p className="text-sm text-brand-700">Tidak ada. Seluruh risiko tinggi telah ditutup.</p> : (
             <table className="table">
-              <thead><tr><th>Nomor</th><th>Area</th><th className="hidden sm:table-cell">Kategori</th><th>Risiko</th><th className="hidden sm:table-cell">Status</th><th className="text-right">Umur (hari)</th></tr></thead>
+              <thead><tr><th>Nomor</th><th>Area</th><th className="hidden sm:table-cell">Jenis bahaya</th><th>Risiko</th><th className="hidden sm:table-cell">Status</th><th className="text-right">Umur (hari)</th></tr></thead>
               <tbody>
                 {stats.highOpenList.map((r) => (
                   <tr key={r.id}>

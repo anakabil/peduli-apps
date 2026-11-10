@@ -8,6 +8,7 @@ import { OfflineSync } from "@/components/pwa/offline-sync";
 import { TopBar } from "./top-bar";
 import type { CurrentUser } from "@/lib/session";
 import type { Role } from "@/lib/constants";
+import { PushSync } from "@/components/pwa/push-setup";
 
 export function AppShell({ user, unread, children }: { user: CurrentUser; unread: number; children: ReactNode }) {
   const role = user.role as Role;
@@ -42,6 +43,7 @@ export function AppShell({ user, unread, children }: { user: CurrentUser; unread
       </div>
       <InstallPrompt />
       <OfflineSync />
+      <PushSync />
     </div>
   );
 }

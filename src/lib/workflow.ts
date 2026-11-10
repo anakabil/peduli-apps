@@ -216,14 +216,14 @@ export async function createReport(input: NewReportInput) {
   const summary = `${CATEGORY_LABEL[input.category]} - risiko ${RISK_LABEL[input.riskLevel]}`;
   if (path === "A") {
     const verifiers = await verifiersFor(reporter, areaId);
-    await notify(verifiers, `Laporan baru perlu verifikasi: ${number}`, summary, `/laporan/${report.id}`);
+    await notify("TUGAS_VERIFIKASI", verifiers, `Laporan baru perlu verifikasi: ${number}`, summary, `/laporan/${report.id}`);
     if (report.escalated) {
       const managers = await managersForArea(areaId);
-      await notify(managers, `Eskalasi risiko ${RISK_LABEL[input.riskLevel]}: ${number}`, `${summary}. Menunggu verifikasi Superintendent.`, `/laporan/${report.id}`);
+      await notify("ESKALASI", managers, `Eskalasi risiko ${RISK_LABEL[input.riskLevel]}: ${number}`, `${summary}. Menunggu verifikasi Superintendent.`, `/laporan/${report.id}`);
     }
   } else {
     const managers = await managersForArea(areaId, reporter.role === "MANAGER" && settings.managerPeerReview ? reporter.id : undefined);
-    await notify(managers, `Laporan baru menunggu keputusan: ${number}`, summary, `/laporan/${report.id}`);
+    await notify("TUGAS_KEPUTUSAN", managers, `Laporan baru menunggu keputusan: ${number}`, summary, `/laporan/${report.id}`);
   }
   await audit(reporter.id, "LAPORAN_DIBUAT", "Report", report.id, { number, path, status });
   return { report, duplicate: false };
@@ -269,12 +269,12 @@ export async function verifyReport(actorId: string, reportId: string, result: "V
   });
   if (result === "VALID") {
     const managers = await managersForArea(report.areaId);
-    await notify(managers, `Laporan terverifikasi, menunggu keputusan: ${report.number}`, `${CATEGORY_LABEL[report.category as Category]} - risiko ${RISK_LABEL[report.riskLevel as Risk]}`, `/laporan/${reportId}`);
-    await notify([report.reporterId], `Laporan ${report.number} dinyatakan valid`, points > 0 ? `Anda memperoleh ${points} poin.` : "Laporan diteruskan ke Manager.", `/laporan/${reportId}`);
+    await notify("TUGAS_KEPUTUSAN", managers, `Laporan terverifikasi, menunggu keputusan: ${report.number}`, `${CATEGORY_LABEL[report.category as Category]} - risiko ${RISK_LABEL[report.riskLevel as Risk]}`, `/laporan/${reportId}`);
+    await notify("STATUS_LAPORAN", [report.reporterId], `Laporan ${report.number} dinyatakan valid`, points > 0 ? `Anda memperoleh ${points} poin.` : "Laporan diteruskan ke Manager.", `/laporan/${reportId}`);
   } else if (result === "REVISI") {
-    await notify([report.reporterId], `Laporan ${report.number} perlu revisi`, note, `/laporan/${reportId}`);
+    await notify("STATUS_LAPORAN", [report.reporterId], `Laporan ${report.number} perlu revisi`, note, `/laporan/${reportId}`);
   } else {
-    await notify([report.reporterId], `Laporan ${report.number} ditolak`, note, `/laporan/${reportId}`);
+    await notify("STATUS_LAPORAN", [report.reporterId], `Laporan ${report.number} ditolak`, note, `/laporan/${reportId}`);
   }
   await audit(actorId, "LAPORAN_DIVERIFIKASI", "Report", reportId, { result, points });
 }
@@ -301,11 +301,11 @@ export async function resubmitReport(actorId: string, reportId: string, data: { 
     if (escalate && !report.escalated) await tx.reportEvent.create({ data: { reportId, type: "DIESKALASI", note: "Eskalasi otomatis: risiko dinaikkan saat revisi" } });
   });
   if (escalate && !report.escalated) {
-    await notify(await managersForArea(report.areaId), `Eskalasi risiko ${RISK_LABEL[fields.riskLevel]}: ${report.number}`, "Risiko dinaikkan saat revisi. Menunggu verifikasi Superintendent.", `/laporan/${reportId}`);
+    await notify("ESKALASI", await managersForArea(report.areaId), `Eskalasi risiko ${RISK_LABEL[fields.riskLevel]}: ${report.number}`, "Risiko dinaikkan saat revisi. Menunggu verifikasi Superintendent.", `/laporan/${reportId}`);
   }
   const prev = report.verifierId ? await db.user.findUnique({ where: { id: report.verifierId }, select: { id: true, role: true, status: true } }) : null;
   const verifiers = prev && prev.status === "ACTIVE" && (prev.role === "SUPERINTENDENT" || prev.role === "ADMIN") ? [prev.id] : await verifiersFor(report.reporter, report.areaId);
-  await notify(verifiers, `Revisi laporan ${report.number} dikirim`, note, `/laporan/${reportId}`);
+  await notify("TUGAS_VERIFIKASI", verifiers, `Revisi laporan ${report.number} dikirim`, note, `/laporan/${reportId}`);
   await audit(actorId, "LAPORAN_DIREVISI", "Report", reportId);
 }
 
@@ -361,8 +361,8 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
       // Jalur B tidak melewati verifikasi; poin diberikan saat disetujui. Jalur A sudah menerima poin saat diverifikasi.
       return awardValidationPoints(tx, reportId, settings);
     });
-    await notify([report.reporterId], `Laporan ${report.number} disetujui Manager`, `${points > 0 ? `Anda memperoleh ${points} poin. ` : ""}Perbaikan ditargetkan selesai ${input.targetDate.toLocaleDateString("id-ID")}.`, `/laporan/${reportId}`);
-    if (pic && pic.id !== report.reporterId) await notify([pic.id], `Anda ditunjuk sebagai penanggung jawab: ${report.number}`, report.description, `/laporan/${reportId}`);
+    await notify("STATUS_LAPORAN", [report.reporterId], `Laporan ${report.number} disetujui Manager`, `${points > 0 ? `Anda memperoleh ${points} poin. ` : ""}Perbaikan ditargetkan selesai ${input.targetDate.toLocaleDateString("id-ID")}.`, `/laporan/${reportId}`);
+    if (pic && pic.id !== report.reporterId) await notify("PENUGASAN", [pic.id], `Anda ditunjuk sebagai penanggung jawab: ${report.number}`, report.description, `/laporan/${reportId}`);
     await audit(actorId, "LAPORAN_DISETUJUI", "Report", reportId, { pic: pic?.id ?? input.picName, target: input.targetDate, points });
   } else {
     if (!input.note?.trim()) throw new WorkflowError("Alasan penolakan wajib diisi.");
@@ -373,7 +373,7 @@ export async function decideReport(actorId: string, reportId: string, input: Dec
       await tx.reportEvent.create({ data: { reportId, type: "DITOLAK", actorId, fromStatus: "MENUNGGU_KEPUTUSAN", toStatus: "DITOLAK", note } });
       if (reason === "GANDA" || reason === "TIDAK_BENAR") await revokePoints(tx, reportId, reason === "GANDA" ? "laporan ganda" : "laporan tidak benar");
     });
-    await notify([report.reporterId], `Laporan ${report.number} ditolak Manager`, input.note, `/laporan/${reportId}`);
+    await notify("STATUS_LAPORAN", [report.reporterId], `Laporan ${report.number} ditolak Manager`, input.note, `/laporan/${reportId}`);
     await audit(actorId, "LAPORAN_DITOLAK", "Report", reportId, { reason });
   }
 }
@@ -395,7 +395,7 @@ export async function updateProgress(actorId: string, reportId: string, pct: num
     await tx.reportEvent.create({ data: { reportId, type: done ? "SELESAI_PERBAIKAN" : "PROGRES", actorId, fromStatus: "DALAM_PERBAIKAN", toStatus: done ? "MENUNGGU_PENUTUPAN" : "DALAM_PERBAIKAN", note: `${pctFinal}% - ${note}` } });
   });
   if (done) {
-    await notify([report.deciderId, report.verifierId].filter((x) => x !== actorId), `Perbaikan ${report.number} dilaporkan selesai`, note, `/laporan/${reportId}`);
+    await notify("TINDAK_LANJUT", [report.deciderId, report.verifierId].filter((x) => x !== actorId), `Perbaikan ${report.number} dilaporkan selesai`, note, `/laporan/${reportId}`);
   }
   await audit(actorId, done ? "PERBAIKAN_SELESAI" : "PROGRES_DIPERBARUI", "Report", reportId, { pct: pctFinal });
 }
@@ -417,7 +417,7 @@ export async function closeReport(actorId: string, reportId: string, accepted: b
       await transition(tx, reportId, "MENUNGGU_PENUTUPAN", { status: "DALAM_PERBAIKAN", progressPct: 80, completedAt: null, completionNote: null });
       await tx.reportEvent.create({ data: { reportId, type: "PROGRES", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "DALAM_PERBAIKAN", note: `Hasil belum diterima: ${note}` } });
     });
-    await notify([report.picId, report.reporterId], `Perbaikan ${report.number} perlu disempurnakan`, note, `/laporan/${reportId}`);
+    await notify("TINDAK_LANJUT", [report.picId, report.reporterId], `Perbaikan ${report.number} perlu disempurnakan`, note, `/laporan/${reportId}`);
     await audit(actorId, "PENUTUPAN_DITOLAK", "Report", reportId);
     return;
   }
@@ -427,7 +427,7 @@ export async function closeReport(actorId: string, reportId: string, accepted: b
     await tx.reportEvent.create({ data: { reportId, type: "DITUTUP", actorId, fromStatus: "MENUNGGU_PENUTUPAN", toStatus: "SELESAI", note } });
     return suggestionApplied ? awardSuggestionBonus(tx, reportId, settings) : 0;
   });
-  await notify([report.reporterId, report.picId].filter((x) => x !== actorId), `Laporan ${report.number} ditutup`, bonus > 0 ? `Usulan perbaikan Anda diterapkan, bonus ${bonus} poin.` : "Hasil perbaikan telah diverifikasi.", `/laporan/${reportId}`);
+  await notify("STATUS_LAPORAN", [report.reporterId, report.picId].filter((x) => x !== actorId), `Laporan ${report.number} ditutup`, bonus > 0 ? `Usulan perbaikan Anda diterapkan, bonus ${bonus} poin.` : "Hasil perbaikan telah diverifikasi.", `/laporan/${reportId}`);
   await audit(actorId, "LAPORAN_DITUTUP", "Report", reportId, { onTime, bonus });
 }
 

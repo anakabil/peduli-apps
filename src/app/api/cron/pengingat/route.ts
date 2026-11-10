@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   };
   const stats = { sent: 0, unrouted: [] as string[] };
   const remind = async (reportId: string, number: string, targets: string[], title: string, body: string, note: string) => {
-    const n = await notify(targets, title, body, `/laporan/${reportId}`);
+    const n = await notify("PENGINGAT", targets, title, body, `/laporan/${reportId}`);
     if (n === 0) {
       stats.unrouted.push(number);
       return;

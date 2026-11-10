@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { saveSettingsAction } from "../actions";
 import { useFormAction, Msg } from "../feedback";
 import { CardHeader } from "@/components/ui";
-import { ROLES, ROLE_LABEL, type AppSettings } from "@/lib/constants";
+import { ROLES, ROLE_LABEL, NOTIF_TYPES, NOTIF_TYPE_LABEL, NOTIF_TYPE_DESC, type AppSettings } from "@/lib/constants";
 
 // Label di atas kontrol pada layar sempit, berdampingan mulai sm; stacked memaksa susunan atas-bawah
 function Row({ label, children, help, stacked = false }: { label: string; children: React.ReactNode; help?: string; stacked?: boolean }) {
@@ -83,6 +83,15 @@ export function SettingsForm({ settings: s, isAdmin }: { settings: AppSettings; 
             </div>
           </Row>
         </fieldset>
+      </div>
+
+      <div className="card overflow-hidden anim-fade-up">
+        <CardHeader title="Notifikasi ponsel" subtitle="Jenis notifikasi yang dikirim ke aplikasi terpasang. Daftar notifikasi di aplikasi tetap lengkap." />
+        <div className="mt-4 border-t border-ink-100">
+          {NOTIF_TYPES.map((t) => (
+            <Row key={t} label={NOTIF_TYPE_LABEL[t]} help={NOTIF_TYPE_DESC[t]}><Toggle name={`push_${t}`} defaultChecked={s.push[t]} /></Row>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">

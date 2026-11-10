@@ -10,7 +10,7 @@ export default async function PanduanPage() {
   await requireUser();
   const s = await getSettings();
   const steps = [
-    { icon: BookOpen, t: "1. Lapor", d: "Foto dari kamera, lokasi GPS, dan waktu server terekam otomatis. Pelapor mengisi kategori, risiko awal, uraian, dan usulan perbaikan." },
+    { icon: BookOpen, t: "1. Lapor", d: "Foto dari kamera, lokasi GPS, dan waktu server terekam otomatis. Pelapor mengisi jenis dan sumber bahaya, risiko awal, uraian, dan usulan perbaikan." },
     { icon: ShieldCheck, t: "2. Verifikasi", d: `Superintendent memeriksa laporan Pengawas: valid, revisi, atau tolak, dalam ${s.verifyDeadlineDays} hari kerja. Laporan dari peran lain melewati tahap ini.` },
     { icon: Gavel, t: "3. Keputusan", d: `Manager menyetujui atau menolak dalam ${s.decideDeadlineDays} hari kerja, menunjuk penanggung jawab, sumber daya, target, dan hierarki pengendalian.` },
     { icon: Wrench, t: "4. Perbaikan", d: "Penanggung jawab memperbarui progres dan bukti foto, lalu mengajukan penutupan." },

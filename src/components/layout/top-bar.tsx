@@ -3,7 +3,8 @@ import { Bell, LogOut } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { ROLE_LABEL, type Role } from "@/lib/constants";
 import type { CurrentUser } from "@/lib/session";
-import { signOut } from "@/auth";
+import { logoutAction } from "@/app/actions/session";
+import { PushEndpointInput } from "@/components/pwa/push-setup";
 import { InstallButton } from "@/components/pwa/install-prompt";
 
 export function TopBar({ user, unread }: { user: CurrentUser; unread: number }) {
@@ -21,12 +22,8 @@ export function TopBar({ user, unread }: { user: CurrentUser; unread: number }) 
           <div className="text-[11px] text-ink-500">{ROLE_LABEL[user.role as Role]}</div>
         </div>
       </Link>
-      <form
-        action={async () => {
-          "use server";
-          await signOut({ redirectTo: "/masuk" });
-        }}
-      >
+      <form action={logoutAction}>
+        <PushEndpointInput />
         <button className="btn-ghost btn-sm" title="Keluar">
           <LogOut size={16} /> Keluar
         </button>

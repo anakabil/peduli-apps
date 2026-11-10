@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/format";
 
-export function Card({ children, className = "", hover = false }: { children: ReactNode; className?: string; hover?: boolean }) {
-  return <div className={cn("card", hover && "card-hover", className)}>{children}</div>;
+export function Card({ children, className = "", hover = false, id }: { children: ReactNode; className?: string; hover?: boolean; id?: string }) {
+  return <div id={id} className={cn("card", hover && "card-hover", className)}>{children}</div>;
 }
 
 export function CardHeader({ title, subtitle, action, className = "" }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode; className?: string }) {

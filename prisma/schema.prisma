@@ -34,25 +34,27 @@ model User {
   bawahan    User[]  @relation("Atasan")
 
   lastLoginAt DateTime?
+  pushMuted   String[]  @default([]) // jenis notifikasi ponsel yang dimatikan pengguna (lihat NOTIF_TYPES)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   accounts Account[]
   sessions Session[]
 
-  reports            Report[]       @relation("Reporter")
-  verifications      Report[]       @relation("Verifier")
-  decisions          Report[]       @relation("Decider")
-  picReports         Report[]       @relation("Pic")
-  proposedPicReports Report[]       @relation("ProposedPic")
-  closures           Report[]       @relation("Closer")
+  reports            Report[]           @relation("Reporter")
+  verifications      Report[]           @relation("Verifier")
+  decisions          Report[]           @relation("Decider")
+  picReports         Report[]           @relation("Pic")
+  proposedPicReports Report[]           @relation("ProposedPic")
+  closures           Report[]           @relation("Closer")
   events             ReportEvent[]
   pointLedger        PointLedger[]
-  redemptions        Redemption[]   @relation("Redeemer")
-  processed          Redemption[]   @relation("Processor")
+  redemptions        Redemption[]       @relation("Redeemer")
+  processed          Redemption[]       @relation("Processor")
   auditLogs          AuditLog[]
   notifications      Notification[]
-  managedAreas       Area[]         @relation("AreaManager")
+  managedAreas       Area[]             @relation("AreaManager")
+  pushSubscriptions  PushSubscription[]
 }
 
 model Account {
@@ -330,6 +332,7 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String? // jenis notifikasi (NOTIF_TYPES); kosong pada data lama
   title     String
   body      String?
   link      String?
@@ -338,4 +341,19 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+/// Langganan Web Push per perangkat (aplikasi terpasang atau peramban)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

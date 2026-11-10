@@ -1,12 +1,13 @@
-import { LogOut, LogIn, Shield, MapPin, Briefcase, Mail, Smartphone, History, Award } from "lucide-react";
+import { LogOut, LogIn, Shield, MapPin, Briefcase, Mail, Smartphone, History, Award, BellRing } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { signOut } from "@/auth";
+import { logoutAction } from "@/app/actions/session";
 import { getSettings } from "@/lib/settings";
 import { pointBalance, pointEarned, levelFor } from "@/lib/points";
 import { PageHeader, Card, CardBody, CardHeader, Avatar, Field, Badge } from "@/components/ui";
-import { ROLE_LABEL, ROLE_DESC, type Role } from "@/lib/constants";
+import { ROLE_LABEL, ROLE_DESC, NOTIF_TYPES, NOTIF_TYPE_LABEL, NOTIF_TYPE_DESC, NOTIF_TYPE_ROLES, type Role, type NotifType } from "@/lib/constants";
+import { PushDeviceCard, PushEndpointInput } from "@/components/pwa/push-setup";
 import { fmtDateTime } from "@/lib/format";
 import { InstallButton } from "@/components/pwa/install-prompt";
 import { levelImg } from "@/lib/icons";
@@ -25,6 +26,18 @@ export default async function ProfilPage() {
     "use server";
     const u = await requireUser();
     await db.user.update({ where: { id: u.id }, data: { phone: String(fd.get("phone") ?? "").trim() || null, jabatan: u.role === "ADMIN" ? String(fd.get("jabatan") ?? "").trim() || null : u.jabatan } });
+    revalidatePath("/profil");
+  }
+
+  // Pilihan jenis notifikasi ponsel; yang tidak dicentang disimpan sebagai daftar yang dimatikan
+  const myTypes = NOTIF_TYPES.filter((t) => NOTIF_TYPE_ROLES[t].includes(role));
+  const muted = new Set(user.pushMuted ?? []);
+  async function savePush(fd: FormData) {
+    "use server";
+    const u = await requireUser();
+    const mine = NOTIF_TYPES.filter((t) => NOTIF_TYPE_ROLES[t].includes(u.role as Role));
+    const off: NotifType[] = mine.filter((t) => fd.get(`n_${t}`) !== "on");
+    await db.user.update({ where: { id: u.id }, data: { pushMuted: off } });
     revalidatePath("/profil");
   }
 
@@ -99,6 +112,31 @@ export default async function ProfilPage() {
         </Card>
       </div>
 
+      <Card className="anim-fade-up" id="notifikasi">
+        <CardHeader title="Notifikasi ponsel" subtitle="Muncul di ponsel meski aplikasi tertutup." action={<BellRing size={18} className="shrink-0 text-brand-600" />} />
+        <CardBody className="space-y-4 pt-3">
+          <PushDeviceCard />
+          <form action={savePush} className="border-t border-ink-100 pt-4">
+            <div className="mb-2 text-[13px] font-medium text-ink-700">Jenis yang ingin diterima</div>
+            <div className="divide-y divide-ink-100">
+              {myTypes.map((t) => {
+                const off = !settings.push[t];
+                return (
+                  <label key={t} className={`flex min-h-12 cursor-pointer items-start gap-3 py-2.5 ${off ? "opacity-60" : ""}`}>
+                    <input type="checkbox" name={`n_${t}`} defaultChecked={!muted.has(t)} disabled={off} className="mt-0.5 size-5 shrink-0 accent-[var(--brand-600)]" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-ink-800">{NOTIF_TYPE_LABEL[t]}</span>
+                      <span className="block text-xs text-ink-500">{off ? "Dimatikan oleh pengelola program." : NOTIF_TYPE_DESC[t]}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <button className="btn-secondary mt-3 min-h-11 md:min-h-0">Simpan pilihan</button>
+          </form>
+        </CardBody>
+      </Card>
+
       <Card className="anim-fade-up">
         <CardHeader title="Jejak akses terakhir" subtitle="Catatan masuk dan keluar akun Anda." action={<History size={18} className="shrink-0 text-brand-600" />} />
         <CardBody className="pt-3">
@@ -141,7 +179,8 @@ export default async function ProfilPage() {
           <CardHeader title="Sesi" action={<LogOut size={18} className="shrink-0 text-ink-400" />} />
           <CardBody className="flex flex-1 flex-col gap-4 pt-3">
             <p className="text-sm text-ink-600">Keluar dari akun PEDULI di perangkat ini.</p>
-            <form className="mt-auto" action={async () => { "use server"; await signOut({ redirectTo: "/masuk" }); }}>
+            <form className="mt-auto" action={logoutAction}>
+              <PushEndpointInput />
               <button className="btn-secondary min-h-11 w-full sm:w-auto md:min-h-0"><LogOut size={16} /> Keluar</button>
             </form>
           </CardBody>

@@ -13,6 +13,7 @@ import { fmtNumber, fmtMonthLong, cn } from "@/lib/format";
 import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "@/lib/constants";
 import { MiniTrend } from "@/components/charts/mini-trend";
 import { ILLUSTRATION, levelImg } from "@/lib/icons";
+import { PushPrompt } from "@/components/pwa/push-setup";
 
 export const metadata = { title: "Beranda" };
 
@@ -97,6 +98,8 @@ export default async function BerandaPage() {
           </div>
         </div>
       </div>
+
+      <PushPrompt />
 
       {/* Kartu tugas dan ringkasan pribadi */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] stagger">

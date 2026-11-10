@@ -125,7 +125,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
               <KeyValue
                 hideEmpty
                 items={[
-                  { k: "Jenis bahaya", v: report.hazardType ? HAZARD_TYPE_LABEL[report.hazardType as HazardType] : null },
+                  { k: "Sumber bahaya", v: report.hazardType ? HAZARD_TYPE_LABEL[report.hazardType as HazardType] : null },
                   { k: "Dampak yang dapat ditimbulkan", v: report.impact },
                 ]}
               />

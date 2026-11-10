@@ -113,8 +113,8 @@ export function ReportForm({ areas, personnel, userAreaId, path }: { areas: Area
   const validate = () => {
     if (photos.length === 0) return "Ambil minimal satu foto dari kamera.";
     if (!areaId) return "Pilih lokasi temuan.";
-    if (!category) return "Pilih kategori bahaya.";
-    if (!hazardType) return "Pilih jenis bahaya.";
+    if (!category) return "Pilih jenis bahaya.";
+    if (!hazardType) return "Pilih sumber bahaya.";
     if (description.trim().length < 10) return "Uraikan bahaya minimal 10 karakter.";
     if (impact.trim().length < 5) return "Tuliskan dampak yang dapat ditimbulkan.";
     if (!risk) return "Pilih tingkat risiko awal.";
@@ -254,12 +254,17 @@ export function ReportForm({ areas, personnel, userAreaId, path }: { areas: Area
         {outside && <p className="mt-2 text-xs text-[#7a5c06]">Posisi GPS berada di luar radius {chosen?.name}. Pastikan lokasi yang dipilih sudah benar.</p>}
       </Section>
 
-      <Section no={2} title="Kategori bahaya">
-        <ChoiceGrid multiple={false} ariaLabel="Kategori bahaya" options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], image: CATEGORY_IMG[c] }))} selected={category ? [category] : []} onToggle={(k) => setCategory(k as Category)} />
-        <div className="label mt-5">
+      <Section no={2} title="Jenis dan sumber bahaya">
+        <div className="label">
           Jenis bahaya <Req />
         </div>
-        <ChoiceGrid multiple={false} ariaLabel="Jenis bahaya" options={HAZARD_TYPES.map((h) => ({ key: h, label: HAZARD_TYPE_LABEL[h], image: HAZARD_IMG[h] }))} selected={hazardType ? [hazardType] : []} onToggle={(k) => setHazardType(k as HazardType)} />
+        <p className="-mt-1 mb-2 text-xs text-ink-500">Bentuk bahaya yang ditemukan.</p>
+        <ChoiceGrid multiple={false} ariaLabel="Jenis bahaya" options={CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c], image: CATEGORY_IMG[c] }))} selected={category ? [category] : []} onToggle={(k) => setCategory(k as Category)} />
+        <div className="label mt-5">
+          Sumber bahaya <Req />
+        </div>
+        <p className="-mt-1 mb-2 text-xs text-ink-500">Asal bahaya tersebut.</p>
+        <ChoiceGrid multiple={false} ariaLabel="Sumber bahaya" options={HAZARD_TYPES.map((h) => ({ key: h, label: HAZARD_TYPE_LABEL[h], image: HAZARD_IMG[h] }))} selected={hazardType ? [hazardType] : []} onToggle={(k) => setHazardType(k as HazardType)} />
       </Section>
 
       <Section no={3} title="Uraian bahaya">

@@ -5,9 +5,11 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { audit, notify } from "@/lib/notify";
 import { getSettings, saveSettings } from "@/lib/settings";
-import { ROLES, USER_STATUS, ROLE_LABEL, type AppSettings, type Role } from "@/lib/constants";
+import { ROLES, USER_STATUS, ROLE_LABEL, NOTIF_TYPES, type AppSettings, type Role } from "@/lib/constants";
 import { Prisma } from "@prisma/client";
 import { isRewardIcon } from "@/lib/reward-icons";
+import { runReset } from "@/lib/reset";
+import { DEMO_DOMAIN } from "@/lib/demo-accounts";
 import { normalizeRewardPhoto } from "@/lib/image";
 
 /** Peran atasan yang sah untuk tiap peran (menentukan jalur verifikasi) */
@@ -103,7 +105,7 @@ export async function updateUserAction(userId: string, fd: FormData): Promise<Re
     ? await db.report.count({ where: { status: { in: ["DALAM_PERBAIKAN", "MENUNGGU_PENUTUPAN"] }, picId: userId } })
     : 0;
   await audit(admin.id, "PENGGUNA_DIPERBARUI", "User", userId, { before: { role: before.role, status: before.status }, after: data });
-  if (before.status !== "ACTIVE" && status === "ACTIVE") await notify([userId], "Akun Anda telah diaktifkan", `Peran: ${role}. Selamat bergabung di program PEDULI.`, "/beranda");
+  if (before.status !== "ACTIVE" && status === "ACTIVE") await notify("ADMINISTRASI", [userId], "Akun Anda telah diaktifkan", `Peran: ${role}. Selamat bergabung di program PEDULI.`, "/beranda");
   revalidatePath("/admin/pengguna");
   revalidatePath("/admin/area");
   return { ok: true, message: leftovers ? `Pengguna diperbarui. Catatan: ${leftovers} tindak lanjut masih menunjuk pengguna ini sebagai penanggung jawab; pengingat akan dialihkan ke Manager area.` : "Pengguna diperbarui." };
@@ -230,7 +232,7 @@ export async function processRedemptionAction(id: string, status: "DIPROSES" | "
     return true;
   });
   if (!changed) return { ok: false, message: "Penukaran sudah diproses oleh admin lain." };
-  await notify([r.userId], `Penukaran ${r.reward.name}: ${status === "SELESAI" ? "selesai" : status === "DIPROSES" ? "sedang diproses" : "ditolak"}`, note || undefined, "/poin");
+  await notify("POIN", [r.userId], `Penukaran ${r.reward.name}: ${status === "SELESAI" ? "selesai" : status === "DIPROSES" ? "sedang diproses" : "ditolak"}`, note || undefined, "/poin");
   await audit(admin.id, "PENUKARAN_DIPROSES", "Redemption", id, { status, note });
   revalidatePath("/admin/penukaran");
   return { ok: true, message: "Penukaran diperbarui." };
@@ -241,7 +243,7 @@ export async function adjustPointsAction(userId: string, points: number, note: s
   if (!Number.isInteger(points) || points === 0) return { ok: false, message: "Nilai poin harus bilangan bulat bukan nol." };
   if (!note.trim()) return { ok: false, message: "Alasan penyesuaian wajib diisi." };
   await db.pointLedger.create({ data: { userId, type: "PENYESUAIAN", points, note } });
-  await notify([userId], `Penyesuaian poin ${points > 0 ? "+" : ""}${points}`, note, "/poin");
+  await notify("POIN", [userId], `Penyesuaian poin ${points > 0 ? "+" : ""}${points}`, note, "/poin");
   await audit(admin.id, "POIN_DISESUAIKAN", "User", userId, { points, note });
   revalidatePath("/admin/pengguna");
   return { ok: true, message: "Poin disesuaikan." };
@@ -264,9 +266,34 @@ export async function saveSettingsAction(fd: FormData): Promise<Result> {
       : cur.points,
     levels: user.role === "ADMIN" ? { perak: num("l_perak", cur.levels.perak, 1, 100000), emas: num("l_emas", cur.levels.emas, 1, 100000) } : cur.levels,
     eligibleRoles: user.role === "ADMIN" ? (ROLES.filter((r) => fd.get(`elig_${r}`) === "on") as Role[]) : cur.eligibleRoles,
+    push: Object.fromEntries(NOTIF_TYPES.map((t) => [t, fd.get(`push_${t}`) === "on"])) as AppSettings["push"],
   };
   await saveSettings(next, user.id);
   await audit(user.id, "PENGATURAN_DIUBAH", "Setting", "alur", { before: cur, after: next });
   revalidatePath("/admin/pengaturan");
   return { ok: true, message: "Pengaturan tersimpan dan tercatat pada jejak audit." };
+}
+
+export async function resetDataAction(fd: FormData): Promise<Result> {
+  const admin = await requireUser(["ADMIN"]);
+  if (admin.email?.endsWith(DEMO_DOMAIN)) return { ok: false, message: "Masuk dengan akun Google admin, bukan akun demo, karena akun demo ikut terhapus." };
+  if (String(fd.get("confirm") ?? "").trim().toUpperCase() !== "HAPUS DATA UJI") return { ok: false, message: "Ketik HAPUS DATA UJI untuk konfirmasi." };
+  const opts = {
+    transactions: fd.get("transactions") === "on",
+    demoUsers: fd.get("demoUsers") === "on",
+    areaIds: fd.getAll("areaIds").map(String),
+    rewardIds: fd.getAll("rewardIds").map(String),
+    audit: fd.get("audit") === "on",
+  };
+  if (!opts.transactions && !opts.demoUsers && !opts.areaIds.length && !opts.rewardIds.length && !opts.audit) return { ok: false, message: "Pilih data yang akan dihapus." };
+  let done: Record<string, number>;
+  try {
+    done = await runReset(opts);
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Pembersihan gagal." };
+  }
+  await audit(admin.id, "DATA_UJI_DIHAPUS", "Sistem", "data-uji", done);
+  revalidatePath("/", "layout");
+  const parts = Object.entries(done).map(([k, v]) => `${v} ${({ laporan: "laporan", poin: "catatan poin", penukaran: "penukaran", notifikasi: "notifikasi", akunDemo: "akun demo", area: "area contoh", reward: "reward contoh", jejakAudit: "catatan audit" } as Record<string, string>)[k] ?? k}`);
+  return { ok: true, message: `Selesai. Terhapus: ${parts.join(", ")}.` };
 }

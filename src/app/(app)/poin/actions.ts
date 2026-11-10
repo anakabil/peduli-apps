@@ -33,7 +33,7 @@ export async function redeemAction(rewardId: string): Promise<{ ok: boolean; mes
     return { ok: false, message: e instanceof Error ? e.message : "Penukaran gagal." };
   }
   const admins = await db.user.findMany({ where: { role: "ADMIN", status: "ACTIVE" }, select: { id: true } });
-  await notify(admins.map((a) => a.id), `Penukaran poin diajukan: ${reward.name}`, `${user.name} menukar ${reward.pointsCost} poin.`, "/admin/penukaran");
+  await notify("ADMINISTRASI", admins.map((a) => a.id), `Penukaran poin diajukan: ${reward.name}`, `${user.name} menukar ${reward.pointsCost} poin.`, "/admin/penukaran");
   await audit(user.id, "PENUKARAN_DIAJUKAN", "Reward", rewardId, { points: reward.pointsCost });
   revalidatePath("/poin");
   return { ok: true, message: `Penukaran ${reward.name} diajukan. Tim pengelola akan memproses.` };

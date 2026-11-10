@@ -311,7 +311,7 @@ export function ResubmitPanel({ report }: { report: { id: string; category: stri
       </div>
       {report.verificationNote && <div className="mt-3 rounded-xl bg-amber/10 px-3 py-2 text-sm text-ink-800">Catatan Superintendent: {report.verificationNote}</div>}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Kategori">
+        <Field label="Jenis bahaya">
           <select name="category" className="input" defaultValue={report.category}>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>

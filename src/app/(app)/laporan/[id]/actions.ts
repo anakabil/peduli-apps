@@ -99,7 +99,7 @@ export async function resubmitAction(reportId: string, fd: FormData): Promise<Ac
   const user = await requireUser();
   const category = String(fd.get("category")) as Category;
   const riskLevel = String(fd.get("riskLevel")) as Risk;
-  if (!CATEGORIES.includes(category) || !RISKS.includes(riskLevel)) return { ok: false, error: "Kategori atau risiko tidak valid." };
+  if (!CATEGORIES.includes(category) || !RISKS.includes(riskLevel)) return { ok: false, error: "Jenis bahaya atau risiko tidak valid." };
   const description = String(fd.get("description") ?? "").trim();
   if (description.length < 10) return { ok: false, error: "Uraian minimal 10 karakter." };
   const r = await run(() =>

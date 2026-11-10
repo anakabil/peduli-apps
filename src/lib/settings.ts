@@ -14,6 +14,7 @@ export async function getSettings(): Promise<AppSettings> {
       verificationRequired: true,
       points: { ...DEFAULT_SETTINGS.points, ...(parsed.points ?? {}) },
       levels: { ...DEFAULT_SETTINGS.levels, ...(parsed.levels ?? {}) },
+      push: { ...DEFAULT_SETTINGS.push, ...(parsed.push ?? {}) },
     };
   } catch {
     return DEFAULT_SETTINGS;
