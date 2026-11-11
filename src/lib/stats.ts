@@ -59,7 +59,7 @@ type Row = {
   verifier: { name: string | null } | null;
   decider: { name: string | null } | null;
   area: { id: string; name: string } | null;
-  reporter: { id: string; name: string | null; role: string; departemen: string | null };
+  reporter: { id: string; name: string | null; role: string; jabatan: string | null; departemen: string | null; area: { name: string } | null };
 };
 
 const select = {
@@ -69,7 +69,7 @@ const select = {
   verifier: { select: { name: true } },
   decider: { select: { name: true } },
   area: { select: { id: true, name: true } },
-  reporter: { select: { id: true, name: true, role: true, departemen: true } },
+  reporter: { select: { id: true, name: true, role: true, jabatan: true, departemen: true, area: { select: { name: true } } } },
 } as const;
 
 function pct(n: number, d: number) {
@@ -263,16 +263,22 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     return { area: a.name, total: c.length, tinggi: c.filter((r) => r.riskLevel === "TINGGI" || r.riskLevel === "EKSTREM").length, terbuka: openAll.filter((r) => r.areaId === a.id).length };
   });
 
-  // Pelapor teratas (periode)
-  const perUser = new Map<string, { name: string; role: string; departemen: string | null; laporan: number; valid: number; poin: number }>();
+  // Klasemen pelapor (periode): urut jumlah laporan, lalu laporan valid, lalu poin
+  type Standing = { id: string; name: string; role: string; jabatan: string | null; departemen: string | null; area: string | null; laporan: number; valid: number; tinggi: number; poin: number };
+  const perUser = new Map<string, Standing>();
   for (const r of cur) {
-    const u = perUser.get(r.reporterId) ?? { name: r.reporter.name ?? "-", role: r.reporter.role, departemen: r.reporter.departemen, laporan: 0, valid: 0, poin: 0 };
+    const u = perUser.get(r.reporterId) ?? { id: r.reporterId, name: r.reporter.name ?? "-", role: r.reporter.role, jabatan: r.reporter.jabatan, departemen: r.reporter.departemen, area: r.reporter.area?.name ?? null, laporan: 0, valid: 0, tinggi: 0, poin: 0 };
     u.laporan++;
     if (valid(r)) u.valid++;
+    if (isHigh(r)) u.tinggi++;
     u.poin += r.pointsAwarded;
     perUser.set(r.reporterId, u);
   }
-  const topReporters = Array.from(perUser.values()).sort((a, b) => b.poin - a.poin || b.valid - a.valid).slice(0, 10);
+  const ranked = Array.from(perUser.values()).sort((a, b) => b.laporan - a.laporan || b.valid - a.valid || b.poin - a.poin || a.name.localeCompare(b.name, "id"));
+  // Peringkat sama untuk capaian yang sama (laporan dan valid)
+  const reporterRanking = ranked.map((u, i) => ({ ...u, rank: i > 0 && ranked[i - 1].laporan === u.laporan && ranked[i - 1].valid === u.valid ? 0 : i + 1 }));
+  for (let i = 1; i < reporterRanking.length; i++) if (!reporterRanking[i].rank) reporterRanking[i].rank = reporterRanking[i - 1].rank;
+  const topReporters = reporterRanking.slice(0, 10);
 
   // Partisipasi per peran
   const roles = ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"] as const;
@@ -333,6 +339,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     onTimeByArea,
     byArea,
     topReporters,
+    reporterRanking,
     participationByRole,
     highOpenList: highOpenNow.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, 10).map((r) => ({ id: r.id, number: r.number, area: r.area?.name ?? "-", risk: r.riskLevel, status: r.status, days: Math.round(ageOf(r)), category: r.category as Category, riskLevel: r.riskLevel as Risk })),
   };

@@ -189,6 +189,7 @@ await page.screenshot({ path: `${S}/e2e-area-peta.png`, fullPage: true });
 await page.goto(`${BASE}/statistik`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 ok(await page.getByRole("heading", { name: "Laporan ditolak" }).count() && await page.getByRole("heading", { name: "Sumber bahaya" }).count(), "Statistik memuat sumber bahaya dan laporan ditolak");
+ok(await page.getByRole("heading", { name: "Klasemen pelapor" }).count() && await page.locator("table", { hasText: "Rizky Firmansyah" }).count(), "Statistik memuat klasemen pelapor dengan nama pelapor");
 for (const [label, ext] of [["PDF", "pdf"], ["PowerPoint", "pptx"], ["CSV", "csv"]]) {
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 60000 }), page.getByRole("button", { name: label }).click()]);
   const file = path.join(tmp, dl.suggestedFilename());

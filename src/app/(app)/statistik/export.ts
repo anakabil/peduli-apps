@@ -233,12 +233,12 @@ export async function exportPdf(ctx: ExportCtx) {
     headStyles: { fillColor: BRAND2, textColor: "#ffffff" },
   });
   y = ((doc as DocWithTable).lastAutoTable?.finalY ?? 80) + 8;
-  doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text("Pelapor teratas dalam periode", M, y);
+  doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(INK).text(`Klasemen pelapor (${stats.reporterRanking.length} pelapor, urut jumlah laporan)`, M, y);
   autoTable(doc, {
     startY: y + 3,
     margin: { left: M, right: M },
-    head: [["Nama", "Peran", "Departemen", "Laporan", "Valid", "Poin"]],
-    body: stats.topReporters.map((r) => [r.name, ROLE_LABEL[r.role as Role], r.departemen ?? "-", r.laporan, r.valid, r.poin]),
+    head: [["#", "Nama", "Jabatan", "Area", "Laporan", "Valid", "Tinggi+", "Poin"]],
+    body: stats.reporterRanking.map((r) => [r.rank, r.name, r.jabatan || ROLE_LABEL[r.role as Role], r.area ?? "-", r.laporan, r.valid, r.tinggi, r.poin]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: BRAND, textColor: "#ffffff" },
   });
@@ -349,7 +349,7 @@ export async function exportPptx(ctx: ExportCtx) {
   const hdr = (t: string) => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: "006042" } } });
   s5.addTable([[hdr("Indikator"), hdr("Nilai"), hdr("Keterangan")], ...kpiRows(s).map((r) => [{ text: r[0] }, { text: r[1], options: { bold: true, color: "006042" } }, { text: r[2], options: { color: "67766E" } }])], { x: 0.35, y: 1.65, w: 5.6, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [2.1, 1.0, 2.5], rowH: 0.26 });
   s5.addTable([[hdr("Peran"), hdr("Pengguna"), hdr("Melapor"), hdr("%")], ...stats.participationByRole.map((p) => [{ text: ROLE_LABEL[p.role as Role] }, { text: String(p.users) }, { text: String(p.reporters) }, { text: `${p.pct}%`, options: { bold: true } }])], { x: 6.15, y: 1.65, w: 3.5, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.4, 0.7, 0.7, 0.7], rowH: 0.26 });
-  s5.addTable([[hdr("Pelapor teratas"), hdr("Laporan"), hdr("Valid"), hdr("Poin")], ...stats.topReporters.slice(0, 6).map((r) => [{ text: r.name }, { text: String(r.laporan) }, { text: String(r.valid) }, { text: String(r.poin), options: { bold: true, color: "006042" } }])], { x: 6.15, y: 3.15, w: 3.5, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.7, 0.6, 0.6, 0.6], rowH: 0.26 });
+  s5.addTable([[hdr("Klasemen pelapor"), hdr("Laporan"), hdr("Valid"), hdr("Poin")], ...stats.reporterRanking.slice(0, 6).map((r) => [{ text: `${r.rank}. ${r.name}` }, { text: String(r.laporan), options: { bold: true, color: "006042" } }, { text: String(r.valid) }, { text: String(r.poin) }])], { x: 6.15, y: 3.15, w: 3.5, fontSize: 8.5, fontFace: "Calibri", border: { type: "solid", color: "E3E9E5", pt: 0.5 }, colW: [1.7, 0.6, 0.6, 0.6], rowH: 0.26 });
 
   // Slide 6: risiko tinggi terbuka
   if (stats.highOpenList.length) {
@@ -419,8 +419,8 @@ export function exportCsv(ctx: ExportCtx) {
   rows.push(["Area", "Penutupan tepat waktu (%)", "Jumlah ditutup"]);
   stats.onTimeByArea.forEach((a) => rows.push([a.area, String(a.pct), String(a.n)]));
   rows.push([]);
-  rows.push(["Pelapor", "Peran", "Departemen", "Laporan", "Valid", "Poin"]);
-  stats.topReporters.forEach((r) => rows.push([r.name, ROLE_LABEL[r.role as Role], r.departemen ?? "", String(r.laporan), String(r.valid), String(r.poin)]));
+  rows.push(["Peringkat", "Pelapor", "Jabatan", "Departemen", "Area", "Laporan", "Valid", "Tinggi+", "Poin"]);
+  stats.reporterRanking.forEach((r) => rows.push([String(r.rank), r.name, r.jabatan ?? ROLE_LABEL[r.role as Role], r.departemen ?? "", r.area ?? "", String(r.laporan), String(r.valid), String(r.tinggi), String(r.poin)]));
   const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import type { Chart } from "chart.js";
-import { FileDown, Presentation, Printer, Table2, TrendingUp, Users, Clock, FileCheck2, AlertTriangle, Loader2 } from "lucide-react";
+import { FileDown, Presentation, Printer, Table2, TrendingUp, Users, Clock, FileCheck2, AlertTriangle, Loader2, Trophy } from "lucide-react";
 import type { Stats } from "@/lib/stats";
 import { LineChart, BarChart, DoughnutChart, PALETTE, GREEN_RAMP, RISK_COLORS } from "@/components/charts/charts";
 import { RiskBadge } from "@/components/report/badges";
@@ -284,8 +284,11 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
         </Card>
       </div>
 
-      {/* Tabel area, pelapor, partisipasi */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
+      {/* Klasemen pelapor */}
+      <ReporterRanking ranking={stats.reporterRanking} activeUsers={s.activeUsers} />
+
+      {/* Tabel area dan partisipasi */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         <Card className="anim-fade-up">
           <CardHeader title="Kinerja per area" />
           <CardBody className="min-w-0 overflow-x-auto pt-3">
@@ -297,21 +300,6 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
                 ))}
               </tbody>
             </table>
-          </CardBody>
-        </Card>
-        <Card className="anim-fade-up">
-          <CardHeader title="Pelapor teratas" subtitle="Berdasarkan poin dalam periode" />
-          <CardBody className="min-w-0 overflow-x-auto pt-3">
-            {stats.topReporters.length === 0 ? <p className="text-sm text-ink-500">Belum ada laporan pada periode ini.</p> : (
-              <table className="table">
-                <thead><tr><th>Nama</th><th className="text-right">Laporan</th><th className="text-right">Valid</th><th className="text-right">Poin</th></tr></thead>
-                <tbody>
-                  {stats.topReporters.map((r, i) => (
-                    <tr key={r.name + i}><td><div className="font-medium">{r.name}</div><div className="text-xs text-ink-500">{ROLE_LABEL[r.role as Role]}{r.departemen ? `, ${r.departemen}` : ""}</div></td><td className="text-right">{r.laporan}</td><td className="text-right">{r.valid}</td><td className="text-right font-bold text-brand-700">{r.poin}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
           </CardBody>
         </Card>
         <Card className="anim-fade-up">
@@ -379,5 +367,73 @@ export function StatsDashboard({ stats, periodLabel, areaName, canExport, prepar
       </Card>
       <p className="text-center text-xs text-ink-500">Data dihitung langsung dari basis data pada {new Date(stats.generatedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB.</p>
     </div>
+  );
+}
+
+const MEDAL: Record<number, string> = { 1: "/ikon/level/level-emas.webp", 2: "/ikon/level/level-perak.webp", 3: "/ikon/level/level-perunggu.webp" };
+
+/** Klasemen seluruh pelapor dalam periode, urut jumlah laporan; sepuluh teratas tampil lebih dahulu */
+function ReporterRanking({ ranking, activeUsers }: { ranking: SerializedStats["reporterRanking"]; activeUsers: number }) {
+  const [all, setAll] = useState(false);
+  const rows = all ? ranking : ranking.slice(0, 10);
+  return (
+    <Card className="anim-fade-up">
+      <CardHeader
+        title="Klasemen pelapor"
+        subtitle={ranking.length ? `${ranking.length} dari ${activeUsers} pengguna aktif melapor dalam periode ini. Diurutkan dari jumlah laporan.` : "Belum ada laporan pada periode ini."}
+        action={<Trophy size={18} className="shrink-0 text-gold" />}
+      />
+      {ranking.length > 0 && (
+        <CardBody className="min-w-0 overflow-x-auto pt-3">
+          <table className="table">
+            <thead>
+              <tr>
+                <th className="w-12 text-center">#</th>
+                <th>Nama</th>
+                <th className="hidden md:table-cell">Area</th>
+                <th className="text-right">Laporan</th>
+                <th className="text-right">Valid</th>
+                <th className="hidden text-right sm:table-cell">Tinggi+</th>
+                <th className="hidden text-right sm:table-cell">Poin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="text-center">
+                    {MEDAL[r.rank] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={MEDAL[r.rank]} alt={`Peringkat ${r.rank}`} width={28} height={28} className="mx-auto size-7" />
+                    ) : (
+                      <span className="text-sm font-semibold tabular-nums text-ink-500">{r.rank}</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="font-medium text-ink-900">{r.name}</div>
+                    <div className="text-xs text-ink-500">
+                      {r.jabatan || ROLE_LABEL[r.role as Role]}
+                      {r.departemen ? `, ${r.departemen}` : ""}
+                      {r.area && r.area !== r.departemen && <span className="md:hidden">, {r.area}</span>}
+                    </div>
+                  </td>
+                  <td className="hidden md:table-cell">{r.area ?? "-"}</td>
+                  <td className="text-right text-base font-bold tabular-nums text-brand-700">{r.laporan}</td>
+                  <td className="text-right tabular-nums">{r.valid}</td>
+                  <td className={cn("hidden text-right tabular-nums sm:table-cell", r.tinggi > 0 && "font-semibold text-orange")}>{r.tinggi}</td>
+                  <td className="hidden text-right tabular-nums sm:table-cell">{r.poin}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {ranking.length > 10 && (
+            <div className="no-print mt-3 text-center">
+              <button type="button" onClick={() => setAll((v) => !v)} className="btn-secondary btn-sm min-h-11 md:min-h-0">
+                {all ? "Tampilkan 10 teratas" : `Tampilkan semua (${ranking.length})`}
+              </button>
+            </div>
+          )}
+        </CardBody>
+      )}
+    </Card>
   );
 }
