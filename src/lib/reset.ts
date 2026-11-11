@@ -12,12 +12,13 @@ const demoUserWhere = { email: { endsWith: DEMO_DOMAIN } };
 
 export async function previewReset() {
   const sampleCodes = SAMPLE_AREAS.map((a) => a.code as string);
-  const [reports, photos, ledger, redemptions, notifications, demoUsers, auditLogs, areas, rewards] = await Promise.all([
+  const [reports, photos, ledger, redemptions, notifications, consultations, demoUsers, auditLogs, areas, rewards] = await Promise.all([
     db.report.count(),
     db.photo.count(),
     db.pointLedger.count(),
     db.redemption.count(),
     db.notification.count(),
+    db.consultation.count(),
     db.user.findMany({ where: demoUserWhere, select: { id: true, name: true, role: true } }),
     db.auditLog.count(),
     db.area.findMany({ where: { code: { in: sampleCodes } }, select: { id: true, code: true, name: true, lat: true, lng: true, _count: { select: { users: { where: { NOT: demoUserWhere } } } } } }),
@@ -29,6 +30,7 @@ export async function previewReset() {
     ledger,
     redemptions,
     notifications,
+    consultations,
     demoUsers,
     auditLogs,
     // Area contoh yang belum diubah dan tidak dipakai akun nyata disarankan untuk dihapus
@@ -54,6 +56,7 @@ export async function runReset(opts: ResetOptions) {
         done.penukaran = (await tx.redemption.deleteMany({})).count;
         done.poin = (await tx.pointLedger.deleteMany({})).count;
         done.notifikasi = (await tx.notification.deleteMany({})).count;
+        done.konsultasi = (await tx.consultation.deleteMany({})).count;
         // Foto dan riwayat laporan ikut terhapus (cascade)
         done.laporan = (await tx.report.deleteMany({})).count;
         // Penomoran laporan dimulai lagi dari 0001

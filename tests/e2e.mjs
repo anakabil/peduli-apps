@@ -212,6 +212,50 @@ const cron = await page.request.get(`${BASE}/api/cron/pengingat`, { headers: { a
 ok(cron.ok() && (await cron.json()).ok === true, "Endpoint cron pengingat berjalan dengan rahasia");
 await logout();
 
+// Konsultasi K3: pekerja bertanya, tim HSE menyaring, pengurus menjawab
+await login("Pengawas");
+await page.goto(`${BASE}/beranda`, { waitUntil: "networkidle" });
+await page.getByText("Butuh konsultasi terkait SMK3? Tulis di sini...").click();
+await page.locator("#topic").selectOption("KEBIJAKAN");
+const ask = "Apakah pekerja boleh menghentikan pekerjaan bila melihat kondisi tidak aman tanpa izin atasan?";
+await page.locator("#question").fill(ask);
+await page.getByRole("checkbox", { name: /Rahasiakan nama saya/ }).check();
+await page.getByRole("button", { name: "Kirim pertanyaan" }).click();
+await page.getByText("Pertanyaan terkirim").waitFor({ timeout: 20000 });
+ok(true, "Pertanyaan konsultasi dikirim dari Beranda");
+await logout();
+await login("Admin");
+await page.goto(`${BASE}/konsultasi?tab=saring`, { waitUntil: "networkidle" });
+const qcard = page.locator("article", { hasText: ask });
+ok(await qcard.getByText("(dirahasiakan dari pengurus)").count(), "Tim HSE melihat pemohon dan tanda dirahasiakan");
+await qcard.locator('select[name="assigneeId"]').selectOption({ label: "Hendra Wijaya, Direktur Operasional" });
+await qcard.locator('textarea[name="screenNote"]').fill("Terkait kebijakan stop work authority.");
+await qcard.getByRole("button", { name: "Teruskan" }).last().click();
+await page.locator("article", { hasText: ask }).getByText("Diteruskan kepada Hendra Wijaya").waitFor({ timeout: 20000 });
+ok(true, "Tim HSE meneruskan pertanyaan kepada pengurus");
+await logout();
+await login("Direksi");
+await page.goto(`${BASE}/konsultasi?tab=jawab`, { waitUntil: "networkidle" });
+const dcard = page.locator("article", { hasText: ask });
+ok(await dcard.getByText("Penanya dirahasiakan").count() && !(await dcard.getByText("Rizky").count()), "Pengurus tidak melihat nama penanya yang dirahasiakan");
+await dcard.locator('textarea[name="answer"]').fill("Boleh. Setiap pekerja berhak menghentikan pekerjaan yang membahayakan tanpa sanksi.");
+await dcard.getByRole("button", { name: "Kirim jawaban" }).click();
+await page.locator("article", { hasText: ask }).getByText("Jawaban Hendra Wijaya").waitFor({ timeout: 20000 });
+ok(true, "Pengurus menjawab pertanyaan");
+await logout();
+await login("Pengawas");
+await page.goto(`${BASE}/konsultasi`, { waitUntil: "networkidle" });
+ok(await page.locator("article", { hasText: ask }).getByText("Setiap pekerja berhak menghentikan").count(), "Pemohon menerima jawaban pengurus");
+await logout();
+await login("Admin");
+await page.goto(`${BASE}/konsultasi?tab=saring`, { waitUntil: "networkidle" });
+await page.locator("article", { hasText: ask }).getByRole("button", { name: "Tampilkan di Tanya jawab" }).click();
+await page.getByText("Ditampilkan di Tanya jawab.").waitFor({ timeout: 20000 });
+await page.goto(`${BASE}/konsultasi?tab=terbuka`, { waitUntil: "networkidle" });
+const pub = page.locator("article", { hasText: ask });
+ok((await pub.count()) && !(await pub.getByText("Rizky").count()), "Tanya jawab terbuka tampil tanpa nama penanya");
+await logout();
+
 // 8. Pengiriman bersamaan: nomor laporan harus unik (uji kondisi balapan)
 await login("Pengawas");
 const photoBuf = fs.readFileSync(photo);

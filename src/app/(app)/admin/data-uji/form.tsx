@@ -29,9 +29,9 @@ export function ResetForm({ preview: p, disabled }: { preview: Preview; disabled
   return (
     <form action={action} className="space-y-4">
       <div className="card overflow-hidden anim-fade-up">
-        <CardHeader title="Data transaksi" subtitle="Seluruh laporan beserta foto dan riwayatnya, poin, penukaran, dan notifikasi." />
+        <CardHeader title="Data transaksi" subtitle="Seluruh laporan beserta foto dan riwayatnya, poin, penukaran, notifikasi, dan konsultasi." />
         <div className="mt-3 divide-y divide-ink-100 border-t border-ink-100">
-          <Check name="transactions" defaultChecked onChange={setTx} title="Hapus seluruh data transaksi" desc={`${num(p.reports)} laporan, ${num(p.photos)} foto, ${num(p.ledger)} catatan poin, ${num(p.redemptions)} penukaran, ${num(p.notifications)} notifikasi. Nomor laporan dimulai lagi dari 0001.`} />
+          <Check name="transactions" defaultChecked onChange={setTx} title="Hapus seluruh data transaksi" desc={`${num(p.reports)} laporan, ${num(p.photos)} foto, ${num(p.ledger)} catatan poin, ${num(p.redemptions)} penukaran, ${num(p.notifications)} notifikasi, ${num(p.consultations)} konsultasi. Nomor laporan dimulai lagi dari 0001.`} />
         </div>
       </div>
 

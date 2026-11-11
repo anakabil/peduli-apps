@@ -14,6 +14,7 @@ import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "@/lib/constant
 import { MiniTrend } from "@/components/charts/mini-trend";
 import { ILLUSTRATION, levelImg } from "@/lib/icons";
 import { PushPrompt } from "@/components/pwa/push-setup";
+import { AskForm } from "../konsultasi/forms";
 
 export const metadata = { title: "Beranda" };
 
@@ -98,6 +99,8 @@ export default async function BerandaPage() {
           </div>
         </div>
       </div>
+
+      <AskForm prompt />
 
       <PushPrompt />
 

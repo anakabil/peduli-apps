@@ -294,6 +294,6 @@ export async function resetDataAction(fd: FormData): Promise<Result> {
   }
   await audit(admin.id, "DATA_UJI_DIHAPUS", "Sistem", "data-uji", done);
   revalidatePath("/", "layout");
-  const parts = Object.entries(done).map(([k, v]) => `${v} ${({ laporan: "laporan", poin: "catatan poin", penukaran: "penukaran", notifikasi: "notifikasi", akunDemo: "akun demo", area: "area contoh", reward: "reward contoh", jejakAudit: "catatan audit" } as Record<string, string>)[k] ?? k}`);
+  const parts = Object.entries(done).map(([k, v]) => `${v} ${({ laporan: "laporan", poin: "catatan poin", penukaran: "penukaran", notifikasi: "notifikasi", konsultasi: "konsultasi", akunDemo: "akun demo", area: "area contoh", reward: "reward contoh", jejakAudit: "catatan audit" } as Record<string, string>)[k] ?? k}`);
   return { ok: true, message: `Selesai. Terhapus: ${parts.join(", ")}.` };
 }

@@ -43,6 +43,7 @@ export const NAV: Array<{ group: string; items: Item[] }> = [
     items: [
       { href: "/poin", label: "Poin dan reward", icon: "poin", roles: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"] },
       { href: "/statistik", label: "Statistik", icon: "statistik", roles: ["DIREKSI", "MANAGER", "ADMIN"] },
+      { href: "/konsultasi", label: "Konsultasi K3", icon: "konsultasi", roles: ALL },
       { href: "/panduan", label: "Panduan", icon: "panduan", roles: ALL },
     ],
   },

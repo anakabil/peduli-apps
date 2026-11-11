@@ -168,7 +168,7 @@ export const EVENT_LABEL: Record<string, string> = {
 };
 
 /** Jenis notifikasi; menentukan notifikasi ponsel mana yang dikirim (Pengaturan alur) dan yang dimatikan pengguna (Profil) */
-export const NOTIF_TYPES = ["TUGAS_VERIFIKASI", "TUGAS_KEPUTUSAN", "ESKALASI", "PENUGASAN", "TINDAK_LANJUT", "STATUS_LAPORAN", "PENGINGAT", "POIN", "ADMINISTRASI"] as const;
+export const NOTIF_TYPES = ["TUGAS_VERIFIKASI", "TUGAS_KEPUTUSAN", "ESKALASI", "PENUGASAN", "TINDAK_LANJUT", "STATUS_LAPORAN", "PENGINGAT", "KONSULTASI", "POIN", "ADMINISTRASI"] as const;
 export type NotifType = (typeof NOTIF_TYPES)[number];
 export const NOTIF_TYPE_LABEL: Record<NotifType, string> = {
   TUGAS_VERIFIKASI: "Laporan perlu verifikasi",
@@ -178,6 +178,7 @@ export const NOTIF_TYPE_LABEL: Record<NotifType, string> = {
   TINDAK_LANJUT: "Perkembangan tindak lanjut",
   STATUS_LAPORAN: "Status laporan saya",
   PENGINGAT: "Pengingat batas waktu",
+  KONSULTASI: "Konsultasi K3",
   POIN: "Poin dan penukaran",
   ADMINISTRASI: "Administrasi",
 };
@@ -189,6 +190,7 @@ export const NOTIF_TYPE_DESC: Record<NotifType, string> = {
   TINDAK_LANJUT: "Perbaikan dilaporkan selesai atau perlu disempurnakan.",
   STATUS_LAPORAN: "Laporan Anda diverifikasi, disetujui, ditolak, atau ditutup.",
   PENGINGAT: "Tahap yang melewati batas waktu.",
+  KONSULTASI: "Pertanyaan baru, diteruskan, dan dijawab.",
   POIN: "Penyesuaian poin dan status penukaran hadiah.",
   ADMINISTRASI: "Pengajuan penukaran dan aktivasi akun.",
 };
@@ -202,9 +204,35 @@ export const NOTIF_TYPE_ROLES: Record<NotifType, Role[]> = {
   TINDAK_LANJUT: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "ADMIN"],
   STATUS_LAPORAN: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI", "ADMIN"],
   PENGINGAT: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "ADMIN"],
+  KONSULTASI: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI", "ADMIN"],
   POIN: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"],
   ADMINISTRASI: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI", "ADMIN"],
 };
+
+/** Layanan konsultasi K3: pertanyaan pekerja disaring tim HSE lalu dijawab pengurus */
+export const CONSULT_TOPICS = ["KEBIJAKAN", "PERALATAN", "PROSEDUR", "LINGKUNGAN", "KESEHATAN", "PELATIHAN", "LAINNYA"] as const;
+export type ConsultTopic = (typeof CONSULT_TOPICS)[number];
+export const CONSULT_TOPIC_LABEL: Record<ConsultTopic, string> = {
+  KEBIJAKAN: "Kebijakan dan program K3",
+  PERALATAN: "Peralatan dan APD",
+  PROSEDUR: "Prosedur dan izin kerja",
+  LINGKUNGAN: "Lingkungan kerja",
+  KESEHATAN: "Kesehatan kerja",
+  PELATIHAN: "Pelatihan dan kompetensi",
+  LAINNYA: "Lainnya",
+};
+export const CONSULT_STATUS_LABEL: Record<string, string> = { DIAJUKAN: "Disaring tim HSE", DITERUSKAN: "Menunggu jawaban pengurus", DIJAWAB: "Dijawab", DITOLAK: "Tidak diteruskan" };
+export const CONSULT_STATUS_TONE: Record<string, "info" | "warn" | "success" | "neutral"> = { DIAJUKAN: "info", DITERUSKAN: "warn", DIJAWAB: "success", DITOLAK: "neutral" };
+export const CONSULT_REJECT_REASONS = ["DI_LUAR_K3", "SUDAH_DIJAWAB", "LAPORAN_BAHAYA", "TIDAK_SESUAI_ETIKA"] as const;
+export type ConsultRejectReason = (typeof CONSULT_REJECT_REASONS)[number];
+export const CONSULT_REJECT_LABEL: Record<ConsultRejectReason, string> = {
+  DI_LUAR_K3: "Di luar lingkup K3",
+  SUDAH_DIJAWAB: "Sudah dijawab di Tanya jawab",
+  LAPORAN_BAHAYA: "Sebaiknya dilaporkan sebagai laporan bahaya",
+  TIDAK_SESUAI_ETIKA: "Tidak sesuai etika komunikasi",
+};
+/** Peran yang dapat ditunjuk sebagai pengurus penjawab */
+export const CONSULT_ANSWER_ROLES: Role[] = ["DIREKSI", "MANAGER"];
 
 export type AppSettings = {
   verificationRequired: boolean; // terkunci: true
@@ -237,7 +265,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   points: { valid: 2, nearMiss: 3, highRiskBonus: 3, suggestionBonus: 3, streakBonus: 5 },
   levels: { perak: 50, emas: 150 },
   eligibleRoles: ["PENGAWAS", "SUPERINTENDENT", "MANAGER", "DIREKSI"],
-  push: { TUGAS_VERIFIKASI: true, TUGAS_KEPUTUSAN: true, ESKALASI: true, PENUGASAN: true, TINDAK_LANJUT: true, STATUS_LAPORAN: true, PENGINGAT: true, POIN: true, ADMINISTRASI: true },
+  push: { TUGAS_VERIFIKASI: true, TUGAS_KEPUTUSAN: true, ESKALASI: true, PENUGASAN: true, TINDAK_LANJUT: true, STATUS_LAPORAN: true, PENGINGAT: true, KONSULTASI: true, POIN: true, ADMINISTRASI: true },
 };
 
 export const APP_NAME = "PEDULI Apps";

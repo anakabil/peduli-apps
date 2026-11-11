@@ -43,6 +43,24 @@ async function main() {
     return;
   }
   await seedReports({ admin, direksi, manager, manager2, supt, supt2, pengawas, pengawas2, pengawas3, areaMap, areas });
+  await seedConsultations({ admin, direksi, manager, pengawas, pengawas2, supt });
+}
+
+/** Contoh konsultasi K3 di setiap tahap: disaring, diteruskan, dijawab dan ditampilkan, tidak diteruskan */
+async function seedConsultations(c: { admin: U; direksi: U; manager: U; pengawas: U; pengawas2: U; supt: U }) {
+  if ((await db.consultation.count()) > 0) return;
+  const now = Date.now();
+  const D = 86400000;
+  const at = (d: number) => new Date(now - d * D);
+  await db.consultation.createMany({
+    data: [
+      { askerId: c.pengawas.id, topic: "PERALATAN", question: "Apakah sarung tangan anti potong akan disediakan untuk seluruh pekerja slitting line, termasuk pekerja kontrak?", createdAt: at(1) },
+      { askerId: c.pengawas2.id, topic: "LINGKUNGAN", anonymous: true, question: "Suhu di gudang coil siang hari terasa sangat panas. Apakah ada rencana penambahan ventilasi atau jadwal istirahat tambahan?", status: "DITERUSKAN", screenerId: c.admin.id, screenedAt: at(2), screenNote: "Hasil pengukuran ISBB bulan lalu 30,8 derajat Celsius pada pukul 13.00.", assigneeId: c.manager.id, createdAt: at(3) },
+      { askerId: c.supt.id, topic: "KEBIJAKAN", question: "Bagaimana komitmen manajemen terhadap pekerja yang menghentikan pekerjaan karena kondisi tidak aman (stop work authority)?", status: "DIJAWAB", screenerId: c.admin.id, screenedAt: at(9), assigneeId: c.direksi.id, answer: "Setiap pekerja berhak dan wajib menghentikan pekerjaan bila menemukan kondisi yang membahayakan. Tidak ada sanksi bagi pekerja yang menggunakan hak tersebut dengan itikad baik. Laporkan melalui PEDULI agar perbaikannya tercatat dan dapat dipantau bersama.", answeredAt: at(7), published: true, createdAt: at(10) },
+      { askerId: c.pengawas.id, topic: "PELATIHAN", question: "Kapan jadwal pelatihan operator crane berikutnya? Beberapa rigger di shift A belum bersertifikat.", status: "DIJAWAB", screenerId: c.admin.id, screenedAt: at(14), assigneeId: c.manager.id, answer: "Pelatihan dan sertifikasi rigger dijadwalkan bulan depan bersama lembaga yang ditunjuk Kemnaker. Superintendent shift A diminta mengirim daftar nama paling lambat Jumat ini.", answeredAt: at(12), published: true, createdAt: at(15) },
+      { askerId: c.pengawas2.id, topic: "LAINNYA", question: "Lampu di area parkir motor mati sejak dua hari lalu.", status: "DITOLAK", screenerId: c.admin.id, screenedAt: at(4), rejectReason: "LAPORAN_BAHAYA", rejectNote: "Mohon dilaporkan melalui menu Lapor bahaya agar perbaikannya ditugaskan.", createdAt: at(5) },
+    ],
+  });
 }
 
 type U = { id: string; role: string; atasanId: string | null };
