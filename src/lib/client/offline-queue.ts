@@ -51,8 +51,9 @@ export async function flushQueue(onEach?: (r: { number: string }) => void) {
       sent++;
       onEach?.(r);
     } catch (e) {
-      // Kesalahan validasi (4xx) tidak akan berhasil dengan pengulangan, buang dari antrean
-      if (e instanceof Error && /HTTP 4|wajib|maksimal|tidak valid|Format/i.test(e.message)) await removeQueued(it.clientId);
+      // Kesalahan validasi (4xx) tidak akan berhasil dengan pengulangan, buang dari antrean.
+      // Pesan server mengikuti bahasa pengguna, jadi kata kunci Indonesia dan Inggris sama-sama dikenali.
+      if (e instanceof Error && /HTTP 4|wajib|maksimal|tidak valid|Format|required|maximum|must be|invalid/i.test(e.message)) await removeQueued(it.clientId);
     }
   }
   return sent;

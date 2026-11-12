@@ -3,8 +3,10 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { CalendarDays } from "lucide-react";
+import { useTr } from "@/components/i18n/lang-provider";
 
 export function PeriodPicker({ areas, mode }: { areas: Array<{ id: string; name: string }>; mode: "bulan" | "tahun" | "rentang" }) {
+  const tr = useTr();
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -27,13 +29,13 @@ export function PeriodPicker({ areas, mode }: { areas: Array<{ id: string; name:
       <div className="flex rounded-lg border border-ink-200 p-0.5 text-xs font-semibold">
         {(["bulan", "tahun", "rentang"] as const).map((m) => (
           <button key={m} onClick={() => go(m === "bulan" ? { bulan: curMonth, area } : m === "tahun" ? { tahun: String(now.year), area } : { dari: `${now.year}-01-01`, sampai: now.today, area })} className={`rounded-md px-3 py-1.5 capitalize transition-colors ${mode === m ? "bg-brand-700 text-white" : "text-ink-600 hover:bg-ink-100"}`}>
-            {m}
+            {m === "bulan" ? tr("bulan", "month") : m === "tahun" ? tr("tahun", "year") : tr("rentang", "range")}
           </button>
         ))}
       </div>
-      {mode === "bulan" && <input type="month" className="input w-auto" value={sp.get("bulan") ?? curMonth} max={curMonth} onChange={(e) => go({ bulan: e.target.value, area })} />}
+      {mode === "bulan" && <input type="month" aria-label={tr("Bulan", "Month")} className="input w-auto" value={sp.get("bulan") ?? curMonth} max={curMonth} onChange={(e) => go({ bulan: e.target.value, area })} />}
       {mode === "tahun" && (
-        <select className="input w-auto" value={sp.get("tahun") ?? String(now.year)} onChange={(e) => go({ tahun: e.target.value, area })}>
+        <select aria-label={tr("Tahun", "Year")} className="input w-auto" value={sp.get("tahun") ?? String(now.year)} onChange={(e) => go({ tahun: e.target.value, area })}>
           {[0, 1, 2, 3].map((i) => (
             <option key={i} value={now.year - i}>{now.year - i}</option>
           ))}
@@ -41,13 +43,13 @@ export function PeriodPicker({ areas, mode }: { areas: Array<{ id: string; name:
       )}
       {mode === "rentang" && (
         <>
-          <input type="date" className="input w-auto" value={sp.get("dari") ?? ""} onChange={(e) => go({ dari: e.target.value, sampai: sp.get("sampai") ?? "", area })} />
-          <span className="text-xs text-ink-500">s.d.</span>
-          <input type="date" className="input w-auto" value={sp.get("sampai") ?? ""} onChange={(e) => go({ dari: sp.get("dari") ?? "", sampai: e.target.value, area })} />
+          <input type="date" aria-label={tr("Dari tanggal", "From date")} className="input w-auto" value={sp.get("dari") ?? ""} onChange={(e) => go({ dari: e.target.value, sampai: sp.get("sampai") ?? "", area })} />
+          <span className="text-xs text-ink-500">{tr("s.d.", "to")}</span>
+          <input type="date" aria-label={tr("Sampai tanggal", "To date")} className="input w-auto" value={sp.get("sampai") ?? ""} onChange={(e) => go({ dari: sp.get("dari") ?? "", sampai: e.target.value, area })} />
         </>
       )}
-      <select className="input w-auto" value={area} onChange={(e) => go({ bulan: sp.get("bulan") ?? "", tahun: sp.get("tahun") ?? "", dari: sp.get("dari") ?? "", sampai: sp.get("sampai") ?? "", area: e.target.value })}>
-        <option value="">Seluruh area</option>
+      <select aria-label={tr("Area", "Area")} className="input w-auto" value={area} onChange={(e) => go({ bulan: sp.get("bulan") ?? "", tahun: sp.get("tahun") ?? "", dari: sp.get("dari") ?? "", sampai: sp.get("sampai") ?? "", area: e.target.value })}>
+        <option value="">{tr("Seluruh area", "All areas")}</option>
         {areas.map((a) => (
           <option key={a.id} value={a.id}>{a.name}</option>
         ))}

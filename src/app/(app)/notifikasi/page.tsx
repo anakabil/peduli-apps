@@ -6,11 +6,16 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { relTime, fmtDateTime, cn } from "@/lib/format";
 import { ILLUSTRATION } from "@/lib/icons";
+import { getTr } from "@/lib/i18n-server";
 
-export const metadata = { title: "Notifikasi" };
+export async function generateMetadata() {
+  const { tr } = await getTr();
+  return { title: tr("Notifikasi", "Notifications") };
+}
 
 export default async function NotifikasiPage() {
   const user = await requireUser();
+  const { lang, tr } = await getTr();
   const items = await db.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 100 });
   const unread = items.filter((n) => !n.readAt).length;
 
@@ -32,14 +37,20 @@ export default async function NotifikasiPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        eyebrow="Pemberitahuan"
-        title="Notifikasi"
-        description={items.length === 0 ? "Belum ada pemberitahuan untuk Anda." : unread ? `${unread.toLocaleString("id-ID")} notifikasi belum dibaca.` : "Semua notifikasi sudah dibaca."}
+        eyebrow={tr("Pemberitahuan", "Alerts")}
+        title={tr("Notifikasi", "Notifications")}
+        description={
+          items.length === 0
+            ? tr("Belum ada pemberitahuan untuk Anda.", "You have no notifications yet.")
+            : unread
+              ? tr(`${unread.toLocaleString("id-ID")} notifikasi belum dibaca.`, `${unread.toLocaleString("en-US")} unread notification${unread === 1 ? "" : "s"}.`)
+              : tr("Semua notifikasi sudah dibaca.", "All notifications have been read.")
+        }
         actions={
           unread > 0 ? (
             <form action={markAll}>
               <button className="btn-secondary btn-sm min-h-11 md:min-h-0">
-                <CheckCheck size={14} /> Tandai semua dibaca
+                <CheckCheck size={14} /> {tr("Tandai semua dibaca", "Mark all as read")}
               </button>
             </form>
           ) : undefined
@@ -49,13 +60,15 @@ export default async function NotifikasiPage() {
         <div className="card flex flex-col items-center px-6 py-12 text-center anim-fade-in">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={ILLUSTRATION.kosongNotifikasi} alt="" aria-hidden width={200} height={150} className="mb-2 h-auto w-44 max-w-full" />
-          <h2 className="text-base font-bold text-ink-900">Belum ada notifikasi</h2>
-          <p className="mt-1 max-w-sm text-sm text-ink-500">Pemberitahuan verifikasi, keputusan, dan penutupan akan tampil di sini.</p>
+          <h2 className="text-base font-bold text-ink-900">{tr("Belum ada notifikasi", "No notifications yet")}</h2>
+          <p className="mt-1 max-w-sm text-sm text-ink-500">{tr("Pemberitahuan verifikasi, keputusan, dan penutupan akan tampil di sini.", "Verification, decision, and closure updates will appear here.")}</p>
         </div>
       ) : (
         <ul className="card divide-y divide-ink-100 overflow-hidden stagger">
           {items.map((n) => {
             const isUnread = !n.readAt;
+            const title = lang === "en" && n.titleEn != null ? n.titleEn : n.title;
+            const body = lang === "en" && n.bodyEn != null ? n.bodyEn : n.body;
             return (
               <li key={n.id}>
                 <form action={open.bind(null, n.id, n.link)}>
@@ -67,14 +80,14 @@ export default async function NotifikasiPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-3">
                         <span className={cn("min-w-0 text-sm leading-5", isUnread ? "font-semibold text-ink-900" : "font-medium text-ink-700")}>
-                          {isUnread && <span className="sr-only">Belum dibaca: </span>}
-                          {n.title}
+                          {isUnread && <span className="sr-only">{tr("Belum dibaca: ", "Unread: ")}</span>}
+                          {title}
                         </span>
-                        <time dateTime={n.createdAt.toISOString()} title={fmtDateTime(n.createdAt)} className="shrink-0 whitespace-nowrap text-xs tabular-nums text-ink-500">
-                          {relTime(n.createdAt)}
+                        <time dateTime={n.createdAt.toISOString()} title={fmtDateTime(n.createdAt, false, lang)} className="shrink-0 whitespace-nowrap text-xs tabular-nums text-ink-500">
+                          {relTime(n.createdAt, lang)}
                         </time>
                       </span>
-                      {n.body && <span className="mt-0.5 line-clamp-2 block text-sm text-ink-600">{n.body}</span>}
+                      {body && <span className="mt-0.5 line-clamp-2 block text-sm text-ink-600">{body}</span>}
                     </span>
                     {n.link && <ChevronRight size={16} className="mt-0.5 shrink-0 self-center text-ink-300 transition-colors group-hover:text-ink-500" aria-hidden />}
                   </button>
@@ -85,9 +98,9 @@ export default async function NotifikasiPage() {
         </ul>
       )}
       <p className="mt-4 text-center text-xs text-ink-500">
-        Notifikasi dikirim di dalam aplikasi.{" "}
+        {tr("Notifikasi dikirim di dalam aplikasi.", "Notifications are delivered within the app.")}{" "}
         <Link href="/panduan" className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800">
-          Pelajari alur
+          {tr("Pelajari alur", "Learn about the workflow")}
         </Link>
         .
       </p>

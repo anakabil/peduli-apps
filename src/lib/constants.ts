@@ -299,4 +299,148 @@ export const DEVELOPER = {
   whatsapp: { label: "+62 812-2728-0075", href: "https://wa.me/6281227280075" },
   instagram: "https://instagram.com/nusasafety",
   linkedin: "https://www.linkedin.com/company/nusasafety",
+  /** Versi bahasa Inggris, bersumber dari nusasafety.co.id/about */
+  en: {
+    tagline: "Your trusted partner in Safety, Quality, Health, Environment, and Productivity.",
+    profile:
+      "PT. Nusa Rendra Jayatama, operating as Nusa Safety, is a consulting firm focused on HSSE, quality, and productivity. Its work combines a command of Indonesian regulation, engineering rigour, and digital ways of working, serving state-owned enterprises and foreign-owned (PMA) companies.",
+    vision: "To be the one-stop partner that industry trusts to keep every business process safe, healthy, high-quality, and environmentally sustainable.",
+    mission: [
+      "Deliver HSSE, quality, and productivity services that rest on regulation and science.",
+      "Build workforce competence through training, with national certification delivered alongside licensed partners.",
+      "Move safety management onto digital systems so performance can be measured in real time.",
+      "Build a reliable network of experts and partners that puts client results first.",
+    ],
+    services: ["Consulting", "Training & Certification", "Assessment & Audit", "Environment & Permits", "HSSE Apps"],
+    offices: ["Head Office", "Representative Office"],
+  },
 };
+
+// ---------------------------------------------------------------- Label dwibahasa
+import type { Lang } from "./i18n";
+
+const LABELS_ID = {
+  ROLE_LABEL,
+  ROLE_DESC,
+  USER_STATUS_LABEL,
+  CATEGORY_LABEL,
+  CATEGORY_SHORT,
+  HAZARD_TYPE_LABEL,
+  REJECT_REASON_LABEL,
+  RISK_LABEL,
+  STATUS_LABEL,
+  CONTROL_LABEL,
+  LEDGER_LABEL,
+  REDEMPTION_LABEL,
+  EVENT_LABEL,
+  NOTIF_TYPE_LABEL,
+  NOTIF_TYPE_DESC,
+  CONSULT_TOPIC_LABEL,
+  CONSULT_STATUS_LABEL,
+  CONSULT_REJECT_LABEL,
+};
+
+const LABELS_EN: typeof LABELS_ID = {
+  ROLE_LABEL: { ADMIN: "Admin", DIREKSI: "Director", MANAGER: "Manager", SUPERINTENDENT: "Superintendent", PENGAWAS: "Supervisor" },
+  ROLE_DESC: {
+    ADMIN: "Manages accounts, the reward catalogue, point redemptions, and program settings.",
+    DIREKSI: "Receives program statistics and performance as a basis for policy.",
+    MANAGER: "Approves reports, assigns persons in charge and resources, and sets the workflow.",
+    SUPERINTENDENT: "Verifies Supervisor reports: valid, revise, or reject.",
+    PENGAWAS: "Reports hazards, tracks their status, and redeems points.",
+  },
+  USER_STATUS_LABEL: { PENDING: "Awaiting approval", ACTIVE: "Active", INACTIVE: "Inactive" },
+  CATEGORY_LABEL: {
+    KONDISI_TIDAK_AMAN: "Unsafe condition",
+    TINDAKAN_TIDAK_AMAN: "Unsafe act",
+    NYARIS_CELAKA: "Near miss",
+    ERGONOMI: "Ergonomic hazard",
+    LINGKUNGAN: "Environmental pollution",
+    BENCANA_ALAM: "Natural disaster",
+  },
+  CATEGORY_SHORT: { KONDISI_TIDAK_AMAN: "Condition", TINDAKAN_TIDAK_AMAN: "Act", NYARIS_CELAKA: "Near miss", ERGONOMI: "Ergonomics", LINGKUNGAN: "Environment", BENCANA_ALAM: "Disaster" },
+  HAZARD_TYPE_LABEL: { MANUSIA: "People", PERALATAN: "Equipment / machinery", MATERIAL_BERBAHAYA: "Material", METODE_KERJA: "Work method", LINGKUNGAN_KERJA: "Work environment", KONDISI_ALAM: "Natural conditions" },
+  REJECT_REASON_LABEL: { TIDAK_PERLU_TINDAKAN: "No action required", GANDA: "Duplicate report", TIDAK_BENAR: "Report does not match the facts" },
+  RISK_LABEL: { RENDAH: "Low", SEDANG: "Medium", TINGGI: "High", EKSTREM: "Extreme" },
+  STATUS_LABEL: {
+    MENUNGGU_VERIFIKASI: "Awaiting verification",
+    PERLU_REVISI: "Revision required",
+    MENUNGGU_KEPUTUSAN: "Awaiting decision",
+    DALAM_PERBAIKAN: "Corrective action in progress",
+    MENUNGGU_PENUTUPAN: "Awaiting closure",
+    SELESAI: "Closed",
+    DITOLAK: "Rejected",
+  },
+  CONTROL_LABEL: { ELIMINASI: "Elimination", SUBSTITUSI: "Substitution", REKAYASA_TEKNIK: "Engineering controls", ADMINISTRATIF: "Administrative controls", APD: "PPE" },
+  LEDGER_LABEL: {
+    LAPORAN_VALID: "Valid hazard report",
+    NYARIS_CELAKA: "Valid near-miss report",
+    BONUS_RISIKO: "High/Extreme risk bonus",
+    BONUS_USULAN: "Implemented suggestion bonus",
+    BONUS_KONSISTEN: "Four-week consistency bonus",
+    PENUKARAN: "Reward redemption",
+    PENYESUAIAN: "Admin adjustment",
+    PEMBATALAN: "Points reversal",
+  },
+  REDEMPTION_LABEL: { DIAJUKAN: "Submitted", DIPROSES: "Processing", SELESAI: "Completed", DITOLAK: "Rejected" },
+  EVENT_LABEL: {
+    DIBUAT: "Report created",
+    DIVERIFIKASI: "Verified as valid",
+    DIREVISI: "Revision requested",
+    REVISI_DIKIRIM: "Revision submitted",
+    DITOLAK: "Rejected",
+    DIPUTUSKAN: "Manager decision",
+    PROGRES: "Progress update",
+    SELESAI_PERBAIKAN: "Corrective action reported complete",
+    DITUTUP: "Report closed",
+    DIESKALASI: "Escalated to Manager",
+    PENGINGAT: "Deadline reminder",
+    AUDIT: "Random audit",
+  },
+  NOTIF_TYPE_LABEL: {
+    TUGAS_VERIFIKASI: "Reports to verify",
+    TUGAS_KEPUTUSAN: "Reports awaiting decision",
+    ESKALASI: "High-risk escalation",
+    PENUGASAN: "Follow-up assignment",
+    TINDAK_LANJUT: "Follow-up progress",
+    STATUS_LAPORAN: "My report status",
+    PENGINGAT: "Deadline reminders",
+    KONSULTASI: "OHS consultation",
+    POIN: "Points and redemptions",
+    ADMINISTRASI: "Administration",
+  },
+  NOTIF_TYPE_DESC: {
+    TUGAS_VERIFIKASI: "New or revised reports awaiting verification.",
+    TUGAS_KEPUTUSAN: "Reports awaiting a Manager decision.",
+    ESKALASI: "High or Extreme risk reports in your area.",
+    PENUGASAN: "You are assigned as the person in charge of a corrective action.",
+    TINDAK_LANJUT: "Corrective action reported complete or needing improvement.",
+    STATUS_LAPORAN: "Your report is verified, approved, rejected, or closed.",
+    PENGINGAT: "Stages past their deadline.",
+    KONSULTASI: "New, forwarded, and answered questions.",
+    POIN: "Point adjustments and reward redemption status.",
+    ADMINISTRASI: "Redemption requests and account activation.",
+  },
+  CONSULT_TOPIC_LABEL: {
+    KEBIJAKAN: "OHS policy and programs",
+    PERALATAN: "Equipment and PPE",
+    PROSEDUR: "Procedures and work permits",
+    LINGKUNGAN: "Work environment",
+    KESEHATAN: "Occupational health",
+    PELATIHAN: "Training and competence",
+    LAINNYA: "Other",
+  },
+  CONSULT_STATUS_LABEL: { DIAJUKAN: "Screening by HSE team", DITERUSKAN: "Awaiting management answer", DIJAWAB: "Answered", DITOLAK: "Not forwarded" },
+  CONSULT_REJECT_LABEL: {
+    DI_LUAR_K3: "Outside OHS scope",
+    SUDAH_DIJAWAB: "Already answered in Q&A",
+    LAPORAN_BAHAYA: "Better submitted as a hazard report",
+    TIDAK_SESUAI_ETIKA: "Does not follow communication etiquette",
+  },
+};
+
+/** Seluruh label domain menurut bahasa: const L = labels(lang); L.STATUS_LABEL[s] */
+export function labels(lang: Lang) {
+  return lang === "en" ? LABELS_EN : LABELS_ID;
+}
+export type Labels = typeof LABELS_ID;

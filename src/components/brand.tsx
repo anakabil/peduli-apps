@@ -11,7 +11,7 @@ export function PeduliLogo({ height = 40, className = "" }: { height?: number; c
 /** Tombol kecil "i" menuju halaman Tentang */
 export function AboutButton({ className = "" }: { className?: string }) {
   return (
-    <Link href="/tentang" aria-label="Tentang PEDULI" title="Tentang PEDULI" className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 transition-colors hover:border-brand-300 hover:text-brand-700 ${className}`}>
+    <Link href="/tentang" aria-label="Tentang PEDULI / About PEDULI" title="Tentang PEDULI / About PEDULI" className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 transition-colors hover:border-brand-300 hover:text-brand-700 ${className}`}>
       <Info size={15} />
     </Link>
   );

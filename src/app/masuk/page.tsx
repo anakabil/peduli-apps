@@ -12,17 +12,23 @@ import { APP_TAGLINE, COMPANY_NAME } from "@/lib/constants";
 import { envBlocking, envIssues, envDiagnostics } from "@/lib/env-check";
 import { googleClientId, googleClientSecret, oneTapClientId } from "@/lib/env";
 import { SetupChecklist } from "./setup-checklist";
+import { LangSwitch } from "@/components/i18n/lang-switch";
+import { getTr } from "@/lib/i18n-server";
+import type { Tr } from "@/lib/i18n";
 
-export const metadata = { title: "Masuk" };
+export async function generateMetadata() {
+  const { tr } = await getTr();
+  return { title: tr("Masuk", "Sign in") };
+}
 
-const ERRORS: Record<string, string> = {
-  domain: "Email Anda tidak termasuk domain yang diizinkan. Hubungi admin program.",
-  OAuthSignin: "Gagal memulai proses masuk Google. Coba lagi.",
-  OAuthCallbackError: "Proses masuk Google dibatalkan atau gagal.",
-  Configuration: "Konfigurasi Google OAuth belum lengkap. Hubungi admin.",
-  CredentialsSignin: "Akun tidak dikenali atau tidak diizinkan.",
-  AccessDenied: "Akses ditolak.",
-};
+const errors = (tr: Tr): Record<string, string> => ({
+  domain: tr("Email Anda tidak termasuk domain yang diizinkan. Hubungi admin program.", "Your email address is not in an allowed domain. Contact the program admin."),
+  OAuthSignin: tr("Gagal memulai proses masuk Google. Coba lagi.", "Could not start Google sign-in. Please try again."),
+  OAuthCallbackError: tr("Proses masuk Google dibatalkan atau gagal.", "Google sign-in was cancelled or failed."),
+  Configuration: tr("Konfigurasi Google OAuth belum lengkap. Hubungi admin.", "Google OAuth configuration is incomplete. Contact the admin."),
+  CredentialsSignin: tr("Akun tidak dikenali atau tidak diizinkan.", "Account not recognised or not permitted."),
+  AccessDenied: tr("Akses ditolak.", "Access denied."),
+});
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; callbackUrl?: string }> }) {
   const blocking = envBlocking();
@@ -30,14 +36,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // Arahkan ke beranda hanya bila pengguna sesi masih ada di basis data (hindari putaran pengalihan untuk sesi yatim)
   const current = await getCurrentUser().catch(() => null);
   if (current) redirect(current.status === "ACTIVE" ? "/beranda" : "/menunggu");
+  const { tr } = await getTr();
   const sp = await searchParams;
-  const error = sp.error ? ERRORS[sp.error] ?? "Terjadi kendala saat masuk. Coba lagi." : null;
+  const error = sp.error ? errors(tr)[sp.error] ?? tr("Terjadi kendala saat masuk. Coba lagi.", "A problem occurred while signing in. Please try again.") : null;
   const googleReady = !!googleClientId() && !!googleClientSecret();
   const oneTap = googleReady ? oneTapClientId() : "";
   const demo = isDemoMode();
 
   return (
-    <main className="min-h-dvh lg:grid lg:grid-cols-[1.1fr_1fr]">
+    <main className="relative min-h-dvh lg:grid lg:grid-cols-[1.1fr_1fr]">
+      <div className="absolute right-4 top-4 z-20 md:right-6 md:top-6">
+        <LangSwitch />
+      </div>
       {/* Panel kiri: hero */}
       <section className="hero-pattern relative hidden lg:flex flex-col justify-between p-12 text-white overflow-hidden">
         <div className="absolute inset-0 grid-lines opacity-60" />
@@ -47,24 +57,24 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
           <div>
             <div className="text-sm font-semibold tracking-wide text-white/90">{COMPANY_NAME}</div>
-            <div className="text-xs text-white/60">Program pelaporan bahaya dan pengendalian risiko</div>
+            <div className="text-xs text-white/60">{tr("Program pelaporan bahaya dan pengendalian risiko", "Hazard reporting and risk control program")}</div>
           </div>
         </div>
         <div className="relative max-w-lg anim-fade-up">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wider uppercase">
-            <ShieldCheck size={14} /> Keselamatan dimulai dari kepedulian
+            <ShieldCheck size={14} /> {tr("Keselamatan dimulai dari kepedulian", "Safety starts with caring")}
           </div>
           <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight">
-            Lapor, verifikasi, putuskan, perbaiki, ukur.
+            {tr("Lapor, verifikasi, putuskan, perbaiki, ukur.", "Report, verify, decide, correct, measure.")}
           </h1>
           <p className="mt-4 text-white/75 leading-relaxed">
-            Satu alur digital untuk melaporkan bahaya, menindaklanjuti, dan mengukur kinerja K3.
+            {tr("Satu alur digital untuk melaporkan bahaya, menindaklanjuti, dan mengukur kinerja K3.", "One digital workflow to report hazards, follow them up, and measure OHS performance.")}
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3 [&>*]:h-full">
             {[
-              { icon: MapPin, t: "Geotagging otomatis", d: "Lokasi dan waktu terekam saat laporan dibuat." },
-              { icon: Users, t: "Verifikasi berjenjang", d: "Superintendent memverifikasi, Manager memutuskan." },
-              { icon: Award, t: "Poin dan reward", d: "Poin diberikan setelah laporan terverifikasi." },
+              { icon: MapPin, t: tr("Geotagging otomatis", "Automatic geotagging"), d: tr("Lokasi dan waktu terekam saat laporan dibuat.", "Location and time are recorded when the report is created.") },
+              { icon: Users, t: tr("Verifikasi berjenjang", "Tiered verification"), d: tr("Superintendent memverifikasi, Manager memutuskan.", "Superintendents verify, Managers decide.") },
+              { icon: Award, t: tr("Poin dan reward", "Points and rewards"), d: tr("Poin diberikan setelah laporan terverifikasi.", "Points are awarded once a report is verified.") },
             ].map((f) => (
               <div key={f.t} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <f.icon size={20} className="text-brand-200" />
@@ -74,11 +84,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             ))}
           </div>
         </div>
-        <div className="relative text-xs text-white/60">{APP_TAGLINE}</div>
+        <div className="relative text-xs text-white/60">{tr(APP_TAGLINE, "Hazard Reporting and Control")}</div>
       </section>
 
       {/* Panel kanan: formulir masuk */}
-      <section className="flex min-h-dvh flex-col items-center justify-center px-5 py-10 lg:min-h-0">
+      <section className="flex min-h-dvh flex-col items-center justify-center px-5 pb-10 pt-16 lg:min-h-0 lg:py-10">
         <div className="w-full max-w-sm anim-scale-in">
           <div className="mb-5 flex items-center justify-center gap-2.5 lg:hidden">
             <GysLogo size={28} className="rounded" />
@@ -88,7 +98,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <div className="flex justify-center">
               <PeduliLogo height={52} />
             </div>
-            <p className="mt-4 text-center text-sm text-ink-600">Masuk untuk melaporkan bahaya dan memantau tindak lanjutnya.</p>
+            <p className="mt-4 text-center text-sm text-ink-600">{tr("Masuk untuk melaporkan bahaya dan memantau tindak lanjutnya.", "Sign in to report hazards and track their follow-up.")}</p>
 
             {error && <div className="mt-5 rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">{error}</div>}
 
@@ -101,18 +111,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                   }}
                 >
                   <button className="btn-primary btn-lg w-full">
-                    <GoogleIcon /> Masuk dengan akun Google
+                    <GoogleIcon /> {tr("Masuk dengan akun Google", "Sign in with Google")}
                   </button>
                 </form>
               ) : process.env.NODE_ENV !== "production" ? (
                 <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-4 text-xs text-ink-500">
                   <div className="flex items-center gap-2 font-semibold text-ink-700">
-                    <Lock size={14} /> Google OAuth belum dikonfigurasi
+                    <Lock size={14} /> {tr("Google OAuth belum dikonfigurasi", "Google OAuth is not configured")}
                   </div>
-                  Isi AUTH_GOOGLE_ID dan AUTH_GOOGLE_SECRET pada berkas .env untuk mengaktifkan masuk dengan Google. Lihat README.
+                  {tr("Isi AUTH_GOOGLE_ID dan AUTH_GOOGLE_SECRET pada berkas .env untuk mengaktifkan masuk dengan Google. Lihat README.", "Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET in the .env file to enable Google sign-in. See the README.")}
                 </div>
               ) : !demo ? (
-                <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm text-ink-600">Masuk dengan Google belum tersedia. Hubungi admin program PEDULI.</div>
+                <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm text-ink-600">{tr("Masuk dengan Google belum tersedia. Hubungi admin program PEDULI.", "Google sign-in is not available yet. Contact the PEDULI program admin.")}</div>
               ) : null}
               {oneTap && <GoogleOneTap clientId={oneTap} />}
               {demo && <DemoLogin />}
@@ -121,18 +131,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <div className="mt-7 space-y-2.5 border-t border-ink-100 pt-5 text-xs text-ink-500">
               <div className="flex items-start gap-2">
                 <Fingerprint size={14} className="mt-0.5 shrink-0 text-brand-600" />
-                Satu akun untuk satu orang. Tampilan menu mengikuti peran yang ditetapkan admin.
+                {tr("Satu akun untuk satu orang. Tampilan menu mengikuti peran yang ditetapkan admin.", "One account per person. The menu shown follows the role assigned by the admin.")}
               </div>
               <div className="flex items-start gap-2">
                 <Lock size={14} className="mt-0.5 shrink-0 text-brand-600" />
-                Setiap masuk dan keluar tercatat sebagai bahan audit keamanan.
+                {tr("Setiap masuk dan keluar tercatat sebagai bahan audit keamanan.", "Every sign-in and sign-out is recorded for security audits.")}
               </div>
             </div>
           </div>
           <Credit className="mt-6" />
           <div className="mt-2 flex justify-center">
             <Link href="/tentang" className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-500 hover:text-brand-700">
-              <Info size={13} /> Tentang aplikasi
+              <Info size={13} /> {tr("Tentang aplikasi", "About the app")}
             </Link>
           </div>
         </div>

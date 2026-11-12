@@ -2,6 +2,7 @@ import webpush from "web-push";
 import { db } from "./db";
 import { getSettings } from "./settings";
 import type { NotifType } from "./constants";
+import { pick, type Bi } from "./i18n";
 
 /**
  * Notifikasi ponsel melalui Web Push (VAPID).
@@ -78,14 +79,17 @@ export async function deliver(subs: Sub[], payload: PushPayload) {
   return { sent, failed: results.length - sent };
 }
 
-/** Notifikasi ponsel sesuai pengaturan program dan pilihan masing-masing pengguna */
-export async function sendPush(type: NotifType, userIds: string[], payload: Omit<PushPayload, "type">) {
+/** Notifikasi ponsel sesuai pengaturan program, pilihan masing-masing pengguna, dan bahasanya */
+export async function sendPush(type: NotifType, userIds: string[], payload: { title: Bi; body?: Bi | null; url?: string | null }) {
   if (!userIds.length) return;
   const settings = await getSettings();
   if (!settings.push[type]) return;
   const subs = await db.pushSubscription.findMany({
     where: { userId: { in: userIds }, user: { status: "ACTIVE", NOT: { pushMuted: { has: type } } } },
-    select: { id: true, endpoint: true, p256dh: true, auth: true },
+    select: { id: true, endpoint: true, p256dh: true, auth: true, user: { select: { lang: true } } },
   });
-  await deliver(subs, { ...payload, type });
+  for (const lang of ["id", "en"] as const) {
+    const group = subs.filter((s) => (s.user.lang === "en" ? "en" : "id") === lang);
+    if (group.length) await deliver(group, { title: pick(payload.title, lang)!, body: pick(payload.body, lang), url: payload.url, type });
+  }
 }

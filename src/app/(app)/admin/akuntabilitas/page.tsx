@@ -4,13 +4,18 @@ import { requireUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { PageHeader, Card, CardHeader, CardBody, Badge } from "@/components/ui";
+import { getTr } from "@/lib/i18n-server";
 
-export const metadata = { title: "Matriks akuntabilitas" };
+export async function generateMetadata() {
+  const { tr } = await getTr();
+  return { title: tr("Matriks akuntabilitas", "Accountability matrix") };
+}
 
 const OPEN = ["MENUNGGU_VERIFIKASI", "PERLU_REVISI", "MENUNGGU_KEPUTUSAN", "DALAM_PERBAIKAN", "MENUNGGU_PENUTUPAN"];
 
 export default async function AkuntabilitasPage() {
   const user = await requireUser(["ADMIN", "MANAGER"]);
+  const { tr } = await getTr();
   const [settings, areas, users, openByArea] = await Promise.all([
     getSettings(),
     db.area.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, code: true, name: true, manager: { select: { id: true, name: true, status: true } } } }),
@@ -49,30 +54,57 @@ export default async function AkuntabilitasPage() {
     };
   });
   const issues = [
-    ...rows.filter((r) => !r.managerOk).map((r) => `Area ${r.name} belum memiliki Manager aktif. Keputusan laporan area ini dikirim ke seluruh Manager.`),
-    ...rows.filter((r) => r.areaSupts.length === 0).map((r) => `Area ${r.name} belum memiliki Superintendent. Verifikasi bergantung pada atasan pelapor.`),
-    ...(pengawasNoAtasan.length ? [`${pengawasNoAtasan.length} Pengawas belum memiliki atasan Superintendent aktif. Laporan mereka dapat diverifikasi Superintendent mana pun.`] : []),
-    ...(noArea.length ? [`${noArea.length} Pengawas atau Superintendent belum ditetapkan area kerjanya.`] : []),
-    ...(managers.length === 0 ? ["Belum ada Manager aktif. Laporan tidak dapat diputuskan."] : []),
-    ...(supts.length === 0 ? ["Belum ada Superintendent aktif. Laporan jalur A tidak dapat diverifikasi."] : []),
-    ...(pending.length ? [`${pending.length} akun baru menunggu persetujuan dan penetapan peran.`] : []),
+    ...rows.filter((r) => !r.managerOk).map((r) => tr(`Area ${r.name} belum memiliki Manager aktif. Keputusan laporan area ini dikirim ke seluruh Manager.`, `Area ${r.name} has no active Manager. Decisions on reports from this area are sent to all Managers.`)),
+    ...rows.filter((r) => r.areaSupts.length === 0).map((r) => tr(`Area ${r.name} belum memiliki Superintendent. Verifikasi bergantung pada atasan pelapor.`, `Area ${r.name} has no Superintendent. Verification relies on the reporter's superior.`)),
+    ...(pengawasNoAtasan.length
+      ? [tr(`${pengawasNoAtasan.length} Pengawas belum memiliki atasan Superintendent aktif. Laporan mereka dapat diverifikasi Superintendent mana pun.`, `${pengawasNoAtasan.length} Supervisor${pengawasNoAtasan.length === 1 ? " has" : "s have"} no active Superintendent as superior. Their reports can be verified by any Superintendent.`)]
+      : []),
+    ...(noArea.length ? [tr(`${noArea.length} Pengawas atau Superintendent belum ditetapkan area kerjanya.`, `${noArea.length} Supervisor${noArea.length === 1 ? " or Superintendent has" : "s or Superintendents have"} no work area assigned.`)] : []),
+    ...(managers.length === 0 ? [tr("Belum ada Manager aktif. Laporan tidak dapat diputuskan.", "There is no active Manager. Reports cannot be decided.")] : []),
+    ...(supts.length === 0 ? [tr("Belum ada Superintendent aktif. Laporan jalur A tidak dapat diverifikasi.", "There is no active Superintendent. Path A reports cannot be verified.")] : []),
+    ...(pending.length ? [tr(`${pending.length} akun baru menunggu persetujuan dan penetapan peran.`, `${pending.length} new account${pending.length === 1 ? " is" : "s are"} awaiting approval and role assignment.`)] : []),
   ];
   const isAdmin = user.role === "ADMIN";
 
   const steps = [
-    { icon: UserCheck, title: "Pelapor", body: "Pengawas mengirim laporan bahaya. Area kerja ditentukan dari koordinat GPS, cadangan dari area profil." },
-    { icon: ShieldCheck, title: "Verifikasi (jalur A)", body: `Superintendent atasan pelapor, lalu Superintendent area, lalu seluruh Superintendent. Batas ${settings.verifyDeadlineDays} hari kerja.` },
-    { icon: Gavel, title: "Keputusan", body: `Manager area laporan, bila kosong seluruh Manager aktif.${settings.managerPeerReview ? " Manager tidak memutuskan laporannya sendiri." : ""} Batas ${settings.decideDeadlineDays} hari kerja.${settings.escalateHighRisk ? " Risiko Tinggi dan Ekstrem dieskalasi langsung." : ""}` },
-    { icon: Wrench, title: "Penanggung jawab", body: `Ditetapkan Manager saat menyetujui${settings.picByArea ? ", bawaannya Manager area" : ""}, lengkap dengan sumber daya dan target selesai.` },
-    { icon: CheckCircle2, title: "Penutupan", body: "Manager pemutus atau Superintendent pemverifikasi memeriksa bukti perbaikan, lalu menutup laporan." },
+    { icon: UserCheck, title: tr("Pelapor", "Reporter"), body: tr("Pengawas mengirim laporan bahaya. Area kerja ditentukan dari koordinat GPS, cadangan dari area profil.", "The Supervisor submits a hazard report. The work area is determined from GPS coordinates, with the profile area as a fallback.") },
+    {
+      icon: ShieldCheck,
+      title: tr("Verifikasi (jalur A)", "Verification (path A)"),
+      body: tr(
+        `Superintendent atasan pelapor, lalu Superintendent area, lalu seluruh Superintendent. Batas ${settings.verifyDeadlineDays} hari kerja.`,
+        `The reporter's superior Superintendent, then the area Superintendent, then all Superintendents. Deadline: ${settings.verifyDeadlineDays} working day${settings.verifyDeadlineDays === 1 ? "" : "s"}.`,
+      ),
+    },
+    {
+      icon: Gavel,
+      title: tr("Keputusan", "Decision"),
+      body: tr(
+        `Manager area laporan, bila kosong seluruh Manager aktif.${settings.managerPeerReview ? " Manager tidak memutuskan laporannya sendiri." : ""} Batas ${settings.decideDeadlineDays} hari kerja.${settings.escalateHighRisk ? " Risiko Tinggi dan Ekstrem dieskalasi langsung." : ""}`,
+        `The Manager of the report's area, or all active Managers if none is set.${settings.managerPeerReview ? " Managers do not decide on their own reports." : ""} Deadline: ${settings.decideDeadlineDays} working day${settings.decideDeadlineDays === 1 ? "" : "s"}.${settings.escalateHighRisk ? " High and Extreme risks are escalated immediately." : ""}`,
+      ),
+    },
+    {
+      icon: Wrench,
+      title: tr("Penanggung jawab", "Person in charge (PIC)"),
+      body: tr(
+        `Ditetapkan Manager saat menyetujui${settings.picByArea ? ", bawaannya Manager area" : ""}, lengkap dengan sumber daya dan target selesai.`,
+        `Assigned by the Manager on approval${settings.picByArea ? ", defaulting to the area Manager" : ""}, together with resources and a target date.`,
+      ),
+    },
+    { icon: CheckCircle2, title: tr("Penutupan", "Closure"), body: tr("Manager pemutus atau Superintendent pemverifikasi memeriksa bukti perbaikan, lalu menutup laporan.", "The deciding Manager or the verifying Superintendent reviews the evidence of corrective action, then closes the report.") },
   ];
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Administrasi" title="Matriks akuntabilitas" description="Ke mana setiap temuan diarahkan, siapa yang memverifikasi, memutuskan, dan menindaklanjuti, per area kerja." />
+      <PageHeader
+        eyebrow={tr("Administrasi", "Administration")}
+        title={tr("Matriks akuntabilitas", "Accountability matrix")}
+        description={tr("Ke mana setiap temuan diarahkan, siapa yang memverifikasi, memutuskan, dan menindaklanjuti, per area kerja.", "Where each finding is routed, and who verifies, decides, and follows up on it, by work area.")}
+      />
 
       <Card>
-        <CardHeader title="Alur penugasan temuan" subtitle="Aturan yang dijalankan sistem secara otomatis" />
+        <CardHeader title={tr("Alur penugasan temuan", "Finding assignment flow")} subtitle={tr("Aturan yang dijalankan sistem secara otomatis", "Rules the system applies automatically")} />
         <CardBody className="pt-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             {steps.map((s, i) => (
@@ -83,12 +115,18 @@ export default async function AkuntabilitasPage() {
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-ink-500">Jalur B (pelapor Superintendent, Manager, atau Direksi) langsung ke tahap keputusan. Batas waktu dan aturan dapat diubah di <Link href="/admin/pengaturan" className="font-semibold text-brand-700 underline">Pengaturan alur</Link>.</p>
+          <p className="mt-3 text-xs text-ink-500">
+            {tr("Jalur B (pelapor Superintendent, Manager, atau Direksi) langsung ke tahap keputusan. Batas waktu dan aturan dapat diubah di ", "Path B (reports by a Superintendent, Manager, or Director) goes straight to the decision stage. Deadlines and rules can be changed in ")}
+            <Link href="/admin/pengaturan" className="font-semibold text-brand-700 underline">{tr("Pengaturan alur", "Workflow settings")}</Link>.
+          </p>
         </CardBody>
       </Card>
 
       <Card className={issues.length ? "border-l-4 border-l-amber" : "border-l-4 border-l-brand-500"}>
-        <CardHeader title={issues.length ? `${issues.length} hal perlu dilengkapi` : "Penugasan lengkap"} subtitle={issues.length ? "Lengkapi agar setiap temuan memiliki penanggung jawab yang jelas." : "Setiap area memiliki Manager dan Superintendent, setiap Pengawas memiliki atasan."} />
+        <CardHeader
+          title={issues.length ? tr(`${issues.length} hal perlu dilengkapi`, `${issues.length} item${issues.length === 1 ? "" : "s"} to complete`) : tr("Penugasan lengkap", "Assignments complete")}
+          subtitle={issues.length ? tr("Lengkapi agar setiap temuan memiliki penanggung jawab yang jelas.", "Complete these so every finding has a clear person in charge.") : tr("Setiap area memiliki Manager dan Superintendent, setiap Pengawas memiliki atasan.", "Every area has a Manager and a Superintendent, and every Supervisor has a superior.")}
+        />
         {issues.length > 0 && (
           <CardBody className="pt-2">
             <ul className="space-y-1.5 text-sm">
@@ -98,8 +136,8 @@ export default async function AkuntabilitasPage() {
             </ul>
             {isAdmin && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/admin/area" className="btn-secondary btn-sm min-h-11 md:min-h-0">Atur Manager area</Link>
-                <Link href="/admin/pengguna" className="btn-secondary btn-sm min-h-11 md:min-h-0">Atur peran, area, dan atasan</Link>
+                <Link href="/admin/area" className="btn-secondary btn-sm min-h-11 md:min-h-0">{tr("Atur Manager area", "Set area Managers")}</Link>
+                <Link href="/admin/pengguna" className="btn-secondary btn-sm min-h-11 md:min-h-0">{tr("Atur peran, area, dan atasan", "Set roles, areas, and superiors")}</Link>
               </div>
             )}
           </CardBody>
@@ -107,7 +145,7 @@ export default async function AkuntabilitasPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Penanggung jawab per area" subtitle="Beban laporan terbuka dihitung dari seluruh waktu" />
+        <CardHeader title={tr("Penanggung jawab per area", "Persons in charge by area")} subtitle={tr("Beban laporan terbuka dihitung dari seluruh waktu", "Open report workload is counted across all time")} />
         <CardBody className="pt-3">
           {/* Layar sempit: satu kartu per area */}
           <div className="space-y-2.5 md:hidden">
@@ -119,20 +157,20 @@ export default async function AkuntabilitasPage() {
                 </div>
                 <dl className="mt-3 space-y-2.5 text-sm">
                   <div>
-                    <dt className="text-xs text-ink-500">Manager (pemutus)</dt>
-                    <dd className="mt-0.5 font-medium text-ink-800">{r.managerOk ? r.manager!.name : <Badge tone="warn">Belum ada, semua Manager</Badge>}</dd>
+                    <dt className="text-xs text-ink-500">{tr("Manager (pemutus)", "Manager (decides)")}</dt>
+                    <dd className="mt-0.5 font-medium text-ink-800">{r.managerOk ? r.manager!.name : <Badge tone="warn">{tr("Belum ada, semua Manager", "None, all Managers")}</Badge>}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-ink-500">Superintendent (verifikator)</dt>
-                    <dd className="mt-0.5 font-medium text-ink-800">{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">Belum ada</Badge>}</dd>
+                    <dt className="text-xs text-ink-500">{tr("Superintendent (verifikator)", "Superintendent (verifies)")}</dt>
+                    <dd className="mt-0.5 font-medium text-ink-800">{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">{tr("Belum ada", "None")}</Badge>}</dd>
                   </div>
                 </dl>
                 <dl className="mt-3 grid grid-cols-4 gap-2 border-t border-ink-100 pt-3">
                   {[
-                    ["Pengawas", r.areaPengawas.length],
-                    ["Verifikasi", r.verif],
-                    ["Keputusan", r.decide],
-                    ["Perbaikan", r.fix],
+                    [tr("Pengawas", "Supervisors"), r.areaPengawas.length],
+                    [tr("Verifikasi", "Verification"), r.verif],
+                    [tr("Keputusan", "Decision"), r.decide],
+                    [tr("Perbaikan", "Corrective action"), r.fix],
                   ].map(([k, v]) => (
                     <div key={String(k)} className="min-w-0">
                       <dt className="truncate text-xs text-ink-500">{k}</dt>
@@ -140,7 +178,7 @@ export default async function AkuntabilitasPage() {
                     </div>
                   ))}
                 </dl>
-                {r.noAtasan > 0 && <p className="mt-2 text-xs font-semibold text-[#8a6a0a]">{r.noAtasan} Pengawas tanpa atasan</p>}
+                {r.noAtasan > 0 && <p className="mt-2 text-xs font-semibold text-[#8a6a0a]">{tr(`${r.noAtasan} Pengawas tanpa atasan`, `${r.noAtasan} Supervisor${r.noAtasan === 1 ? "" : "s"} without a superior`)}</p>}
               </div>
             ))}
           </div>
@@ -148,24 +186,24 @@ export default async function AkuntabilitasPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Area</th>
-                  <th>Manager (pemutus)</th>
-                  <th>Superintendent (verifikator)</th>
-                  <th className="text-right">Pengawas</th>
-                  <th className="text-right">Tunggu verifikasi</th>
-                  <th className="text-right">Tunggu keputusan</th>
-                  <th className="text-right">Perbaikan</th>
+                  <th>{tr("Area", "Area")}</th>
+                  <th>{tr("Manager (pemutus)", "Manager (decides)")}</th>
+                  <th>{tr("Superintendent (verifikator)", "Superintendent (verifies)")}</th>
+                  <th className="text-right">{tr("Pengawas", "Supervisors")}</th>
+                  <th className="text-right">{tr("Tunggu verifikasi", "Awaiting verification")}</th>
+                  <th className="text-right">{tr("Tunggu keputusan", "Awaiting decision")}</th>
+                  <th className="text-right">{tr("Perbaikan", "Corrective action")}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td><span className="text-xs font-bold tracking-wide tabular-nums text-brand-700">{r.code}</span> <span className="font-medium">{r.name}</span></td>
-                    <td>{r.managerOk ? r.manager!.name : <Badge tone="warn">Belum ada, semua Manager</Badge>}</td>
-                    <td>{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">Belum ada</Badge>}</td>
+                    <td>{r.managerOk ? r.manager!.name : <Badge tone="warn">{tr("Belum ada, semua Manager", "None, all Managers")}</Badge>}</td>
+                    <td>{r.areaSupts.length ? r.areaSupts.map((x) => x.name).join(", ") : <Badge tone="warn">{tr("Belum ada", "None")}</Badge>}</td>
                     <td className="text-right tabular-nums">
                       {r.areaPengawas.length}
-                      {r.noAtasan > 0 && <div className="whitespace-nowrap text-xs font-semibold text-[#8a6a0a]">{r.noAtasan} tanpa atasan</div>}
+                      {r.noAtasan > 0 && <div className="whitespace-nowrap text-xs font-semibold text-[#8a6a0a]">{tr(`${r.noAtasan} tanpa atasan`, `${r.noAtasan} without a superior`)}</div>}
                     </td>
                     <td className="text-right tabular-nums">{r.verif}</td>
                     <td className="text-right tabular-nums">{r.decide}</td>
@@ -175,15 +213,22 @@ export default async function AkuntabilitasPage() {
               </tbody>
             </table>
           </div>
-          {unmappedOpen > 0 && <p className="mt-3 text-xs text-ink-500">{unmappedOpen} laporan terbuka belum terpetakan ke area (GPS di luar radius dan pelapor tanpa area).</p>}
+          {unmappedOpen > 0 && (
+            <p className="mt-3 text-xs text-ink-500">
+              {tr(
+                `${unmappedOpen} laporan terbuka belum terpetakan ke area (GPS di luar radius dan pelapor tanpa area).`,
+                `${unmappedOpen} open report${unmappedOpen === 1 ? " is" : "s are"} not yet mapped to an area (GPS outside the radius and reporter without an area).`,
+              )}
+            </p>
+          )}
         </CardBody>
       </Card>
 
       <Card>
-        <CardHeader title="Garis atasan Pengawas" subtitle="Atasan menerima tugas verifikasi laporan bawahannya" />
+        <CardHeader title={tr("Garis atasan Pengawas", "Supervisor reporting lines")} subtitle={tr("Atasan menerima tugas verifikasi laporan bawahannya", "Superiors receive the verification tasks for their subordinates' reports")} />
         <CardBody className="pt-3">
           {pengawasList.length === 0 ? (
-            <p className="text-sm text-ink-500">Belum ada Pengawas aktif.</p>
+            <p className="text-sm text-ink-500">{tr("Belum ada Pengawas aktif.", "There are no active Supervisors yet.")}</p>
           ) : (
             <>
               {/* Layar sempit: satu kartu per Pengawas */}
@@ -194,12 +239,12 @@ export default async function AkuntabilitasPage() {
                     <div className="truncate text-xs text-ink-500">{p.email}</div>
                     <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                       <div className="min-w-0">
-                        <dt className="text-xs text-ink-500">Area</dt>
-                        <dd className="mt-0.5 font-medium text-ink-800">{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">Belum diatur</Badge>}</dd>
+                        <dt className="text-xs text-ink-500">{tr("Area", "Area")}</dt>
+                        <dd className="mt-0.5 font-medium text-ink-800">{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">{tr("Belum diatur", "Not set")}</Badge>}</dd>
                       </div>
                       <div className="min-w-0">
-                        <dt className="text-xs text-ink-500">Atasan</dt>
-                        <dd className="mt-0.5 font-medium text-ink-800">{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">Belum ada</Badge>}</dd>
+                        <dt className="text-xs text-ink-500">{tr("Atasan", "Superior")}</dt>
+                        <dd className="mt-0.5 font-medium text-ink-800">{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">{tr("Belum ada", "None")}</Badge>}</dd>
                       </div>
                     </dl>
                   </div>
@@ -207,13 +252,13 @@ export default async function AkuntabilitasPage() {
               </div>
               <div className="hidden overflow-x-auto md:block">
                 <table className="table">
-                  <thead><tr><th>Pengawas</th><th>Area</th><th>Atasan (Superintendent)</th></tr></thead>
+                  <thead><tr><th>{tr("Pengawas", "Supervisor")}</th><th>{tr("Area", "Area")}</th><th>{tr("Atasan (Superintendent)", "Superior (Superintendent)")}</th></tr></thead>
                   <tbody>
                     {pengawasList.map((p) => (
                       <tr key={p.id}>
                         <td><div className="font-medium">{p.name ?? "-"}</div><div className="text-xs text-ink-500">{p.email}</div></td>
-                        <td>{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">Belum diatur</Badge>}</td>
-                        <td>{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">Belum ada atasan aktif</Badge>}</td>
+                        <td>{areas.find((a) => a.id === p.areaId)?.name ?? <Badge tone="warn">{tr("Belum diatur", "Not set")}</Badge>}</td>
+                        <td>{validAtasan(p) ? p.atasan!.name : <Badge tone="warn">{tr("Belum ada atasan aktif", "No active superior")}</Badge>}</td>
                       </tr>
                     ))}
                   </tbody>

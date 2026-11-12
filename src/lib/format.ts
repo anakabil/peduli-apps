@@ -1,10 +1,13 @@
-const TZ = "Asia/Jakarta";
+import type { Lang } from "./i18n";
 
-export function fmtDateTime(d: Date | string | null | undefined, withSeconds = false) {
+const TZ = "Asia/Jakarta";
+const loc = (lang: Lang = "id") => (lang === "en" ? "en-GB" : "id-ID");
+
+export function fmtDateTime(d: Date | string | null | undefined, withSeconds = false, lang: Lang = "id") {
   if (!d) return "-";
   const date = typeof d === "string" ? new Date(d) : d;
   return (
-    new Intl.DateTimeFormat("id-ID", {
+    new Intl.DateTimeFormat(loc(lang), {
       timeZone: TZ,
       day: "2-digit",
       month: "short",
@@ -17,36 +20,38 @@ export function fmtDateTime(d: Date | string | null | undefined, withSeconds = f
   );
 }
 
-export function fmtDate(d: Date | string | null | undefined) {
+export function fmtDate(d: Date | string | null | undefined, lang: Lang = "id") {
   if (!d) return "-";
   const date = typeof d === "string" ? new Date(d) : d;
-  return new Intl.DateTimeFormat("id-ID", { timeZone: TZ, day: "2-digit", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: TZ, day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-export function fmtMonth(d: Date) {
-  return new Intl.DateTimeFormat("id-ID", { timeZone: TZ, month: "short", year: "2-digit" }).format(d);
+export function fmtMonth(d: Date, lang: Lang = "id") {
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: TZ, month: "short", year: "2-digit" }).format(d);
 }
 
-export function fmtMonthLong(d: Date) {
-  return new Intl.DateTimeFormat("id-ID", { timeZone: TZ, month: "long", year: "numeric" }).format(d);
+export function fmtMonthLong(d: Date, lang: Lang = "id") {
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: TZ, month: "long", year: "numeric" }).format(d);
 }
 
-export function fmtNumber(n: number, digits = 0) {
-  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(n);
+export function fmtNumber(n: number, digits = 0, lang: Lang = "id") {
+  return new Intl.NumberFormat(lang === "en" ? "en-US" : "id-ID", { maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(n);
 }
 
-export function fmtPct(n: number, digits = 0) {
-  return `${fmtNumber(n, digits)}%`;
+export function fmtPct(n: number, digits = 0, lang: Lang = "id") {
+  return `${fmtNumber(n, digits, lang)}%`;
 }
 
-export function relTime(d: Date | string) {
+export function relTime(d: Date | string, lang: Lang = "id") {
   const date = typeof d === "string" ? new Date(d) : d;
   const diff = (Date.now() - date.getTime()) / 1000;
-  if (diff < 60) return "baru saja";
-  if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)} hari lalu`;
-  return fmtDate(date);
+  const en = lang === "en";
+  const n = (v: number, id: string, enUnit: string) => (en ? `${v} ${enUnit}${v === 1 ? "" : "s"} ago` : `${v} ${id} lalu`);
+  if (diff < 60) return en ? "just now" : "baru saja";
+  if (diff < 3600) return n(Math.floor(diff / 60), "menit", "minute");
+  if (diff < 86400) return n(Math.floor(diff / 3600), "jam", "hour");
+  if (diff < 86400 * 30) return n(Math.floor(diff / 86400), "hari", "day");
+  return fmtDate(date, lang);
 }
 
 export function daysBetween(a: Date, b: Date) {

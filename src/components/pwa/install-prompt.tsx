@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Download, Share, X } from "lucide-react";
 import { usePwa } from "./pwa-provider";
+import { useTr } from "@/components/i18n/lang-provider";
 
 const KEY = "peduli:install-dismissed";
 
@@ -11,6 +12,7 @@ const KEY = "peduli:install-dismissed";
 export function InstallPrompt({ auto = true }: { auto?: boolean }) {
   const { canInstall, isStandalone, isIos, isMobile, promptInstall } = usePwa();
   const [open, setOpen] = useState(false);
+  const tr = useTr();
 
   useEffect(() => {
     if (!auto || isStandalone || !isMobile) return;
@@ -41,7 +43,7 @@ export function InstallPrompt({ auto = true }: { auto?: boolean }) {
         className="w-full max-w-md rounded-t-3xl bg-white p-5 pb-safe shadow-float anim-slide-up"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label="Pasang aplikasi"
+        aria-label={tr("Pasang aplikasi", "Install the app")}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
         <div className="flex items-start gap-4">
@@ -49,32 +51,32 @@ export function InstallPrompt({ auto = true }: { auto?: boolean }) {
             <Image src="/icons/icon-192.png" alt="PEDULI" width={56} height={56} className="rounded-xl" />
           </div>
           <div className="flex-1">
-            <h3 className="text-base font-bold text-ink-900">Pasang PEDULI Apps</h3>
+            <h3 className="text-base font-bold text-ink-900">{tr("Pasang PEDULI Apps", "Install PEDULI Apps")}</h3>
             <p className="mt-1 text-sm text-ink-500">
-              Tambahkan ke layar utama agar pelaporan bahaya lebih cepat, lengkap dengan mode luring.
+              {tr("Tambahkan ke layar utama agar pelaporan bahaya lebih cepat, lengkap dengan mode luring.", "Add it to your home screen for faster hazard reporting, with offline mode included.")}
             </p>
           </div>
-          <button onClick={close} className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100" aria-label="Tutup">
+          <button onClick={close} className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100" aria-label={tr("Tutup", "Close")}>
             <X size={18} />
           </button>
         </div>
 
         {isIos && !canInstall ? (
           <div className="mt-4 rounded-2xl bg-ink-50 p-4 text-sm text-ink-700">
-            <p className="font-semibold">Di iPhone atau iPad:</p>
+            <p className="font-semibold">{tr("Di iPhone atau iPad:", "On iPhone or iPad:")}</p>
             <ol className="mt-2 space-y-1.5 list-decimal pl-5">
               <li>
-                Ketuk tombol <Share size={16} className="inline text-blue" /> Bagikan di Safari
+                {tr("Ketuk tombol", "Tap the")} <Share size={16} className="inline text-blue" /> {tr("Bagikan di Safari", "Share button in Safari")}
               </li>
               <li>
-                Pilih <span className="font-semibold">Tambah ke Layar Utama</span>
+                {tr("Pilih", "Select")} <span className="font-semibold">{tr("Tambah ke Layar Utama", "Add to Home Screen")}</span>
               </li>
             </ol>
           </div>
         ) : (
           <div className="mt-5 flex gap-3">
             <button onClick={close} className="btn-secondary flex-1">
-              Nanti saja
+              {tr("Nanti saja", "Not now")}
             </button>
             <button
               onClick={async () => {
@@ -84,7 +86,7 @@ export function InstallPrompt({ auto = true }: { auto?: boolean }) {
               }}
               className="btn-primary flex-1"
             >
-              <Download size={16} /> Pasang
+              <Download size={16} /> {tr("Pasang", "Install")}
             </button>
           </div>
         )}
@@ -96,10 +98,11 @@ export function InstallPrompt({ auto = true }: { auto?: boolean }) {
 /** Tombol instal kecil untuk ditempatkan di menu, muncul hanya bila bisa dipasang */
 export function InstallButton({ className = "" }: { className?: string }) {
   const { canInstall, isStandalone, promptInstall } = usePwa();
+  const tr = useTr();
   if (!canInstall || isStandalone) return null;
   return (
     <button onClick={() => promptInstall()} className={`btn-secondary btn-sm ${className}`}>
-      <Download size={14} /> Pasang aplikasi
+      <Download size={14} /> {tr("Pasang aplikasi", "Install app")}
     </button>
   );
 }

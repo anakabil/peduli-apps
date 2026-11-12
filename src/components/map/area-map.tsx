@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/format";
+import { useLang, useTr } from "@/components/i18n/lang-provider";
+import type { Lang } from "@/lib/i18n";
 
 export type LatLng = { lat: number; lng: number };
 type Other = { name: string; lat: number; lng: number; radiusM: number };
@@ -17,6 +19,8 @@ const BRAND = "#006042";
  * Peta baru dimuat ketika wadahnya terlihat, sehingga formulir yang tertutup tidak memuat apa pun.
  */
 export function AreaMap({ value, radiusM, center, others, onPick, className }: { value: LatLng | null; radiusM: number; center: LatLng; others: Other[]; onPick: (p: LatLng) => void; className?: string }) {
+  const tr = useTr();
+  const lang = useLang();
   const box = useRef<HTMLDivElement>(null);
   const api = useRef<{ set: (p: LatLng | null, r: number) => void; resize: () => void; destroy: () => void } | null>(null);
   const [visible, setVisible] = useState(false);
@@ -47,7 +51,7 @@ export function AreaMap({ value, radiusM, center, others, onPick, className }: {
     const start = value ?? center;
     const pick = (p: LatLng) => pickRef.current({ lat: round(p.lat), lng: round(p.lng) });
     // Pustaka dimuat lebih dahulu; peta baru dibuat bila efek ini belum dibatalkan
-    (GOOGLE_KEY ? initGoogle(el, start, value, radiusM, others, pick, () => cancelled) : initLeaflet(el, start, value, radiusM, others, pick, () => cancelled))
+    (GOOGLE_KEY ? initGoogle(el, start, value, radiusM, others, pick, () => cancelled, lang) : initLeaflet(el, start, value, radiusM, others, pick, () => cancelled, lang))
       .then((a) => {
         if (a) api.current = a;
       })
@@ -67,8 +71,8 @@ export function AreaMap({ value, radiusM, center, others, onPick, className }: {
 
   return (
     <div className={cn("relative overflow-hidden rounded-xl ring-1 ring-ink-200", className)}>
-      <div ref={box} className="h-full w-full bg-ink-50" role="application" aria-label="Peta titik pusat area. Klik peta untuk memindahkan titik." />
-      {failed && <div className="absolute inset-0 flex items-center justify-center bg-ink-50 p-4 text-center text-sm text-ink-500">Peta tidak dapat dimuat. Isi koordinat secara manual.</div>}
+      <div ref={box} className="h-full w-full bg-ink-50" role="application" aria-label={tr("Peta titik pusat area. Klik peta untuk memindahkan titik.", "Map of the area centre point. Click the map to move the point.")} />
+      {failed && <div className="absolute inset-0 flex items-center justify-center bg-ink-50 p-4 text-center text-sm text-ink-500">{tr("Peta tidak dapat dimuat. Isi koordinat secara manual.", "The map could not be loaded. Enter the coordinates manually.")}</div>}
     </div>
   );
 }
@@ -77,15 +81,18 @@ function round(n: number) {
   return Math.round(n * 1e6) / 1e6;
 }
 
-async function initLeaflet(el: HTMLElement, start: LatLng, value: LatLng | null, radiusM: number, others: Other[], pick: (p: LatLng) => void, cancelled: () => boolean) {
+const centreTitle = (lang: Lang) => (lang === "en" ? "Area centre point" : "Titik pusat area");
+
+async function initLeaflet(el: HTMLElement, start: LatLng, value: LatLng | null, radiusM: number, others: Other[], pick: (p: LatLng) => void, cancelled: () => boolean, lang: Lang) {
+  const en = lang === "en";
   const L: typeof Leaflet = await import("leaflet");
   if (cancelled()) return null;
   const map = L.map(el, { zoomControl: true, attributionControl: true }).setView([start.lat, start.lng], value ? 16 : 15);
   map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>');
   const street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" });
-  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Citra &copy; Esri" });
+  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: en ? "Imagery &copy; Esri" : "Citra &copy; Esri" });
   sat.addTo(map);
-  L.control.layers({ Satelit: sat, Jalan: street }, undefined, { position: "topright" }).addTo(map);
+  L.control.layers(en ? { Satellite: sat, Street: street } : { Satelit: sat, Jalan: street }, undefined, { position: "topright" }).addTo(map);
   for (const o of others) L.circle([o.lat, o.lng], { radius: o.radiusM, color: "#ffffff", weight: 1, opacity: 0.8, fillOpacity: 0.08, interactive: false }).bindTooltip(o.name, { permanent: false }).addTo(map);
   const icon = L.divIcon({ className: "", html: `<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${BRAND};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"></div>`, iconSize: [26, 26], iconAnchor: [13, 26] });
   let marker: Leaflet.Marker | null = null;
@@ -99,7 +106,7 @@ async function initLeaflet(el: HTMLElement, start: LatLng, value: LatLng | null,
       return;
     }
     if (!marker) {
-      marker = L.marker([p.lat, p.lng], { icon, draggable: true, keyboard: true, title: "Titik pusat area" }).addTo(map);
+      marker = L.marker([p.lat, p.lng], { icon, draggable: true, keyboard: true, title: centreTitle(lang) }).addTo(map);
       marker.on("dragend", () => {
         const ll = marker!.getLatLng();
         pick({ lat: ll.lat, lng: ll.lng });
@@ -129,13 +136,13 @@ type GMaps = {
 };
 
 let googleLoading: Promise<GMaps> | null = null;
-function loadGoogle(): Promise<GMaps> {
+function loadGoogle(lang: Lang): Promise<GMaps> {
   const w = window as unknown as { google?: { maps?: GMaps }; __peduliMapsReady?: () => void };
   if (w.google?.maps?.Map) return Promise.resolve(w.google.maps);
   googleLoading ??= new Promise<GMaps>((resolve, reject) => {
     w.__peduliMapsReady = () => resolve(w.google!.maps!);
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_KEY)}&v=weekly&language=id&region=ID&callback=__peduliMapsReady`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_KEY)}&v=weekly&language=${lang}&region=ID&callback=__peduliMapsReady`;
     s.async = true;
     s.onerror = () => {
       googleLoading = null;
@@ -146,8 +153,8 @@ function loadGoogle(): Promise<GMaps> {
   return googleLoading;
 }
 
-async function initGoogle(el: HTMLElement, start: LatLng, value: LatLng | null, radiusM: number, others: Other[], pick: (p: LatLng) => void, cancelled: () => boolean) {
-  const g = await loadGoogle();
+async function initGoogle(el: HTMLElement, start: LatLng, value: LatLng | null, radiusM: number, others: Other[], pick: (p: LatLng) => void, cancelled: () => boolean, lang: Lang) {
+  const g = await loadGoogle(lang);
   if (cancelled()) return null;
   const map = new g.Map(el, { center: start, zoom: value ? 17 : 15, mapTypeId: "hybrid", streetViewControl: false, fullscreenControl: false, clickableIcons: false, gestureHandling: "cooperative" });
   for (const o of others) new g.Circle({ map, center: { lat: o.lat, lng: o.lng }, radius: o.radiusM, strokeColor: "#ffffff", strokeWeight: 1, strokeOpacity: 0.8, fillOpacity: 0.08, clickable: false });
@@ -162,7 +169,7 @@ async function initGoogle(el: HTMLElement, start: LatLng, value: LatLng | null, 
       return;
     }
     if (!marker) {
-      marker = new g.Marker({ map, position: p, draggable: true, title: "Titik pusat area" });
+      marker = new g.Marker({ map, position: p, draggable: true, title: centreTitle(lang) });
       marker.addListener("dragend", () => {
         const ll = marker!.getPosition();
         if (ll) pick({ lat: ll.lat(), lng: ll.lng() });

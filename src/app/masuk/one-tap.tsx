@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { usePwa } from "@/components/pwa/pwa-provider";
+import { useLang, useTr } from "@/components/i18n/lang-provider";
 
 declare global {
   interface Window {
@@ -25,6 +26,8 @@ declare global {
  */
 export function GoogleOneTap({ clientId }: { clientId: string }) {
   const { isMobile } = usePwa();
+  const tr = useTr();
+  const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const btnRef = useRef<HTMLDivElement>(null);
@@ -52,7 +55,7 @@ export function GoogleOneTap({ clientId }: { clientId: string }) {
           const r = await signIn("google-onetap", { credential: resp.credential, redirect: false });
           if (r?.error) {
             setBusy(false);
-            setError("Akun Google tidak dikenali atau tidak diizinkan.");
+            setError(tr("Akun Google tidak dikenali atau tidak diizinkan.", "Google account not recognised or not permitted."));
             return;
           }
           window.location.href = "/beranda";
@@ -65,19 +68,19 @@ export function GoogleOneTap({ clientId }: { clientId: string }) {
           shape: "pill",
           text: "continue_with",
           width: btnRef.current.offsetWidth || 320,
-          locale: "id",
+          locale: lang,
         });
       }
       // Otomatis tawarkan akun Google perangkat
       window.google.accounts.id.prompt();
     };
     document.head.appendChild(script);
-  }, [clientId, isMobile]);
+  }, [clientId, isMobile, tr, lang]);
 
   return (
     <div className="space-y-2">
       <div ref={btnRef} className="flex justify-center min-h-[44px]" />
-      {busy && <p className="text-center text-xs text-ink-500">Memverifikasi akun Google...</p>}
+      {busy && <p className="text-center text-xs text-ink-500">{tr("Memverifikasi akun Google...", "Verifying Google account...")}</p>}
       {error && <p className="text-center text-xs text-red">{error}</p>}
     </div>
   );

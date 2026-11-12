@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { DEMO_DOMAIN, SAMPLE_AREAS, SAMPLE_REWARDS } from "./demo-accounts";
+import { makeTr, type Tr } from "./i18n";
 
 /**
  * Pembersihan data uji sebelum uji coba lapangan.
@@ -43,9 +44,9 @@ export async function previewReset() {
   };
 }
 
-export async function runReset(opts: ResetOptions) {
+export async function runReset(opts: ResetOptions, tr: Tr = makeTr("id")) {
   // Akun demo dan reward contoh masih dirujuk laporan dan penukaran, jadi hanya dapat dihapus bersama transaksi
-  if ((opts.demoUsers || opts.rewardIds.length) && !opts.transactions) throw new Error("Akun demo dan reward contoh hanya dapat dihapus bersama data transaksi.");
+  if ((opts.demoUsers || opts.rewardIds.length) && !opts.transactions) throw new Error(tr("Akun demo dan reward contoh hanya dapat dihapus bersama data transaksi.", "Demo accounts and sample rewards can only be deleted together with transaction data."));
   return db.$transaction(
     async (tx) => {
       const done: Record<string, number> = {};

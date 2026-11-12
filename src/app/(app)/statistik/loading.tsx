@@ -1,9 +1,14 @@
+"use client";
+
+import { useTr } from "@/components/i18n/lang-provider";
+
 // Hanya di halaman tanpa aksi formulir: loading.tsx global menahan router.refresh() setelah server action
 // Kerangka pemuatan saat berpindah halaman di dalam kerangka aplikasi
 export default function Loading() {
+  const tr = useTr();
   return (
     <div role="status" aria-live="polite" aria-busy="true">
-      <span className="sr-only">Memuat halaman...</span>
+      <span className="sr-only">{tr("Memuat halaman...", "Loading page...")}</span>
 
       <div className="mb-6 space-y-2.5" aria-hidden>
         <div className="skeleton h-3.5 w-28 rounded-full" />

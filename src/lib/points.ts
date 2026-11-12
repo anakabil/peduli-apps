@@ -2,6 +2,7 @@ import { db } from "./db";
 import { Prisma } from "@prisma/client";
 import { jktParts, jktDate } from "./format";
 import type { AppSettings, Role } from "./constants";
+import type { Lang } from "./i18n";
 
 type Tx = Prisma.TransactionClient;
 
@@ -25,10 +26,38 @@ export async function pointEarned(userId: string) {
   return Math.max(0, agg._sum.points ?? 0);
 }
 
-export function levelFor(earned: number, levels: AppSettings["levels"]) {
-  if (earned >= levels.emas) return { name: "Emas", next: null as number | null, color: "#c9a227" };
-  if (earned >= levels.perak) return { name: "Perak", next: levels.emas, color: "#8a9199" };
-  return { name: "Perunggu", next: levels.perak, color: "#b87333" };
+/** Nama level dalam bahasa tampilan; kunci level (name) tetap bahasa Indonesia untuk ikon */
+export const LEVEL_LABEL: Record<Lang, Record<string, string>> = {
+  id: { Perunggu: "Perunggu", Perak: "Perak", Emas: "Emas" },
+  en: { Perunggu: "Bronze", Perak: "Silver", Emas: "Gold" },
+};
+
+/** name: kunci level (Perunggu, Perak, Emas); label: nama level sesuai bahasa */
+export function levelFor(earned: number, levels: AppSettings["levels"], lang: Lang = "id") {
+  const make = (name: string, next: number | null, color: string) => ({ name, label: LEVEL_LABEL[lang][name] ?? name, next, color });
+  if (earned >= levels.emas) return make("Emas", null, "#c9a227");
+  if (earned >= levels.perak) return make("Perak", levels.emas, "#8a9199");
+  return make("Perunggu", levels.perak, "#b87333");
+}
+
+/**
+ * Catatan riwayat poin buatan sistem disimpan dalam bahasa Indonesia (penanda idempotensi bonus konsisten
+ * tidak boleh berubah); fungsi ini hanya menerjemahkan tampilannya. Catatan ketikan admin dibiarkan.
+ */
+export function ledgerNote(note: string, lang: Lang) {
+  if (lang !== "en") return note;
+  const rules: Array<[RegExp, (...m: string[]) => string]> = [
+    [/^Konsisten empat minggu \((.+)\)$/, (w) => `Four consecutive weeks (${w})`],
+    [/^Pengembalian poin: (.+) ditolak$/, (r) => `Points refunded: ${r} rejected`],
+    [/^Penukaran (.+)$/, (r) => `Redemption of ${r}`],
+    [/^(.+): laporan ganda$/, (n) => `${n}: duplicate report`],
+    [/^(.+): laporan tidak benar$/, (n) => `${n}: report does not match the facts`],
+  ];
+  for (const [re, fn] of rules) {
+    const m = note.match(re);
+    if (m) return fn(...m.slice(1));
+  }
+  return note;
 }
 
 /** Kunci minggu ISO menurut kalender WIB */

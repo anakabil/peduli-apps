@@ -3,6 +3,8 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, APP_TAGLINE, COMPANY_NAME } from "@/lib/constants";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
+import { LangProvider } from "@/components/i18n/lang-provider";
+import { getLang } from "@/lib/i18n-server";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -11,9 +13,11 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
   title: { default: `${APP_NAME} - ${COMPANY_NAME}`, template: `%s | ${APP_NAME}` },
-  description: `${APP_TAGLINE}. Aplikasi pelaporan bahaya ${COMPANY_NAME}.`,
+  description: lang === "en" ? `Hazard Reporting and Control. Hazard reporting application of ${COMPANY_NAME}.` : `${APP_TAGLINE}. Aplikasi pelaporan bahaya ${COMPANY_NAME}.`,
   applicationName: APP_NAME,
   manifest: "/manifest.webmanifest",
   icons: {
@@ -22,7 +26,8 @@ export const metadata: Metadata = {
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "PEDULI" },
   formatDetection: { telephone: false },
-};
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#006042",
@@ -32,11 +37,14 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const lang = await getLang();
   return (
-    <html lang="id" className={jakarta.variable}>
+    <html lang={lang} className={jakarta.variable}>
       <body className="antialiased">
-        <PwaProvider>{children}</PwaProvider>
+        <LangProvider lang={lang}>
+          <PwaProvider>{children}</PwaProvider>
+        </LangProvider>
       </body>
     </html>
   );

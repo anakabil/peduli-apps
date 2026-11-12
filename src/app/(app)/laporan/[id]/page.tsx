@@ -10,16 +10,20 @@ import { Card, CardBody, CardHeader, KeyValue, Badge } from "@/components/ui";
 import { StatusBadge, RiskBadge, CategoryBadge } from "@/components/report/badges";
 import { VerifyPanel, DecidePanel, ProgressPanel, ClosePanel, ResubmitPanel, AuditButton } from "./panels";
 import { Timeline } from "./timeline";
-import { CONTROL_LABEL, ROLE_LABEL, type Control, type Role, HAZARD_TYPE_LABEL, REJECT_REASON_LABEL, type HazardType, type RejectReason } from "@/lib/constants";
+import { labels, type Control, type Role, type HazardType, type RejectReason } from "@/lib/constants";
+import { getTr } from "@/lib/i18n-server";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { tr } = await getTr();
   const r = await db.report.findUnique({ where: { id }, select: { number: true } });
-  return { title: r ? `Laporan ${r.number}` : "Laporan" };
+  return { title: r ? tr(`Laporan ${r.number}`, `Report ${r.number}`) : tr("Laporan", "Report") };
 }
 
 export default async function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
+  const { lang, tr } = await getTr();
+  const L = labels(lang);
   const { id } = await params;
   const report = await db.report.findFirst({
     where: { AND: [{ id }, reportScope(user)] },
@@ -58,7 +62,17 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
     (report.status === "MENUNGGU_KEPUTUSAN" && report.dueDecideAt && report.dueDecideAt < now) ||
     ((report.status === "DALAM_PERBAIKAN" || report.status === "MENUNGGU_PENUTUPAN") && report.targetDate && report.targetDate < now);
 
-  const actionLabel = showVerify ? "Verifikasi laporan ini" : showDecide ? "Putuskan laporan ini" : showProgress ? "Perbarui progres perbaikan" : showClose ? "Periksa dan tutup laporan" : showResubmit ? "Kirim ulang revisi" : null;
+  const actionLabel = showVerify
+    ? tr("Verifikasi laporan ini", "Verify this report")
+    : showDecide
+      ? tr("Putuskan laporan ini", "Decide on this report")
+      : showProgress
+        ? tr("Perbarui progres perbaikan", "Update corrective action progress")
+        : showClose
+          ? tr("Periksa dan tutup laporan", "Review and close report")
+          : showResubmit
+            ? tr("Kirim ulang revisi", "Resubmit revision")
+            : null;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -69,12 +83,12 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
       )}
       <div className="mb-4 flex items-center justify-between no-print">
         <Link href="/laporan" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-ink-600 hover:text-brand-700">
-          <ArrowLeft size={16} /> Kembali
+          <ArrowLeft size={16} /> {tr("Kembali", "Back")}
         </Link>
         <div className="flex items-center gap-2">
           {user.role === "ADMIN" && <AuditButton reportId={report.id} sampled={report.auditSampled} />}
           <Link href={`/laporan/${report.id}/cetak`} className="btn-secondary btn-sm">
-            <Printer size={14} /> Cetak
+            <Printer size={14} /> {tr("Cetak", "Print")}
           </Link>
         </div>
       </div>
@@ -86,19 +100,19 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             <StatusBadge status={report.status} />
             <RiskBadge risk={report.riskLevel} />
             <CategoryBadge category={report.category} />
-            <Badge tone="neutral">Jalur {report.path}</Badge>
+            <Badge tone="neutral">{tr("Jalur", "Path")} {report.path}</Badge>
             {report.escalated && (
               <span className="badge bg-orange/15 text-orange">
-                <Zap size={11} /> Eskalasi Manager
+                <Zap size={11} /> {tr("Eskalasi Manager", "Escalated to Manager")}
               </span>
             )}
             {overdue && (
               <span className="badge bg-red/10 text-red">
-                <AlertTriangle size={11} /> Lewat batas waktu
+                <AlertTriangle size={11} /> {tr("Lewat batas waktu", "Past deadline")}
               </span>
             )}
-            {report.syncedOffline && <Badge tone="info">Sinkron luring</Badge>}
-            {report.auditSampled && <Badge tone="neutral">Diaudit</Badge>}
+            {report.syncedOffline && <Badge tone="info">{tr("Sinkron luring", "Synced from offline")}</Badge>}
+            {report.auditSampled && <Badge tone="neutral">{tr("Diaudit", "Audited")}</Badge>}
           </div>
           <h1 className="mt-2 text-lg font-bold text-ink-900 md:text-xl">{report.description}</h1>
         </div>
@@ -107,38 +121,38 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           <div className="lg:col-span-3 space-y-5">
             {/* Foto */}
             <div>
-              <div className="section-title mb-2">Foto laporan</div>
+              <div className="section-title mb-2">{tr("Foto laporan", "Report photos")}</div>
               <div className={cn("grid gap-2", reportPhotos.length > 1 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1")}>
                 {reportPhotos.map((p) => (
                   <a key={p.id} href={`/api/foto/${p.id}`} target="_blank" rel="noreferrer" className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-ink-200 bg-ink-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/foto/${p.id}`} alt="Foto laporan" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img src={`/api/foto/${p.id}`} alt={tr("Foto laporan", "Report photo")} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   </a>
                 ))}
-                {reportPhotos.length === 0 && <div className="rounded-xl border border-dashed border-ink-200 p-6 text-center text-sm text-ink-400">Tidak ada foto</div>}
+                {reportPhotos.length === 0 && <div className="rounded-xl border border-dashed border-ink-200 p-6 text-center text-sm text-ink-400">{tr("Tidak ada foto", "No photos")}</div>}
               </div>
             </div>
 
             {/* Rincian bahaya dan usulan perbaikan dari pelapor */}
             <div>
-              <div className="section-title mb-2">Rincian bahaya</div>
+              <div className="section-title mb-2">{tr("Rincian bahaya", "Hazard details")}</div>
               <KeyValue
                 hideEmpty
                 items={[
-                  { k: "Sumber bahaya", v: report.hazardType ? HAZARD_TYPE_LABEL[report.hazardType as HazardType] : null },
-                  { k: "Dampak yang dapat ditimbulkan", v: report.impact },
+                  { k: tr("Sumber bahaya", "Hazard source"), v: report.hazardType ? L.HAZARD_TYPE_LABEL[report.hazardType as HazardType] : null },
+                  { k: tr("Dampak yang dapat ditimbulkan", "Potential impact"), v: report.impact },
                 ]}
               />
             </div>
             {(report.immediateAction || report.suggestion || report.proposedPic) && (
               <div>
-                <div className="section-title mb-2">Usulan perbaikan</div>
+                <div className="section-title mb-2">{tr("Usulan perbaikan", "Suggested action")}</div>
                 <KeyValue
                   hideEmpty
                   items={[
-                    { k: "Tindakan perbaikan cepat", v: report.immediateAction },
-                    { k: "Tindakan pencegahan", v: report.suggestion ? <>{report.suggestion}{report.suggestionApplied && <Badge tone="success" className="ml-2">Diterapkan</Badge>}</> : null },
-                    { k: "Penanggung jawab", v: report.proposedPic ? `${report.proposedPic.name ?? "-"}${report.proposedPic.jabatan ? `, ${report.proposedPic.jabatan}` : ""}` : null },
+                    { k: tr("Tindakan perbaikan cepat", "Immediate action"), v: report.immediateAction },
+                    { k: tr("Tindakan pencegahan", "Preventive action"), v: report.suggestion ? <>{report.suggestion}{report.suggestionApplied && <Badge tone="success" className="ml-2">{tr("Diterapkan", "Implemented")}</Badge>}</> : null },
+                    { k: tr("Penanggung jawab", "Person in charge (PIC)"), v: report.proposedPic ? `${report.proposedPic.name ?? "-"}${report.proposedPic.jabatan ? `, ${report.proposedPic.jabatan}` : ""}` : null },
                   ]}
                 />
               </div>
@@ -146,28 +160,28 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
             {/* Terekam otomatis */}
             <div>
-              <div className="section-title mb-2">Terekam otomatis</div>
+              <div className="section-title mb-2">{tr("Terekam otomatis", "Automatically recorded")}</div>
               <KeyValue
                 items={[
-                  { k: "Pelapor", v: <span className="flex items-start gap-1.5"><User size={14} className="mt-0.5 shrink-0 text-ink-400" /><span><span className="block font-medium">{report.reporter.name}</span><span className="block text-xs text-ink-500">{ROLE_LABEL[report.reporter.role as Role]}{report.reporter.jabatan ? `, ${report.reporter.jabatan}` : ""}</span></span></span> },
-                  { k: "Cap waktu server", v: <span className="inline-flex items-center gap-1.5"><Clock size={14} className="text-ink-400" /> {fmtDateTime(report.createdAt)}</span> },
-                  { k: "Lokasi", v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel && !report.areaLabel.startsWith(report.area?.name ?? "\u0000") ? ` · ${report.areaLabel}` : ""}</span> },
+                  { k: tr("Pelapor", "Reporter"), v: <span className="flex items-start gap-1.5"><User size={14} className="mt-0.5 shrink-0 text-ink-400" /><span><span className="block font-medium">{report.reporter.name}</span><span className="block text-xs text-ink-500">{L.ROLE_LABEL[report.reporter.role as Role]}{report.reporter.jabatan ? `, ${report.reporter.jabatan}` : ""}</span></span></span> },
+                  { k: tr("Cap waktu server", "Server timestamp"), v: <span className="inline-flex items-center gap-1.5"><Clock size={14} className="text-ink-400" /> {fmtDateTime(report.createdAt, false, lang)}</span> },
+                  { k: tr("Lokasi", "Location"), v: <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-400" /> {report.area?.name ?? "-"}{report.areaLabel && !report.areaLabel.startsWith(report.area?.name ?? "\u0000") ? ` · ${report.areaLabel}` : ""}</span> },
                   {
-                    k: "Koordinat GPS",
+                    k: tr("Koordinat GPS", "GPS coordinates"),
                     v: mapsUrl ? (
                       <a href={mapsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-700 hover:underline">
-                        {report.lat?.toFixed(5)}, {report.lng?.toFixed(5)} (akurasi {report.accuracyM != null ? Math.round(report.accuracyM) : "?"} m) <ExternalLink size={12} />
+                        {report.lat?.toFixed(5)}, {report.lng?.toFixed(5)} ({tr("akurasi", "accuracy")} {report.accuracyM != null ? Math.round(report.accuracyM) : "?"} m) <ExternalLink size={12} />
                       </a>
                     ) : (
-                      "Tidak tersedia"
+                      tr("Tidak tersedia", "Not available")
                     ),
                   },
-                  ...(report.clientCreatedAt ? [{ k: "Waktu perangkat", v: fmtDateTime(report.clientCreatedAt) }] : []),
+                  ...(report.clientCreatedAt ? [{ k: tr("Waktu perangkat", "Device time"), v: fmtDateTime(report.clientCreatedAt, false, lang) }] : []),
                 ]}
               />
               {(report.outsideArea || report.locationFlag) && (
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber/10 px-3 py-2 text-xs text-ink-800">
-                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#8a6a0a]" /> {report.locationFlag ?? "Lokasi di luar area kerja terdaftar, perlu ditinjau."}
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#8a6a0a]" /> {report.locationFlag ?? tr("Lokasi di luar area kerja terdaftar, perlu ditinjau.", "Location is outside the registered work area and needs review.")}
                 </div>
               )}
             </div>
@@ -175,46 +189,48 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             {/* Verifikasi */}
             {(report.verifiedAt || report.path === "A") && (
               <div>
-                <div className="section-title mb-2">Verifikasi Superintendent</div>
+                <div className="section-title mb-2">{tr("Verifikasi Superintendent", "Superintendent verification")}</div>
                 {report.verifiedAt ? (
                   <KeyValue
                     items={[
-                      { k: "Hasil", v: <Badge tone={report.verificationResult === "VALID" ? "success" : report.verificationResult === "REVISI" ? "warn" : "danger"}>{report.verificationResult === "VALID" ? "Valid" : report.verificationResult === "REVISI" ? "Perlu revisi" : "Ditolak"}</Badge> },
-                      ...(report.verificationResult === "TOLAK" && report.rejectReason ? [{ k: "Alasan", v: REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason }] : []),
-                      { k: "Oleh", v: report.verifier?.name },
-                      { k: "Waktu", v: fmtDateTime(report.verifiedAt) },
-                      { k: "Catatan", v: report.verificationNote },
+                      { k: tr("Hasil", "Result"), v: <Badge tone={report.verificationResult === "VALID" ? "success" : report.verificationResult === "REVISI" ? "warn" : "danger"}>{report.verificationResult === "VALID" ? tr("Valid", "Valid") : report.verificationResult === "REVISI" ? tr("Perlu revisi", "Revision required") : tr("Ditolak", "Rejected")}</Badge> },
+                      ...(report.verificationResult === "TOLAK" && report.rejectReason ? [{ k: tr("Alasan", "Reason"), v: L.REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason }] : []),
+                      { k: tr("Oleh", "By"), v: report.verifier?.name },
+                      { k: tr("Waktu", "Time"), v: fmtDateTime(report.verifiedAt, false, lang) },
+                      { k: tr("Catatan", "Note"), v: report.verificationNote },
                     ]}
                   />
                 ) : (
-                  <p className="text-sm text-ink-500">Menunggu verifikasi. Batas waktu {fmtDateTime(report.dueVerifyAt)}.</p>
+                  <p className="text-sm text-ink-500">{tr(`Menunggu verifikasi. Batas waktu ${fmtDateTime(report.dueVerifyAt)}.`, `Awaiting verification. Deadline ${fmtDateTime(report.dueVerifyAt, false, "en")}.`)}</p>
                 )}
               </div>
             )}
 
             {/* Keputusan */}
             <div>
-              <div className="section-title mb-2">Keputusan Manager</div>
+              <div className="section-title mb-2">{tr("Keputusan Manager", "Manager decision")}</div>
               {report.decidedAt ? (
                 <KeyValue
                   hideEmpty
                   items={[
-                    { k: "Hasil", v: <Badge tone={report.decisionResult === "SETUJU" ? "success" : "danger"}>{report.decisionResult === "SETUJU" ? "Disetujui" : "Ditolak"}</Badge> },
-                    { k: "Alasan", v: report.decisionResult === "TOLAK" && report.rejectReason ? REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason : null },
-                    { k: "Oleh", v: report.decider?.name },
-                    { k: "Waktu", v: fmtDateTime(report.decidedAt) },
-                    { k: "Penanggung jawab", v: report.picName ?? report.pic?.name },
-                    { k: "Tenaga", v: report.resourceTenaga },
-                    { k: "Biaya", v: report.resourceBiaya },
-                    { k: "Material", v: report.resourceMaterial },
-                    { k: "Target selesai", v: fmtDate(report.targetDate) },
-                    { k: "Hierarki pengendalian", v: report.controlHierarchy ? CONTROL_LABEL[report.controlHierarchy as Control] : null },
-                    { k: "Catatan", v: report.decisionNote },
+                    { k: tr("Hasil", "Result"), v: <Badge tone={report.decisionResult === "SETUJU" ? "success" : "danger"}>{report.decisionResult === "SETUJU" ? tr("Disetujui", "Approved") : tr("Ditolak", "Rejected")}</Badge> },
+                    { k: tr("Alasan", "Reason"), v: report.decisionResult === "TOLAK" && report.rejectReason ? L.REJECT_REASON_LABEL[report.rejectReason as RejectReason] ?? report.rejectReason : null },
+                    { k: tr("Oleh", "By"), v: report.decider?.name },
+                    { k: tr("Waktu", "Time"), v: fmtDateTime(report.decidedAt, false, lang) },
+                    { k: tr("Penanggung jawab", "Person in charge (PIC)"), v: report.picName ?? report.pic?.name },
+                    { k: tr("Tenaga", "Manpower"), v: report.resourceTenaga },
+                    { k: tr("Biaya", "Cost"), v: report.resourceBiaya },
+                    { k: tr("Material", "Material"), v: report.resourceMaterial },
+                    { k: tr("Target selesai", "Target date"), v: fmtDate(report.targetDate, lang) },
+                    { k: tr("Hierarki pengendalian", "Hierarchy of controls"), v: report.controlHierarchy ? L.CONTROL_LABEL[report.controlHierarchy as Control] : null },
+                    { k: tr("Catatan", "Note"), v: report.decisionNote },
                   ]}
                 />
               ) : (
                 <p className="text-sm text-ink-500">
-                  {report.status === "MENUNGGU_KEPUTUSAN" ? `Menunggu keputusan. Batas waktu ${fmtDateTime(report.dueDecideAt)}.` : "Belum sampai tahap keputusan."}
+                  {report.status === "MENUNGGU_KEPUTUSAN"
+                    ? tr(`Menunggu keputusan. Batas waktu ${fmtDateTime(report.dueDecideAt)}.`, `Awaiting decision. Deadline ${fmtDateTime(report.dueDecideAt, false, "en")}.`)
+                    : tr("Belum sampai tahap keputusan.", "Not yet at the decision stage.")}
                 </p>
               )}
             </div>
@@ -222,7 +238,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
             {/* Perbaikan dan penutupan */}
             {report.decisionResult === "SETUJU" && (
               <div>
-                <div className="section-title mb-2">Perbaikan dan penutupan</div>
+                <div className="section-title mb-2">{tr("Perbaikan dan penutupan", "Corrective action and closure")}</div>
                 <div className="flex items-center gap-3">
                   <div className="progress flex-1">
                     <span style={{ width: `${report.progressPct}%` }} />
@@ -234,22 +250,22 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                     {fixPhotos.map((p) => (
                       <a key={p.id} href={`/api/foto/${p.id}`} target="_blank" rel="noreferrer" className="aspect-[4/3] overflow-hidden rounded-xl border border-ink-200">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/api/foto/${p.id}`} alt="Bukti perbaikan" className="h-full w-full object-cover" />
+                        <img src={`/api/foto/${p.id}`} alt={tr("Bukti perbaikan", "Corrective action evidence")} className="h-full w-full object-cover" />
                       </a>
                     ))}
                   </div>
                 )}
                 <div className="mt-3">
-                  {!report.completedAt && !report.closedAt && <p className="text-sm text-ink-500">Perbaikan sedang berjalan. Rincian penyelesaian muncul setelah penanggung jawab melaporkan selesai.</p>}
+                  {!report.completedAt && !report.closedAt && <p className="text-sm text-ink-500">{tr("Perbaikan sedang berjalan. Rincian penyelesaian muncul setelah penanggung jawab melaporkan selesai.", "Corrective action is in progress. Completion details appear once the person in charge reports it complete.")}</p>}
                   <KeyValue
                     hideEmpty
                     items={[
-                      { k: "Perbaikan selesai", v: fmtDateTime(report.completedAt) },
-                      { k: "Catatan penyelesaian", v: report.completionNote },
-                      { k: "Ditutup oleh", v: report.closer?.name },
-                      { k: "Waktu penutupan", v: fmtDateTime(report.closedAt) },
-                      { k: "Tepat waktu", v: report.closedOnTime == null ? null : report.closedOnTime ? <Badge tone="success">Ya</Badge> : <Badge tone="danger">Terlambat</Badge> },
-                      { k: "Catatan penutupan", v: report.closureNote },
+                      { k: tr("Perbaikan selesai", "Corrective action completed"), v: fmtDateTime(report.completedAt, false, lang) },
+                      { k: tr("Catatan penyelesaian", "Completion note"), v: report.completionNote },
+                      { k: tr("Ditutup oleh", "Closed by"), v: report.closer?.name },
+                      { k: tr("Waktu penutupan", "Closure time"), v: fmtDateTime(report.closedAt, false, lang) },
+                      { k: tr("Tepat waktu", "On time"), v: report.closedOnTime == null ? null : report.closedOnTime ? <Badge tone="success">{tr("Ya", "Yes")}</Badge> : <Badge tone="danger">{tr("Terlambat", "Late")}</Badge> },
+                      { k: tr("Catatan penutupan", "Closure note"), v: report.closureNote },
                     ]}
                   />
                 </div>
@@ -258,7 +274,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
             {report.pointsAwarded > 0 && (
               <div className="flex items-center gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
-                <Award size={18} className="text-gold" /> Poin diberikan kepada pelapor: <span className="font-bold">{report.pointsAwarded}</span>
+                <Award size={18} className="text-gold" /> {tr("Poin diberikan kepada pelapor:", "Points awarded to the reporter:")} <span className="font-bold">{report.pointsAwarded}</span>
               </div>
             )}
           </div>
@@ -272,9 +288,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
               {showResubmit && <ResubmitPanel report={report} />}
             </div>
             <Card>
-              <CardHeader title="Jejak laporan" subtitle="Setiap perubahan tercatat dengan pelaku dan waktu." />
+              <CardHeader title={tr("Jejak laporan", "Report history")} subtitle={tr("Setiap perubahan tercatat dengan pelaku dan waktu.", "Every change is recorded with the actor and time.")} />
               <CardBody>
-                <Timeline events={report.events} />
+                <Timeline events={report.events} lang={lang} />
               </CardBody>
             </Card>
           </div>

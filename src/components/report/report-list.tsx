@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ChevronRight, MapPin, Clock, AlertTriangle, Zap, ClipboardList } from "lucide-react";
 import { StatusBadge, RiskBadge } from "./badges";
-import { CATEGORY_LABEL, type Category } from "@/lib/constants";
+import { labels, type Category } from "@/lib/constants";
 import { fmtDateTime, relTime, cn } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
 import { CATEGORY_IMG, ILLUSTRATION } from "@/lib/icons";
+import { getTr } from "@/lib/i18n-server";
 
 export type ReportRow = {
   id: string;
@@ -33,8 +34,10 @@ export function isOverdue(r: ReportRow, now = new Date()) {
   return false;
 }
 
-export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDesc }: { reports: ReportRow[]; emptyTitle?: string; emptyDesc?: string }) {
-  if (!reports.length) return <EmptyState image={ILLUSTRATION.kosongLaporan} title={emptyTitle} description={emptyDesc} />;
+export async function ReportList({ reports, emptyTitle, emptyDesc }: { reports: ReportRow[]; emptyTitle?: string; emptyDesc?: string }) {
+  const { lang, tr } = await getTr();
+  const L = labels(lang);
+  if (!reports.length) return <EmptyState image={ILLUSTRATION.kosongLaporan} title={emptyTitle ?? tr("Belum ada laporan", "No reports yet")} description={emptyDesc} />;
   const now = new Date();
   return (
     <div className="space-y-2.5 stagger">
@@ -56,8 +59,8 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
               <div className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold tabular-nums text-ink-500">
                   {r.number}
-                  {r.escalated && <Zap size={13} className="shrink-0 text-orange" aria-label="Dieskalasi ke Manager" />}
-                  {overdue && <AlertTriangle size={13} className="shrink-0 text-red" aria-label="Lewat batas waktu" />}
+                  {r.escalated && <Zap size={13} className="shrink-0 text-orange" aria-label={tr("Dieskalasi ke Manager", "Escalated to Manager")} />}
+                  {overdue && <AlertTriangle size={13} className="shrink-0 text-red" aria-label={tr("Lewat batas waktu", "Past deadline")} />}
                 </span>
                 <StatusBadge status={r.status} />
               </div>
@@ -69,16 +72,16 @@ export function ReportList({ reports, emptyTitle = "Belum ada laporan", emptyDes
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={CATEGORY_IMG[r.category as Category]} alt="" aria-hidden width={16} height={16} className="size-4" />
                   )}
-                  {CATEGORY_LABEL[r.category as Category] ?? r.category}
+                  {L.CATEGORY_LABEL[r.category as Category] ?? r.category}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin size={12} /> {r.area?.name ?? "-"}{r.areaLabel ? ` - ${r.areaLabel}` : ""}
-                  {r.outsideArea && <span className="text-[#8a6a0a]"> (di luar area)</span>}
+                  {r.outsideArea && <span className="text-[#8a6a0a]"> {tr("(di luar area)", "(outside area)")}</span>}
                 </span>
-                <span className="inline-flex items-center gap-1" title={fmtDateTime(r.createdAt)}>
-                  <Clock size={12} /> {relTime(r.createdAt)}
+                <span className="inline-flex items-center gap-1" title={fmtDateTime(r.createdAt, false, lang)}>
+                  <Clock size={12} /> {relTime(r.createdAt, lang)}
                 </span>
-                <span className="hidden sm:inline">oleh {r.reporter.name}</span>
+                <span className="hidden sm:inline">{tr("oleh", "by")} {r.reporter.name}</span>
               </div>
               {(r.status === "DALAM_PERBAIKAN" || r.status === "MENUNGGU_PENUTUPAN") && (
                 <div className="mt-2 flex items-center gap-2">

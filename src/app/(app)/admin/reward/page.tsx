@@ -4,17 +4,27 @@ import { db } from "@/lib/db";
 import { PageHeader, Card, CardHeader, CardBody, Badge } from "@/components/ui";
 import { RewardForm } from "./form";
 import { RewardVisual } from "@/components/reward/reward-visual";
+import { getTr } from "@/lib/i18n-server";
 
-export const metadata = { title: "Katalog reward" };
+export async function generateMetadata() {
+  const { tr } = await getTr();
+  return { title: tr("Katalog reward", "Reward catalogue") };
+}
 
 const TIER_LABEL: Record<string, string> = { AWAL: "Tingkat awal", MENENGAH: "Tingkat menengah", LANJUT: "Tingkat lanjut" };
+const TIER_LABEL_EN: Record<string, string> = { AWAL: "Entry tier", MENENGAH: "Intermediate tier", LANJUT: "Advanced tier" };
 
 export default async function RewardAdminPage() {
   await requireUser(["ADMIN"]);
+  const { lang, tr } = await getTr();
   const rewards = await db.reward.findMany({ orderBy: [{ active: "desc" }, { pointsCost: "asc" }], include: { _count: { select: { redemptions: true } } } });
   return (
     <div>
-      <PageHeader eyebrow="Administrasi" title="Katalog reward" description="Hadiah ditetapkan tim pengelola sesuai anggaran dan kebijakan. Nilai poin dan stok dapat disesuaikan kapan saja." />
+      <PageHeader
+        eyebrow={tr("Administrasi", "Administration")}
+        title={tr("Katalog reward", "Reward catalogue")}
+        description={tr("Hadiah ditetapkan tim pengelola sesuai anggaran dan kebijakan. Nilai poin dan stok dapat disesuaikan kapan saja.", "Rewards are set by the program team according to budget and policy. Point values and stock can be adjusted at any time.")}
+      />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-span-2 stagger">
           {rewards.map((r) => {
@@ -29,21 +39,21 @@ export default async function RewardAdminPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge tone="warn" className="tabular-nums">{r.pointsCost} poin</Badge>
-                  <Badge tone="neutral">{TIER_LABEL[r.tier] ?? r.tier}</Badge>
-                  {!r.active && <Badge tone="danger">Nonaktif</Badge>}
+                  <Badge tone="warn" className="tabular-nums">{tr(`${r.pointsCost} poin`, `${r.pointsCost} points`)}</Badge>
+                  <Badge tone="neutral">{(lang === "en" ? TIER_LABEL_EN : TIER_LABEL)[r.tier] ?? r.tier}</Badge>
+                  {!r.active && <Badge tone="danger">{tr("Nonaktif", "Inactive")}</Badge>}
                 </div>
                 <div className="mt-auto pt-3">
                   <div className="flex gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
-                    <span>Stok <span className="font-semibold tabular-nums text-ink-800">{r.stock}</span></span>
-                    <span><span className="font-semibold tabular-nums text-ink-800">{r._count.redemptions}</span> penukaran</span>
+                    <span>{tr("Stok", "Stock")} <span className="font-semibold tabular-nums text-ink-800">{r.stock}</span></span>
+                    <span><span className="font-semibold tabular-nums text-ink-800">{r._count.redemptions}</span> {tr("penukaran", r._count.redemptions === 1 ? "redemption" : "redemptions")}</span>
                   </div>
                 </div>
                 <details className="group">
                   <summary className="btn-secondary btn-sm absolute right-4 top-4 min-h-11 cursor-pointer list-none md:right-5 md:top-5 md:min-h-0 [&::-webkit-details-marker]:hidden">
                     <Pencil size={13} />
-                    <span className="group-open:hidden">Ubah</span>
-                    <span className="hidden group-open:inline">Tutup</span>
+                    <span className="group-open:hidden">{tr("Ubah", "Edit")}</span>
+                    <span className="hidden group-open:inline">{tr("Tutup", "Close")}</span>
                   </summary>
                   <div className="mt-4 border-t border-ink-100 pt-4"><RewardForm reward={{ id: r.id, name: r.name, description: r.description, pointsCost: r.pointsCost, stock: r.stock, tier: r.tier, icon: r.icon, active: r.active, imageAt: r.imageAt?.toISOString() ?? null }} /></div>
                 </details>
@@ -52,7 +62,7 @@ export default async function RewardAdminPage() {
           })}
         </div>
         <Card className="h-fit anim-fade-up">
-          <CardHeader title="Tambah hadiah" subtitle="Isi nama, nilai poin, dan stok awal hadiah." />
+          <CardHeader title={tr("Tambah hadiah", "Add reward")} subtitle={tr("Isi nama, nilai poin, dan stok awal hadiah.", "Enter the reward name, point value, and initial stock.")} />
           <CardBody className="pt-4">
             <RewardForm />
           </CardBody>

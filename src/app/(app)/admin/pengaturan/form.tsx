@@ -4,7 +4,8 @@ import { Lock } from "lucide-react";
 import { saveSettingsAction } from "../actions";
 import { useFormAction, Msg } from "../feedback";
 import { CardHeader } from "@/components/ui";
-import { ROLES, ROLE_LABEL, NOTIF_TYPES, NOTIF_TYPE_LABEL, NOTIF_TYPE_DESC, type AppSettings } from "@/lib/constants";
+import { ROLES, NOTIF_TYPES, labels, type AppSettings } from "@/lib/constants";
+import { useLang, useTr } from "@/components/i18n/lang-provider";
 
 // Label di atas kontrol pada layar sempit, berdampingan mulai sm; stacked memaksa susunan atas-bawah
 function Row({ label, children, help, stacked = false }: { label: string; children: React.ReactNode; help?: string; stacked?: boolean }) {
@@ -39,45 +40,49 @@ function NumberWithSuffix({ name, defaultValue, suffix, min, max, width = "w-20"
 
 export function SettingsForm({ settings: s, isAdmin }: { settings: AppSettings; isAdmin: boolean }) {
   const { pending, res, action } = useFormAction(saveSettingsAction);
+  const tr = useTr();
+  const L = labels(useLang());
+  const days = tr("hari kerja", "working days");
+  const pts = tr("poin", "points");
   return (
     <form action={action} className="space-y-4">
       <div className="card overflow-hidden anim-fade-up">
-        <CardHeader title="Alur pelaporan" subtitle="Urutan tahap, batas waktu, dan eskalasi otomatis." />
+        <CardHeader title={tr("Alur pelaporan", "Reporting workflow")} subtitle={tr("Urutan tahap, batas waktu, dan eskalasi otomatis.", "Stage sequence, deadlines, and automatic escalation.")} />
         <div className="mt-4 border-t border-ink-100">
-          <Row label="Verifikasi Superintendent" help="Wajib untuk laporan Pengawas."><span className="badge badge-warn"><Lock size={11} /> Wajib</span></Row>
-          <Row label="Batas waktu verifikasi" help="Hari kerja sejak laporan dikirim."><NumberWithSuffix name="verifyDeadlineDays" min={1} max={30} defaultValue={s.verifyDeadlineDays} suffix="hari kerja" /></Row>
-          <Row label="Eskalasi risiko tinggi" help="Manager diberi tahu seketika, verifikasi tetap berjalan."><Toggle name="escalateHighRisk" defaultChecked={s.escalateHighRisk} /></Row>
-          <Row label="Batas waktu keputusan" help="Hari kerja sejak laporan terverifikasi."><NumberWithSuffix name="decideDeadlineDays" min={1} max={30} defaultValue={s.decideDeadlineDays} suffix="hari kerja" /></Row>
-          <Row label="Pengingat otomatis" help="Dikirim harian bila tahap melewati batas waktu."><Toggle name="reminders" defaultChecked={s.reminders} /></Row>
-          <Row label="Penanggung jawab per area" help="Manager area menjadi usulan bawaan penanggung jawab."><Toggle name="picByArea" defaultChecked={s.picByArea} /></Row>
-          <Row label="Tinjauan sesama Manager" help="Laporan Manager diputuskan Manager lain."><Toggle name="managerPeerReview" defaultChecked={s.managerPeerReview} /></Row>
+          <Row label={tr("Verifikasi Superintendent", "Superintendent verification")} help={tr("Wajib untuk laporan Pengawas.", "Required for Supervisor reports.")}><span className="badge badge-warn"><Lock size={11} /> {tr("Wajib", "Required")}</span></Row>
+          <Row label={tr("Batas waktu verifikasi", "Verification deadline")} help={tr("Hari kerja sejak laporan dikirim.", "Working days from report submission.")}><NumberWithSuffix name="verifyDeadlineDays" min={1} max={30} defaultValue={s.verifyDeadlineDays} suffix={days} /></Row>
+          <Row label={tr("Eskalasi risiko tinggi", "High-risk escalation")} help={tr("Manager diberi tahu seketika, verifikasi tetap berjalan.", "Managers are notified immediately; verification continues.")}><Toggle name="escalateHighRisk" defaultChecked={s.escalateHighRisk} /></Row>
+          <Row label={tr("Batas waktu keputusan", "Decision deadline")} help={tr("Hari kerja sejak laporan terverifikasi.", "Working days from report verification.")}><NumberWithSuffix name="decideDeadlineDays" min={1} max={30} defaultValue={s.decideDeadlineDays} suffix={days} /></Row>
+          <Row label={tr("Pengingat otomatis", "Automatic reminders")} help={tr("Dikirim harian bila tahap melewati batas waktu.", "Sent daily when a stage passes its deadline.")}><Toggle name="reminders" defaultChecked={s.reminders} /></Row>
+          <Row label={tr("Penanggung jawab per area", "Person in charge by area")} help={tr("Manager area menjadi usulan bawaan penanggung jawab.", "The area Manager is the default suggested person in charge.")}><Toggle name="picByArea" defaultChecked={s.picByArea} /></Row>
+          <Row label={tr("Tinjauan sesama Manager", "Manager peer review")} help={tr("Laporan Manager diputuskan Manager lain.", "A Manager's reports are decided by another Manager.")}><Toggle name="managerPeerReview" defaultChecked={s.managerPeerReview} /></Row>
         </div>
       </div>
 
       <div className="card overflow-hidden anim-fade-up">
         <CardHeader
-          title="Nilai poin"
-          subtitle="Poin per laporan valid, bonus, dan ambang level."
-          action={!isAdmin ? <span className="badge badge-neutral shrink-0"><Lock size={11} /> Hanya admin</span> : undefined}
+          title={tr("Nilai poin", "Point values")}
+          subtitle={tr("Poin per laporan valid, bonus, dan ambang level.", "Points per valid report, bonuses, and level thresholds.")}
+          action={!isAdmin ? <span className="badge badge-neutral shrink-0"><Lock size={11} /> {tr("Hanya admin", "Admin only")}</span> : undefined}
         />
         <fieldset disabled={!isAdmin} className={`mt-4 border-t border-ink-100 ${!isAdmin ? "opacity-70" : ""}`}>
           {[
-            ["p_valid", "Laporan bahaya valid (kondisi atau tindakan)", s.points.valid],
-            ["p_nearMiss", "Laporan nyaris celaka valid", s.points.nearMiss],
-            ["p_highRiskBonus", "Bonus laporan risiko Tinggi atau Ekstrem", s.points.highRiskBonus],
-            ["p_suggestionBonus", "Bonus usulan perbaikan yang diterapkan", s.points.suggestionBonus],
-            ["p_streakBonus", "Bonus konsisten, empat minggu berturut", s.points.streakBonus],
+            ["p_valid", tr("Laporan bahaya valid (kondisi atau tindakan)", "Valid hazard report (condition or act)"), s.points.valid],
+            ["p_nearMiss", tr("Laporan nyaris celaka valid", "Valid near-miss report"), s.points.nearMiss],
+            ["p_highRiskBonus", tr("Bonus laporan risiko Tinggi atau Ekstrem", "High or Extreme risk report bonus"), s.points.highRiskBonus],
+            ["p_suggestionBonus", tr("Bonus usulan perbaikan yang diterapkan", "Implemented suggested action bonus"), s.points.suggestionBonus],
+            ["p_streakBonus", tr("Bonus konsisten, empat minggu berturut", "Consistency bonus, four consecutive weeks"), s.points.streakBonus],
           ].map(([k, label, v]) => (
-            <Row key={String(k)} label={String(label)}><NumberWithSuffix name={String(k)} min={0} max={100} defaultValue={Number(v)} suffix="poin" /></Row>
+            <Row key={String(k)} label={String(label)}><NumberWithSuffix name={String(k)} min={0} max={100} defaultValue={Number(v)} suffix={pts} /></Row>
           ))}
-          <Row label="Ambang level Perak" help="Akumulasi poin yang diperoleh."><NumberWithSuffix name="l_perak" min={1} defaultValue={s.levels.perak} suffix="poin" width="w-24" /></Row>
-          <Row label="Ambang level Emas"><NumberWithSuffix name="l_emas" min={1} defaultValue={s.levels.emas} suffix="poin" width="w-24" /></Row>
-          <Row label="Penerima poin" help="Apakah Manager dan Direksi ikut memperoleh poin." stacked>
+          <Row label={tr("Ambang level Perak", "Silver level threshold")} help={tr("Akumulasi poin yang diperoleh.", "Cumulative points earned.")}><NumberWithSuffix name="l_perak" min={1} defaultValue={s.levels.perak} suffix={pts} width="w-24" /></Row>
+          <Row label={tr("Ambang level Emas", "Gold level threshold")}><NumberWithSuffix name="l_emas" min={1} defaultValue={s.levels.emas} suffix={pts} width="w-24" /></Row>
+          <Row label={tr("Penerima poin", "Point recipients")} help={tr("Apakah Manager dan Direksi ikut memperoleh poin.", "Whether Managers and Directors also earn points.")} stacked>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {ROLES.filter((r) => r !== "ADMIN").map((r) => (
                 <label key={r} className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink-800 sm:min-h-0">
                   <input type="checkbox" name={`elig_${r}`} defaultChecked={s.eligibleRoles.includes(r)} className="size-5 shrink-0 accent-[var(--brand-600)]" />
-                  {ROLE_LABEL[r]}
+                  {L.ROLE_LABEL[r]}
                 </label>
               ))}
             </div>
@@ -86,17 +91,20 @@ export function SettingsForm({ settings: s, isAdmin }: { settings: AppSettings; 
       </div>
 
       <div className="card overflow-hidden anim-fade-up">
-        <CardHeader title="Notifikasi ponsel" subtitle="Jenis notifikasi yang dikirim ke aplikasi terpasang. Daftar notifikasi di aplikasi tetap lengkap." />
+        <CardHeader
+          title={tr("Notifikasi ponsel", "Phone notifications")}
+          subtitle={tr("Jenis notifikasi yang dikirim ke aplikasi terpasang. Daftar notifikasi di aplikasi tetap lengkap.", "Notification types sent to the installed app. The in-app notification list remains complete.")}
+        />
         <div className="mt-4 border-t border-ink-100">
           {NOTIF_TYPES.map((t) => (
-            <Row key={t} label={NOTIF_TYPE_LABEL[t]} help={NOTIF_TYPE_DESC[t]}><Toggle name={`push_${t}`} defaultChecked={s.push[t]} /></Row>
+            <Row key={t} label={L.NOTIF_TYPE_LABEL[t]} help={L.NOTIF_TYPE_DESC[t]}><Toggle name={`push_${t}`} defaultChecked={s.push[t]} /></Row>
           ))}
         </div>
       </div>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Msg res={res} />
-        <button disabled={pending} className="btn-primary min-h-11 sm:ml-auto">{pending ? "Menyimpan..." : "Simpan pengaturan"}</button>
+        <button disabled={pending} className="btn-primary min-h-11 sm:ml-auto">{pending ? tr("Menyimpan...", "Saving...") : tr("Simpan pengaturan", "Save settings")}</button>
       </div>
     </form>
   );

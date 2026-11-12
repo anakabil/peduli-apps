@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { CATEGORIES, RISKS, STATUSES, OPEN_STATUSES, CONTROLS, HAZARD_TYPES, REJECT_REASONS, type Category, type Risk, type Status } from "./constants";
-import { daysBetween, hoursBetween, jktDate, jktParts } from "./format";
+import { daysBetween, fmtMonth, hoursBetween, jktDate, jktParts } from "./format";
+import { makeTr, type Lang } from "./i18n";
 
 export type Period = { from: Date; to: Date };
 
@@ -79,7 +80,13 @@ function avg(xs: number[]) {
   return xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : 0;
 }
 
-export async function computeStats(period: Period, opts: { areaId?: string | null } = {}) {
+/**
+ * Statistik program untuk periode. Teks yang tampil ke pengguna (label bulan, umur tindak lanjut, area nonaktif)
+ * mengikuti `opts.lang`; bawaan "id" karena fungsi ini dapat dipanggil di luar permintaan.
+ */
+export async function computeStats(period: Period, opts: { areaId?: string | null; lang?: Lang } = {}) {
+  const lang: Lang = opts.lang ?? "id";
+  const tr = makeTr(lang);
   const now = new Date();
   const endParts = jktParts(new Date(period.to.getTime() - 1));
   const trendStart = jktDate(endParts.y, endParts.m0 - 11, 1);
@@ -174,7 +181,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
 
   // Area yang ditampilkan: area aktif, ditambah area nonaktif yang masih memiliki data
   const usedAreaIds = new Set(rows.map((r) => r.areaId).filter(Boolean));
-  const areas = allAreas.filter((a) => a.active || usedAreaIds.has(a.id)).map((a) => ({ id: a.id, name: a.active ? a.name : `${a.name} (nonaktif)` }));
+  const areas = allAreas.filter((a) => a.active || usedAreaIds.has(a.id)).map((a) => ({ id: a.id, name: a.active ? a.name : tr(`${a.name} (nonaktif)`, `${a.name} (inactive)`) }));
 
   // Tren 12 bulan
   const trend: Array<{ label: string; key: string; masuk: number; ditutup: number; valid: number }> = [];
@@ -183,7 +190,7 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
     const mp = jktParts(p.from);
     trend.push({
       key: `${mp.y}-${String(mp.m0 + 1).padStart(2, "0")}`,
-      label: new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", month: "short", year: "2-digit" }).format(p.from),
+      label: fmtMonth(p.from, lang),
       masuk: rows.filter((r) => inP(r.createdAt, p)).length,
       ditutup: rows.filter((r) => inP(r.closedAt, p)).length,
       valid: rows.filter((r) => inP(r.createdAt, p) && valid(r)).length,
@@ -240,10 +247,10 @@ export async function computeStats(period: Period, opts: { areaId?: string | nul
   // Umur tindak lanjut terbuka (dari keputusan, atau dari laporan bila belum diputuskan)
   const ageOf = (r: Row) => daysBetween(r.decidedAt ?? r.createdAt, now);
   const aging = [
-    { label: "0 sampai 7 hari", count: openAll.filter((r) => ageOf(r) <= 7).length },
-    { label: "8 sampai 14 hari", count: openAll.filter((r) => ageOf(r) > 7 && ageOf(r) <= 14).length },
-    { label: "15 sampai 30 hari", count: openAll.filter((r) => ageOf(r) > 14 && ageOf(r) <= 30).length },
-    { label: "Lebih dari 30 hari", count: openAll.filter((r) => ageOf(r) > 30).length },
+    { label: tr("0 sampai 7 hari", "0 to 7 days"), count: openAll.filter((r) => ageOf(r) <= 7).length },
+    { label: tr("8 sampai 14 hari", "8 to 14 days"), count: openAll.filter((r) => ageOf(r) > 7 && ageOf(r) <= 14).length },
+    { label: tr("15 sampai 30 hari", "15 to 30 days"), count: openAll.filter((r) => ageOf(r) > 14 && ageOf(r) <= 30).length },
+    { label: tr("Lebih dari 30 hari", "More than 30 days"), count: openAll.filter((r) => ageOf(r) > 30).length },
   ];
 
   // Penutupan tepat waktu per area (12 bulan)

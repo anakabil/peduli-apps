@@ -7,6 +7,7 @@
  */
 import { db } from "@/lib/db";
 import { DEMO_DOMAIN } from "@/lib/demo-accounts";
+import type { Lang } from "@/lib/i18n";
 
 export const isDummyEmail = (email: string | null | undefined) => !!email?.toLowerCase().endsWith(DEMO_DOMAIN);
 
@@ -23,13 +24,15 @@ export async function userHistory(id: string): Promise<History> {
   return { laporan, ditangani, poin, penukaran, konsultasi };
 }
 
-export function describeHistory(h: History) {
+export function describeHistory(h: History, lang: Lang = "id") {
+  const en = lang === "en";
+  const n = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`;
   const parts = [
-    h.laporan && `${h.laporan} laporan`,
-    h.ditangani && `${h.ditangani} laporan yang ditangani`,
-    h.poin && `${h.poin} catatan poin`,
-    h.penukaran && `${h.penukaran} penukaran`,
-    h.konsultasi && `${h.konsultasi} konsultasi`,
+    h.laporan && (en ? n(h.laporan, "hazard report", "hazard reports") : `${h.laporan} laporan`),
+    h.ditangani && (en ? n(h.ditangani, "report handled", "reports handled") : `${h.ditangani} laporan yang ditangani`),
+    h.poin && (en ? n(h.poin, "point record", "point records") : `${h.poin} catatan poin`),
+    h.penukaran && (en ? n(h.penukaran, "redemption", "redemptions") : `${h.penukaran} penukaran`),
+    h.konsultasi && (en ? n(h.konsultasi, "consultation", "consultations") : `${h.konsultasi} konsultasi`),
   ].filter(Boolean);
   return parts.join(", ");
 }

@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { redeemAction } from "./actions";
+import { useTr } from "@/components/i18n/lang-provider";
 
 // reason: alasan singkat saat tombol nonaktif, ditampilkan sebagai label tombol
 export function RedeemButton({ rewardId, disabled, reason }: { rewardId: string; disabled: boolean; reason?: string }) {
+  const tr = useTr();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -14,7 +16,7 @@ export function RedeemButton({ rewardId, disabled, reason }: { rewardId: string;
   if (confirm)
     return (
       <div className="flex gap-1.5">
-        <button className="btn-secondary btn-sm min-h-11 flex-1 sm:min-h-9" onClick={() => setConfirm(false)}>Batal</button>
+        <button className="btn-secondary btn-sm min-h-11 flex-1 sm:min-h-9" onClick={() => setConfirm(false)}>{tr("Batal", "Cancel")}</button>
         <button
           className="btn-primary btn-sm min-h-11 flex-1 sm:min-h-9"
           disabled={pending}
@@ -27,19 +29,19 @@ export function RedeemButton({ rewardId, disabled, reason }: { rewardId: string;
             })
           }
         >
-          {pending ? "Memproses..." : "Ya, tukar"}
+          {pending ? tr("Memproses...", "Processing...") : tr("Ya, tukar", "Yes, redeem")}
         </button>
       </div>
     );
   if (disabled)
     return (
       <button className="btn btn-sm min-h-11 w-full border border-ink-200 bg-ink-50 text-ink-500 tabular-nums disabled:opacity-100 sm:min-h-9" disabled>
-        {reason ?? "Tukar poin"}
+        {reason ?? tr("Tukar poin", "Redeem points")}
       </button>
     );
   return (
     <button className="btn-primary btn-sm min-h-11 w-full sm:min-h-9" onClick={() => setConfirm(true)}>
-      Tukar poin
+      {tr("Tukar poin", "Redeem points")}
     </button>
   );
 }

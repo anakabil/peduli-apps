@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BellRing, BellOff, Loader2, Send, X } from "lucide-react";
 import { usePwa } from "./pwa-provider";
 import { cn } from "@/lib/format";
+import { useTr } from "@/components/i18n/lang-provider";
 
 type State = "loading" | "unsupported" | "ios-install" | "denied" | "off" | "on";
 
@@ -33,6 +34,7 @@ export function usePush() {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const tr = useTr();
 
   const refresh = useCallback(async () => {
     const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -67,9 +69,9 @@ export function usePush() {
       const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
       if (!(await saveSub(sub))) throw new Error("Gagal menyimpan.");
       setState("on");
-      setMsg("Notifikasi aktif di perangkat ini.");
+      setMsg(tr("Notifikasi aktif di perangkat ini.", "Notifications are on for this device."));
     } catch {
-      setMsg("Notifikasi belum dapat diaktifkan. Coba lagi beberapa saat.");
+      setMsg(tr("Notifikasi belum dapat diaktifkan. Coba lagi beberapa saat.", "Notifications could not be turned on. Please try again shortly."));
     } finally {
       setBusy(false);
     }
@@ -86,7 +88,7 @@ export function usePush() {
         await sub.unsubscribe().catch(() => {});
       }
       setState("off");
-      setMsg("Notifikasi dimatikan di perangkat ini.");
+      setMsg(tr("Notifikasi dimatikan di perangkat ini.", "Notifications are off for this device."));
     } finally {
       setBusy(false);
     }
@@ -98,7 +100,7 @@ export function usePush() {
     try {
       const res = await fetch("/api/push/test", { method: "POST" });
       const body = await res.json().catch(() => ({}));
-      setMsg(res.ok && body.ok ? "Notifikasi uji dikirim. Periksa bilah notifikasi." : body.error ?? "Notifikasi uji gagal dikirim.");
+      setMsg(res.ok && body.ok ? tr("Notifikasi uji dikirim. Periksa bilah notifikasi.", "Test notification sent. Check your notification bar.") : body.error ?? tr("Notifikasi uji gagal dikirim.", "The test notification could not be sent."));
     } finally {
       setBusy(false);
     }
@@ -110,13 +112,14 @@ export function usePush() {
 /** Kartu pengaturan notifikasi perangkat di halaman Profil */
 export function PushDeviceCard() {
   const { state, busy, msg, enable, disable, test } = usePush();
+  const tr = useTr();
   const text: Record<State, string> = {
-    loading: "Memeriksa perangkat...",
-    unsupported: "Peramban ini belum mendukung notifikasi. Pasang aplikasi PEDULI atau gunakan Chrome versi terbaru.",
-    "ios-install": "Di iPhone, notifikasi hanya berfungsi setelah PEDULI ditambahkan ke Layar Utama. Buka menu Bagikan, pilih Tambah ke Layar Utama, lalu buka PEDULI dari ikon tersebut.",
-    denied: "Izin notifikasi diblokir. Buka pengaturan situs atau aplikasi di ponsel, izinkan notifikasi, lalu muat ulang halaman ini.",
-    off: "Aktifkan agar tugas verifikasi, keputusan, dan tindak lanjut muncul di ponsel meski aplikasi tertutup.",
-    on: "Perangkat ini menerima notifikasi.",
+    loading: tr("Memeriksa perangkat...", "Checking device..."),
+    unsupported: tr("Peramban ini belum mendukung notifikasi. Pasang aplikasi PEDULI atau gunakan Chrome versi terbaru.", "This browser does not support notifications. Install the PEDULI app or use the latest version of Chrome."),
+    "ios-install": tr("Di iPhone, notifikasi hanya berfungsi setelah PEDULI ditambahkan ke Layar Utama. Buka menu Bagikan, pilih Tambah ke Layar Utama, lalu buka PEDULI dari ikon tersebut.", "On iPhone, notifications only work after PEDULI is added to the Home Screen. Open the Share menu, select Add to Home Screen, then open PEDULI from that icon."),
+    denied: tr("Izin notifikasi diblokir. Buka pengaturan situs atau aplikasi di ponsel, izinkan notifikasi, lalu muat ulang halaman ini.", "Notification permission is blocked. Open the site or app settings on your phone, allow notifications, then reload this page."),
+    off: tr("Aktifkan agar tugas verifikasi, keputusan, dan tindak lanjut muncul di ponsel meski aplikasi tertutup.", "Turn this on so verification, decision, and follow-up tasks appear on your phone even when the app is closed."),
+    on: tr("Perangkat ini menerima notifikasi.", "This device receives notifications."),
   };
   return (
     <div>
@@ -129,16 +132,16 @@ export function PushDeviceCard() {
       <div className="mt-3 flex flex-wrap gap-2">
         {state === "off" && (
           <button type="button" onClick={enable} disabled={busy} className="btn-primary min-h-11 md:min-h-0">
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <BellRing size={16} />} Aktifkan notifikasi
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <BellRing size={16} />} {tr("Aktifkan notifikasi", "Turn on notifications")}
           </button>
         )}
         {state === "on" && (
           <>
             <button type="button" onClick={test} disabled={busy} className="btn-secondary min-h-11 md:min-h-0">
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Kirim uji
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {tr("Kirim uji", "Send test")}
             </button>
             <button type="button" onClick={disable} disabled={busy} className="btn-ghost min-h-11 md:min-h-0">
-              <BellOff size={16} /> Matikan
+              <BellOff size={16} /> {tr("Matikan", "Turn off")}
             </button>
           </>
         )}
@@ -151,6 +154,7 @@ export function PushDeviceCard() {
 /** Ajakan singkat di Beranda bila perangkat belum menerima notifikasi; dapat ditutup */
 export function PushPrompt() {
   const { state, busy, enable } = usePush();
+  const tr = useTr();
   const [hidden, setHidden] = useState(true);
   useEffect(() => {
     let dismissed = false;
@@ -173,21 +177,21 @@ export function PushPrompt() {
         <BellRing size={18} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-bold text-ink-900">Terima notifikasi di ponsel</div>
+        <div className="text-sm font-bold text-ink-900">{tr("Terima notifikasi di ponsel", "Get notifications on your phone")}</div>
         <p className="mt-0.5 text-sm text-ink-600">
-          {state === "ios-install" ? "Tambahkan PEDULI ke Layar Utama terlebih dahulu, lalu aktifkan notifikasi di Profil." : "Tugas dan tindak lanjut untuk Anda akan langsung muncul di ponsel."}
+          {state === "ios-install" ? tr("Tambahkan PEDULI ke Layar Utama terlebih dahulu, lalu aktifkan notifikasi di Profil.", "Add PEDULI to your Home Screen first, then turn on notifications in Profile.") : tr("Tugas dan tindak lanjut untuk Anda akan langsung muncul di ponsel.", "Your tasks and follow-ups will appear on your phone right away.")}
         </p>
         <div className="mt-2.5 flex flex-wrap gap-2">
           {state === "off" ? (
             <button type="button" onClick={enable} disabled={busy} className="btn-primary btn-sm min-h-11 md:min-h-0">
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} Aktifkan
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} {tr("Aktifkan", "Turn on")}
             </button>
           ) : (
-            <Link href="/profil#notifikasi" className="btn-secondary btn-sm min-h-11 md:min-h-0">Buka Profil</Link>
+            <Link href="/profil#notifikasi" className="btn-secondary btn-sm min-h-11 md:min-h-0">{tr("Buka Profil", "Open Profile")}</Link>
           )}
         </div>
       </div>
-      <button type="button" onClick={close} className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white" aria-label="Tutup">
+      <button type="button" onClick={close} className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white" aria-label={tr("Tutup", "Close")}>
         <X size={16} />
       </button>
     </div>
