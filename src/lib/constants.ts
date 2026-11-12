@@ -274,9 +274,29 @@ export const COMPANY_NAME = "PT. Garuda Yamato Steel";
 export const COMPANY_SHORT = "GYS";
 export const DEVELOPER_CREDIT = "Developed by Nusa Safety";
 export const APP_VERSION = "1.0.0";
-/** Profil pengembang yang tampil pada halaman Tentang */
+/** Profil pengembang pada halaman Tentang, bersumber dari nusasafety.co.id */
 export const DEVELOPER = {
   brand: "Nusa Safety",
-  company: "PT Nusa Rendra Jayatama",
-  field: "Konsultan dan pengembang solusi digital di bidang QHSE (quality, health, safety, environment) dan produktivitas",
+  company: "PT. Nusa Rendra Jayatama",
+  tagline: "Mitra tepercaya Anda dalam Keselamatan, Mutu, Kesehatan, Lingkungan, dan Produktivitas.",
+  profile:
+    "PT. Nusa Rendra Jayatama, yang beroperasi dengan brand Nusa Safety, adalah firma konsultansi di bidang HSSE, mutu, dan produktivitas. Pekerjaannya memadukan penguasaan regulasi Indonesia, ketelitian keteknikan, dan cara kerja digital, dengan klien BUMN dan perusahaan PMA.",
+  founder: { name: "M. Reza Huzain, SKM, MKKK", title: "Founder & Principal Consultant" },
+  vision: "Menjadi mitra satu pintu yang dipercaya industri untuk menjaga setiap proses bisnis tetap selamat, sehat, bermutu, serta berkelanjutan bagi lingkungan.",
+  mission: [
+    "Memberikan layanan HSSE, mutu, dan produktivitas yang berdasar pada regulasi dan kaidah ilmiah.",
+    "Membangun kompetensi tenaga kerja melalui pelatihan, dengan sertifikasi nasional yang diselenggarakan bersama mitra berizin.",
+    "Memindahkan manajemen keselamatan ke sistem digital agar kinerja dapat diukur secara waktu nyata.",
+    "Membangun jaringan ahli dan mitra andal yang mengutamakan hasil bagi klien.",
+  ],
+  services: ["Konsultansi", "Pelatihan & Sertifikasi", "Asesmen & Audit", "Lingkungan & Perizinan", "Aplikasi HSSE"],
+  offices: [
+    { label: "Kantor Pusat", address: "Jl. Imam Bonjol 36 RT 03/01 Kudaile, Slawi, Tegal, Jawa Tengah" },
+    { label: "Kantor Perwakilan", address: "Vila Galaxi Blok BR1 No. 26, Jakasetia, Bekasi, Jawa Barat" },
+  ],
+  website: "https://nusasafety.co.id",
+  email: "admin@nusasafety.co.id",
+  whatsapp: { label: "+62 812-2728-0075", href: "https://wa.me/6281227280075" },
+  instagram: "https://instagram.com/nusasafety",
+  linkedin: "https://www.linkedin.com/company/nusasafety",
 };

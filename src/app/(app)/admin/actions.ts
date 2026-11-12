@@ -11,6 +11,7 @@ import { isRewardIcon } from "@/lib/reward-icons";
 import { runReset } from "@/lib/reset";
 import { DEMO_DOMAIN } from "@/lib/demo-accounts";
 import { normalizeRewardPhoto } from "@/lib/image";
+import { isDummyEmail, userHistory, describeHistory, purgeUsers } from "@/lib/user-delete";
 
 /** Peran atasan yang sah untuk tiap peran (menentukan jalur verifikasi) */
 const ATASAN_ROLES: Record<Role, Role[]> = {
@@ -296,4 +297,40 @@ export async function resetDataAction(fd: FormData): Promise<Result> {
   revalidatePath("/", "layout");
   const parts = Object.entries(done).map(([k, v]) => `${v} ${({ laporan: "laporan", poin: "catatan poin", penukaran: "penukaran", notifikasi: "notifikasi", konsultasi: "konsultasi", akunDemo: "akun demo", area: "area contoh", reward: "reward contoh", jejakAudit: "catatan audit" } as Record<string, string>)[k] ?? k}`);
   return { ok: true, message: `Selesai. Terhapus: ${parts.join(", ")}.` };
+}
+
+/** Admin aktif yang tersisa bila akun-akun ini dihapus */
+async function adminsLeft(ids: string[]) {
+  return db.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { notIn: ids } } });
+}
+
+// Tanpa revalidatePath: daftar dimuat ulang oleh dialog setelah ditutup agar pesan hasil tetap terbaca
+export async function deleteUserAction(userId: string): Promise<Result> {
+  const admin = await requireUser(["ADMIN"]);
+  if (userId === admin.id) return { ok: false, message: "Anda tidak dapat menghapus akun sendiri." };
+  const u = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, status: true, _count: { select: { bawahan: true } } } });
+  if (!u) return { ok: false, message: "Pengguna tidak ditemukan atau sudah dihapus." };
+  if (u.role === "ADMIN" && (await adminsLeft([u.id])) === 0) return { ok: false, message: "Admin aktif terakhir tidak dapat dihapus." };
+  const dummy = isDummyEmail(u.email);
+  if (!dummy) {
+    const h = await userHistory(u.id);
+    const desc = describeHistory(h);
+    if (desc) return { ok: false, message: `Akun ini memiliki riwayat kerja (${desc}) yang menjadi bukti program K3, sehingga tidak dihapus. Ubah statusnya menjadi Nonaktif agar tidak dapat masuk lagi.` };
+  }
+  const done = await purgeUsers([u.id]);
+  await audit(admin.id, "PENGGUNA_DIHAPUS", "User", u.id, { name: u.name, email: u.email, role: u.role, dummy, laporanTerhapus: done.laporan });
+  const note = u._count.bawahan ? ` ${u._count.bawahan} bawahan kini tanpa atasan, tetapkan atasan baru.` : "";
+  return { ok: true, message: `Akun ${u.name ?? u.email} dihapus${done.laporan ? ` beserta ${done.laporan} laporannya` : ""}.${note}` };
+}
+
+export async function deleteDummyUsersAction(): Promise<Result> {
+  const admin = await requireUser(["ADMIN"]);
+  if (isDummyEmail(admin.email)) return { ok: false, message: "Masuk dengan akun Google admin, bukan akun dummy, karena akun yang sedang dipakai ikut terhapus." };
+  const users = await db.user.findMany({ where: { email: { endsWith: DEMO_DOMAIN } }, select: { id: true } });
+  if (!users.length) return { ok: true, message: "Tidak ada akun dummy." };
+  const ids = users.map((u) => u.id);
+  if ((await adminsLeft(ids)) === 0) return { ok: false, message: "Tidak ada admin aktif lain selain akun dummy. Aktifkan akun Google admin terlebih dahulu." };
+  const done = await purgeUsers(ids);
+  await audit(admin.id, "AKUN_DUMMY_DIHAPUS", "User", undefined, { akun: done.users, laporan: done.laporan });
+  return { ok: true, message: `${done.users} akun dummy dihapus${done.laporan ? ` beserta ${done.laporan} laporannya` : ""}.` };
 }

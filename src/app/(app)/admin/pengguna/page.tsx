@@ -6,13 +6,15 @@ import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import { ROLE_LABEL, USER_STATUS_LABEL, type Role } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { UserEditor, NewUserForm } from "./editor";
+import { DeleteUserButton, DummyAccounts } from "./delete";
+import { DEMO_DOMAIN } from "@/lib/demo-accounts";
 
 export const metadata = { title: "Pengguna" };
 
 const PAGE = 50;
 
 export default async function PenggunaPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; page?: string }> }) {
-  await requireUser(["ADMIN"]);
+  const me = await requireUser(["ADMIN"]);
   const sp = await searchParams;
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const where = { ...(sp.status ? { status: sp.status } : {}), ...(sp.q ? { OR: [{ name: { contains: sp.q, mode: "insensitive" as const } }, { email: { contains: sp.q, mode: "insensitive" as const } }, { nik: { contains: sp.q, mode: "insensitive" as const } }] } : {}) };
@@ -30,6 +32,10 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
     db.user.findMany({ where: { status: "ACTIVE", role: { in: ["SUPERINTENDENT", "MANAGER", "DIREKSI"] } }, select: { id: true, name: true, role: true }, orderBy: { name: "asc" } }),
     db.user.count({ where: { status: "PENDING" } }),
   ]);
+  const dummyWhere = { email: { endsWith: DEMO_DOMAIN } };
+  const [dummyCount, dummyReports] = await Promise.all([db.user.count({ where: dummyWhere }), db.report.count({ where: { reporter: dummyWhere } })]);
+  const isDummy = (email: string | null) => !!email?.toLowerCase().endsWith(DEMO_DOMAIN);
+  const del = (u: (typeof users)[number]) => (u.id === me.id ? null : <DeleteUserButton id={u.id} name={u.name ?? u.email ?? "-"} dummy={isDummy(u.email)} reports={u._count.reports} />);
   const balances = await db.pointLedger.groupBy({ by: ["userId"], where: { userId: { in: users.map((u) => u.id) } }, _sum: { points: true } });
   const balance = new Map(balances.map((b) => [b.userId, b._sum.points ?? 0]));
   const supervisors = activeSupervisors.map((u) => ({ id: u.id, name: u.name ?? "-", role: u.role }));
@@ -68,6 +74,8 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
         </details>
       </div>
 
+      {dummyCount > 0 && <DummyAccounts count={dummyCount} reports={dummyReports} />}
+
       {pendingCount > 0 && sp.status !== "PENDING" && (
         <div className="mb-4 rounded-xl border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-ink-800">
           <b>{pendingCount} akun menunggu persetujuan.</b> Tetapkan peran dan area, lalu ubah status menjadi Aktif.
@@ -91,7 +99,8 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
               <div><dt className="text-ink-500">Atasan</dt><dd className="font-medium text-ink-800">{u.atasan?.name ?? "-"}</dd></div>
               <div><dt className="text-ink-500">Laporan dan poin</dt><dd className="font-medium tabular-nums text-ink-800">{u._count.reports} laporan, {balance.get(u.id) ?? 0} poin</dd></div>
             </dl>
-            <div className="mt-3 flex justify-end border-t border-ink-100 pt-3">
+            <div className="mt-3 flex justify-end gap-2 border-t border-ink-100 pt-3">
+              {del(u)}
               <UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areasFor(u.areaId)} supervisors={supervisorsFor(u)} />
             </div>
           </div>
@@ -103,7 +112,7 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
         <CardBody className="p-0 overflow-x-auto">
           <table className="table">
             <thead>
-              <tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Area / atasan</th><th className="text-right">Laporan</th><th className="text-right">Poin</th><th>Terakhir masuk</th><th></th></tr>
+              <tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Area / atasan</th><th className="text-right">Laporan</th><th className="text-right">Poin</th><th></th></tr>
             </thead>
             <tbody>
               {users.map((u) => (
@@ -114,15 +123,22 @@ export default async function PenggunaPage({ searchParams }: { searchParams: Pro
                     <div className="text-xs text-ink-500">{u.jabatan}{u.departemen ? `, ${u.departemen}` : ""}</div>
                   </td>
                   <td className="whitespace-nowrap"><Badge tone="neutral">{ROLE_LABEL[u.role as Role]}</Badge></td>
-                  <td><Badge tone={u.status === "ACTIVE" ? "success" : u.status === "PENDING" ? "warn" : "danger"}>{USER_STATUS_LABEL[u.status]}</Badge></td>
+                  <td>
+                    <Badge tone={u.status === "ACTIVE" ? "success" : u.status === "PENDING" ? "warn" : "danger"}>{USER_STATUS_LABEL[u.status]}</Badge>
+                    <div className="mt-1 text-[11px] leading-tight text-ink-500" title="Terakhir masuk">{u.lastLoginAt ? `Masuk ${fmtDateTime(u.lastLoginAt)}` : "Belum pernah masuk"}</div>
+                  </td>
                   <td className="text-xs text-ink-600">{u.area?.name ?? "-"}<br />{u.atasan?.name ?? "-"}</td>
                   <td className="text-right">{u._count.reports}</td>
                   <td className="text-right font-semibold">{balance.get(u.id) ?? 0}</td>
-                  <td className="text-xs text-ink-500 whitespace-nowrap">{fmtDateTime(u.lastLoginAt)}</td>
-                  <td><UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areasFor(u.areaId)} supervisors={supervisorsFor(u)} /></td>
+                  <td>
+                    <div className="flex flex-col items-stretch gap-1.5">
+                      <UserEditor user={{ id: u.id, name: u.name ?? "", role: u.role, status: u.status, nik: u.nik, jabatan: u.jabatan, departemen: u.departemen, areaId: u.areaId, atasanId: u.atasanId }} areas={areasFor(u.areaId)} supervisors={supervisorsFor(u)} />
+                      {del(u)}
+                    </div>
+                  </td>
                 </tr>
               ))}
-              {users.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-ink-500"><Users className="mx-auto mb-2" /> Tidak ada pengguna.</td></tr>}
+              {users.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-ink-500"><Users className="mx-auto mb-2" /> Tidak ada pengguna.</td></tr>}
             </tbody>
           </table>
         </CardBody>
