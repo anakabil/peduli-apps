@@ -180,7 +180,7 @@ export function DecidePanel({ reportId, candidates, hasSuggestion, defaultPicId 
           <Field label="Hierarki pengendalian" required help="Urut dari yang paling efektif.">
             <ChoiceGrid
               multiple={false}
-              className="grid-cols-1 sm:grid-cols-1"
+              className="grid-cols-1! sm:grid-cols-1!"
               ariaLabel="Hierarki pengendalian"
               options={CONTROLS.map((c, i) => ({ key: c, label: `${i + 1}. ${CONTROL_LABEL[c]}`, hint: CONTROL_HINT[c] }))}
               selected={control ? [control] : []}
