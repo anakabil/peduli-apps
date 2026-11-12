@@ -28,5 +28,17 @@ if (process.env.SKIP_MIGRATE === "true") {
   console.log("[migrate] SKIP_MIGRATE=true, migrasi dilewati.");
   process.exit(0);
 }
-const r = spawnSync("npx", ["prisma", "migrate", "deploy"], { stdio: "inherit", env: { ...process.env, DATABASE_URL: process.env[chosen] }, shell: process.platform === "win32" });
-process.exit(r.status ?? 1);
+// Basis data terkelola kadang menolak sementara ("too many connections"); coba ulang dengan jeda bertahap
+const TRANSIENT = /too many connections|P1001|P1017|ECONNRESET|ETIMEDOUT|Connection terminated|timed out/i;
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+for (let attempt = 1; ; attempt++) {
+  const r = spawnSync("npx", ["prisma", "migrate", "deploy"], { encoding: "utf8", env: { ...process.env, DATABASE_URL: process.env[chosen] }, shell: process.platform === "win32" });
+  process.stdout.write(r.stdout ?? "");
+  process.stderr.write(r.stderr ?? "");
+  if (r.status === 0) process.exit(0);
+  const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  if (attempt >= 5 || !TRANSIENT.test(out)) process.exit(r.status ?? 1);
+  const wait = attempt * 10;
+  console.log(`[migrate] gangguan koneksi sementara, mencoba lagi dalam ${wait} detik (percobaan ${attempt + 1} dari 5)`);
+  sleep(wait * 1000);
+}
