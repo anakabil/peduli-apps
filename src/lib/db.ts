@@ -4,43 +4,46 @@ import { env } from "./env";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 const CANDIDATES = ["PRISMA_DATABASE_URL", "DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL"];
-const isPooled = (u: string) => /^prisma(\+postgres)?:\/\//.test(u);
+const isAccelerate = (u: string) => /^prisma(\+postgres)?:\/\//.test(u);
 
-/** Batas koneksi per instans fungsi serverless bila terpaksa memakai koneksi langsung */
-function limitDirect(url: string) {
+/**
+ * Prisma Postgres memisahkan host koneksi langsung (db.prisma.io) dan pooler PgBouncer (pooled.db.prisma.io).
+ * Koneksi langsung sangat terbatas (paket Free: 10, lima di antaranya dipakai platform) dan hanya untuk migrasi;
+ * lalu lintas aplikasi wajib lewat pooler. Kredensial sama, hanya host yang berbeda.
+ * Pooler berjalan dalam mode transaksi, jadi Prisma perlu pgbouncer=true (tanpa prepared statement).
+ */
+function toRuntimeUrl(url: string) {
   try {
     const u = new URL(url);
-    if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", "3");
+    const pooled = u.hostname === "db.prisma.io" && process.env.DB_POOLED !== "false";
+    if (pooled) {
+      u.hostname = "pooled.db.prisma.io";
+      if (!u.searchParams.has("pgbouncer")) u.searchParams.set("pgbouncer", "true");
+    }
+    // Setiap instans fungsi serverless membuka kolamnya sendiri; jaga agar kecil
+    if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", pooled ? "2" : "3");
     if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
-    return u.toString();
+    return { url: u.toString(), mode: pooled ? "pooler PgBouncer" : "koneksi langsung", host: u.host };
   } catch {
-    return url;
+    return { url, mode: "tidak dikenali", host: "" };
   }
 }
 
 /**
- * Memilih URL koneksi runtime.
- * Di Vercel setiap instans fungsi membuka kolam koneksinya sendiri, sehingga koneksi langsung (postgres://)
- * cepat habis ("too many connections") saat banyak instans aktif, misalnya ketika deploy atau lalu lintas naik.
- * Karena itu URL pooler Prisma Postgres (prisma+postgres:// atau prisma://) didahulukan dari variabel mana pun.
- * Bila hanya ada koneksi langsung, tiap instans dibatasi tiga koneksi.
+ * Memilih URL koneksi runtime. URL Accelerate (prisma+postgres://) dipakai apa adanya bila ada;
+ * URL postgres:// Prisma Postgres dialihkan ke host pooler. Lokal (bukan produksi) tidak diubah.
  */
 export function resolveDatabaseUrl() {
   const found = CANDIDATES.map((name) => ({ name, url: env(name) })).filter((c) => c.url.length > 0);
   if (!found.length) throw new Error("DATABASE_URL belum diatur. Lihat README bagian Produksi.");
-  const pooled = found.find((c) => isPooled(c.url));
-  const chosen = pooled ?? found[0];
+  const accel = found.find((c) => isAccelerate(c.url));
+  const chosen = accel ?? found[0];
   const serverless = !!process.env.VERCEL || process.env.NODE_ENV === "production";
-  const url = pooled || !serverless ? chosen.url : limitDirect(chosen.url);
-  if (serverless) {
-    // Hanya nama variabel, skema, dan host; tanpa kredensial
-    let host = "";
-    try {
-      host = new URL(chosen.url).host;
-    } catch {}
-    console.info(`[db] ${chosen.name} ${pooled ? "pooler" : "koneksi langsung, connection_limit=3"} ${host}`);
-  }
-  return url;
+  if (accel || !serverless) return chosen.url;
+  const r = toRuntimeUrl(chosen.url);
+  // Hanya nama variabel, mode, dan host; tanpa kredensial
+  console.info(`[db] ${chosen.name} ${r.mode} ${r.host}`);
+  return r.url;
 }
 
 function createClient() {
