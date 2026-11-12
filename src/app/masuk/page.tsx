@@ -1,6 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ShieldCheck, MapPin, Award, Lock, Users, Fingerprint } from "lucide-react";
+import { ShieldCheck, MapPin, Award, Lock, Users, Fingerprint, Info } from "lucide-react";
 import { signIn, isDemoMode } from "@/auth";
 import { getCurrentUser } from "@/lib/session";
 import { PeduliLogo, GysLogo, Credit } from "@/components/brand";
@@ -85,7 +86,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
           <div className="card p-7 md:p-8">
             <div className="flex justify-center">
-              <PeduliLogo height={64} />
+              <PeduliLogo height={52} />
             </div>
             <p className="mt-4 text-center text-sm text-ink-600">Masuk untuk melaporkan bahaya dan memantau tindak lanjutnya.</p>
 
@@ -129,6 +130,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
           <Credit className="mt-6" />
+          <div className="mt-2 flex justify-center">
+            <Link href="/tentang" className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-500 hover:text-brand-700">
+              <Info size={13} /> Tentang aplikasi
+            </Link>
+          </div>
         </div>
         <InstallPrompt />
       </section>

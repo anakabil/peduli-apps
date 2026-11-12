@@ -1,6 +1,6 @@
 /* Service worker PEDULI Apps: cache app shell, fallback luring, antrean laporan. */
-const VERSION = "peduli-v5";
-const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/peduli-logo.png", "/brand/gys-logo.png", "/brand/peduli-mark.png", "/ikon/ilustrasi/luring.webp"];
+const VERSION = "peduli-v6";
+const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/peduli-logo-compact.png", "/brand/gys-logo.png", "/brand/peduli-mark.png", "/ikon/ilustrasi/luring.webp"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

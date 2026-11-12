@@ -7,7 +7,7 @@ import { PlusCircle, Bell, UserCircle, Menu, X, ChevronRight } from "lucide-reac
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/format";
 import { menuIcon } from "@/lib/icons";
-import { PeduliMark } from "@/components/brand";
+import { PeduliMark, AboutButton } from "@/components/brand";
 import type { CurrentUser } from "@/lib/session";
 import { Avatar } from "@/components/ui";
 
@@ -85,6 +85,12 @@ export function Sidebar({ role }: { role: Role }) {
           </div>
         );
       })}
+      <div className="border-t border-ink-100 pt-3">
+        <Link href="/tentang" aria-current={pathname === "/tentang" ? "page" : undefined} className={cn("nav-item", pathname === "/tentang" && "nav-item-active")}>
+          <NavIcon name="tentang" size={20} active={pathname === "/tentang"} />
+          Tentang PEDULI
+        </Link>
+      </div>
     </div>
   );
 }
@@ -219,6 +225,11 @@ export function BottomNav({ role }: { role: Role }) {
                   <span className="flex-1">Profil dan akun</span>
                   <ChevronRight size={16} className="text-ink-300" />
                 </Link>
+                <Link href="/tentang" className="flex min-h-12 items-center gap-3 border-t border-ink-100 px-4 text-[15px] text-ink-800">
+                  <NavIcon name="tentang" size={21} active={false} />
+                  <span className="flex-1">Tentang PEDULI</span>
+                  <ChevronRight size={16} className="text-ink-300" />
+                </Link>
               </div>
             </div>
           </div>
@@ -235,6 +246,7 @@ export function MobileHeader({ user, unread }: { user: CurrentUser; unread: numb
         <PeduliMark size={30} />
         <span className="text-sm font-extrabold tracking-wide text-brand-700">PEDULI</span>
       </Link>
+      <AboutButton className="mr-auto" />
       <div className="flex items-center gap-2">
         <Link href="/notifikasi" className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink-600 hover:bg-ink-100" aria-label="Notifikasi">
           <Bell size={20} />

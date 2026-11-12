@@ -1,9 +1,20 @@
 import Image from "next/image";
+import Link from "next/link";
+import { Info } from "lucide-react";
 import { DEVELOPER_CREDIT, COMPANY_NAME } from "@/lib/constants";
 
 export function PeduliLogo({ height = 40, className = "" }: { height?: number; className?: string }) {
-  const width = Math.round(height * (1373 / 569));
-  return <Image src="/brand/peduli-logo.png" alt="PEDULI Apps" width={width} height={height} className={className} priority />;
+  const width = Math.round(height * (1373 / 442));
+  return <Image src="/brand/peduli-logo-compact.png" alt="PEDULI Apps" width={width} height={height} className={className} priority />;
+}
+
+/** Tombol kecil "i" menuju halaman Tentang */
+export function AboutButton({ className = "" }: { className?: string }) {
+  return (
+    <Link href="/tentang" aria-label="Tentang PEDULI" title="Tentang PEDULI" className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 transition-colors hover:border-brand-300 hover:text-brand-700 ${className}`}>
+      <Info size={15} />
+    </Link>
+  );
 }
 
 export function PeduliMark({ size = 40, className = "" }: { size?: number; className?: string }) {

@@ -7,7 +7,7 @@ export function SetupChecklist({ issues, diag }: { issues: EnvIssue[]; diag: Env
   return (
     <main className="min-h-dvh flex items-center justify-center p-6">
       <div className="card w-full max-w-xl p-7 anim-scale-in">
-        <div className="flex justify-center"><PeduliLogo height={52} /></div>
+        <div className="flex justify-center"><PeduliLogo height={44} /></div>
         <h1 className="mt-5 text-center text-xl font-bold">Konfigurasi belum lengkap</h1>
         <p className="mt-1 text-center text-sm text-ink-500">
           Aplikasi dan basis data berjalan, tetapi beberapa variabel lingkungan wajib belum terbaca. Tambahkan di Vercel, Settings, Environment Variables, centang lingkungan <b>{diag.environment === "production" ? "Production" : diag.environment === "preview" ? "Preview" : diag.environment}</b>, lalu <b>Redeploy</b>. Variabel baru tidak terbaca sebelum deploy ulang.

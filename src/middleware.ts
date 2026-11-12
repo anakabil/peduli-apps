@@ -7,7 +7,7 @@ import { authSecret } from "@/lib/env";
  * cookie sesi pada setiap respons, sehingga prefetch yang masih berjalan saat pengguna menekan Keluar dapat
  * menghidupkan kembali sesi yang baru dihapus. Halaman (requireUser) dan API tetap memeriksa sesi sendiri.
  */
-const PUBLIC = ["/masuk", "/api/auth", "/api/cron", "/manifest", "/sw.js", "/offline", "/brand", "/icons", "/ikon/", "/rewards/"];
+const PUBLIC = ["/masuk", "/api/auth", "/api/cron", "/manifest", "/sw.js", "/offline", "/brand", "/icons", "/ikon/", "/rewards/", "/tentang"];
 const COOKIES = ["__Secure-authjs.session-token", "authjs.session-token"];
 
 async function hasSession(req: NextRequest, secret: string) {

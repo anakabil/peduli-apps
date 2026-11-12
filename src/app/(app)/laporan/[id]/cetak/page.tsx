@@ -37,7 +37,7 @@ export default async function PrintReport({ params }: { params: Promise<{ id: st
             <div className="text-xs text-ink-500">Formulir Laporan Bahaya dan Upaya Pengendalian</div>
           </div>
         </div>
-        <PeduliLogo height={36} />
+        <PeduliLogo height={30} />
       </div>
       <div className="mt-4 flex items-baseline justify-between">
         <h1 className="text-lg font-bold">Laporan {r.number}</h1>

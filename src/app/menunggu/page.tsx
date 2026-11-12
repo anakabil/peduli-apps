@@ -15,7 +15,7 @@ export default async function PendingPage() {
     <main className="min-h-dvh flex items-center justify-center p-6">
       <div className="card w-full max-w-md p-8 text-center anim-scale-in">
         <div className="flex justify-center">
-          <PeduliLogo height={52} />
+          <PeduliLogo height={44} />
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ILLUSTRATION.menungguPersetujuan} alt="" aria-hidden width={240} height={180} className="mx-auto mt-4 h-auto w-52 anim-float" />

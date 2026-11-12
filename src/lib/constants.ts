@@ -273,3 +273,10 @@ export const APP_TAGLINE = "Pelaporan Bahaya dan Upaya Pengendalian";
 export const COMPANY_NAME = "PT. Garuda Yamato Steel";
 export const COMPANY_SHORT = "GYS";
 export const DEVELOPER_CREDIT = "Developed by Nusa Safety";
+export const APP_VERSION = "1.0.0";
+/** Profil pengembang yang tampil pada halaman Tentang */
+export const DEVELOPER = {
+  brand: "Nusa Safety",
+  company: "PT Nusa Rendra Jayatama",
+  field: "Konsultan dan pengembang solusi digital di bidang QHSE (quality, health, safety, environment) dan produktivitas",
+};
