@@ -22,13 +22,14 @@ function toRuntimeUrl(url: string) {
     }
     // Satu instans Vercel (Fluid compute) melayani banyak permintaan sekaligus dan tiap halaman menjalankan
     // beberapa kueri paralel; kolam 2 koneksi membuat antrean hingga batas tunggu (P2024). Kolam 4 per instans
-    // tetap di bawah kuota pooler paket Free (10) untuk dua instans, dan koneksi menganggur dilepas setelah
-    // 60 detik agar instans lama tidak menahan kuota. Batas tunggu 10 detik agar kegagalan tidak menggantung.
+    // tetap di bawah kuota pooler paket Free (10) untuk dua instans. Membuka koneksi baru ke pooler memakan
+    // sekitar 3 detik (terukur di produksi), jadi koneksi menganggur dipertahankan 10 menit agar pengguna tidak
+    // menanggung biaya itu setiap kali membuka aplikasi. Batas tunggu 10 detik agar kegagalan tidak menggantung.
     const set = (k: string, v: string) => !u.searchParams.has(k) && u.searchParams.set(k, v);
     set("connection_limit", pooled ? "4" : "3");
     set("pool_timeout", "10");
     set("connect_timeout", "10");
-    set("max_idle_connection_lifetime", "60");
+    set("max_idle_connection_lifetime", "600");
     return { url: u.toString(), mode: pooled ? "pooler PgBouncer" : "koneksi langsung", host: u.host };
   } catch {
     return { url, mode: "tidak dikenali", host: "" };
