@@ -20,9 +20,15 @@ function toRuntimeUrl(url: string) {
       u.hostname = "pooled.db.prisma.io";
       if (!u.searchParams.has("pgbouncer")) u.searchParams.set("pgbouncer", "true");
     }
-    // Setiap instans fungsi serverless membuka kolamnya sendiri; jaga agar kecil
-    if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", pooled ? "2" : "3");
-    if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
+    // Satu instans Vercel (Fluid compute) melayani banyak permintaan sekaligus dan tiap halaman menjalankan
+    // beberapa kueri paralel; kolam 2 koneksi membuat antrean hingga batas tunggu (P2024). Kolam 4 per instans
+    // tetap di bawah kuota pooler paket Free (10) untuk dua instans, dan koneksi menganggur dilepas setelah
+    // 60 detik agar instans lama tidak menahan kuota. Batas tunggu 10 detik agar kegagalan tidak menggantung.
+    const set = (k: string, v: string) => !u.searchParams.has(k) && u.searchParams.set(k, v);
+    set("connection_limit", pooled ? "4" : "3");
+    set("pool_timeout", "10");
+    set("connect_timeout", "10");
+    set("max_idle_connection_lifetime", "60");
     return { url: u.toString(), mode: pooled ? "pooler PgBouncer" : "koneksi langsung", host: u.host };
   } catch {
     return { url, mode: "tidak dikenali", host: "" };

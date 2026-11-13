@@ -333,3 +333,9 @@ body {
 
 /* Safe area untuk perangkat bertakik */
 .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 1.25rem); }
+
+/* Bilah progres navigasi (components/layout/nav-progress.tsx) */
+@keyframes nav-progress-start {
+  from { width: 0%; }
+  to { width: 85%; }
+}

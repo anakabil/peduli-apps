@@ -10,12 +10,17 @@ import type { CurrentUser } from "@/lib/session";
 import type { Role } from "@/lib/constants";
 import { PushSync } from "@/components/pwa/push-setup";
 import { getTr } from "@/lib/i18n-server";
+import { Suspense } from "react";
+import { NavProgress } from "./nav-progress";
 
 export async function AppShell({ user, unread, children }: { user: CurrentUser; unread: number; children: ReactNode }) {
   const role = user.role as Role;
   const { tr } = await getTr();
   return (
     <div className="min-h-dvh md:flex">
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       {/* Sidebar desktop */}
       <aside className="no-print hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col border-r border-ink-200 bg-white/80 glass sticky top-0 h-dvh">
         <div className="flex items-center justify-between gap-2 px-5 pt-6 pb-5">
