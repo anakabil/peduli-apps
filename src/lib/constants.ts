@@ -273,7 +273,7 @@ export const APP_TAGLINE = "Pelaporan Bahaya dan Upaya Pengendalian";
 export const COMPANY_NAME = "PT. Garuda Yamato Steel";
 export const COMPANY_SHORT = "GYS";
 export const DEVELOPER_CREDIT = "Developed by Nusa Safety";
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.1.0";
 /** Profil pengembang pada halaman Tentang, bersumber dari nusasafety.co.id */
 export const DEVELOPER = {
   brand: "Nusa Safety",

@@ -1,0 +1,10 @@
+raw/
+img/
+pv/
+*.pdf
+body.html
+cover.html
+back.html
+keys.json
+pages*.json
+__pycache__/
